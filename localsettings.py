@@ -1,4 +1,5 @@
 KAFKA_HOSTS = "k01.istresearch.com:9092,k02.istresearch.com:9092,k03.istresearch.com:9092"
+REDIS_HOST = "localhost"
 
 KAFKA_TOPIC = "traptor.prod-darpa1"
 
