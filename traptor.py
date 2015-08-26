@@ -4,9 +4,9 @@ from birdy.twitter import StreamClient
 import json
 import redis
 import logging
-from kafka import SimpleProducer, KafkaClient
 
-import logging
+from kafka import SimpleProducer, KafkaClient
+from settings import KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID, TRAPTOR_TYPE
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -21,20 +21,23 @@ logger.setLevel(logging.DEBUG)
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-def rscanit():
+
+def sscanit(traptor_type, traptor_id):
     twids = []
-    for idx, key in enumerate(r.sscan_iter('twitter_ids')):
+    for idx, key in enumerate(r.sscan_iter(traptor_id)):
         if idx < 5000:
             twids.append(key)
             logger.debug('{0}: {1}'.format(idx, key))
     return twids
 
+
 def rpopit():
     twids = []
-    for x in xrange(1,5000):
+    for x in xrange(1, 5000):
         if r.scard('twitter_ids'):
             twids.append(r.spop('twitter_ids'))
     return twids
+
 
 def zscanit():
     twids = []
@@ -44,22 +47,24 @@ def zscanit():
             logger.debug('{0}: {1}'.format(idx, key))
     return twids
 
+
 def kafka_producer():
-    client = KafkaClient(hosts="k01.istresearch.com:9092,\
-                         k02.istresearch.com:9092,k03.istresearch.com:9092")
+    client = KafkaClient(hosts=KAFKA_HOSTS)
     producer = SimpleProducer(client)
     return producer
 
-def run():
-    twids_str = ','.join(zscanit())
-    client = StreamClient("yJYAUb9vOhISx2U4Qt5QsAKcE",
-                        "FqlFbqtzBJQRXqXOA839sgWre3sWmQ3HeOFj8qEDnyCyebNm9Y",
-                        "3432988792-xuqAvsVTKrjQb8fZNDz1h2FgBuo9ha145yHeswB",
-                        "IPJ6Hg5JhxtH2MSC6TzKHJ0wTsOKFKwBFGP3OAeSNkM4I")
+
+def run(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID):
+    twids_str = ','.join(sscanit(traptor_type, traptor_id))
+    client = StreamClient(APIKEYS['CONSUMER_KEY'],
+                          APIKEYS['CONSUMER_SECRET'],
+                          APIKEYS['ACCESS_TOKEN'],
+                          APIKEYS['ACCESS_TOKEN_SECRET']
+                          )
 
     resource = client.stream.statuses.filter.post(follow=twids_str)
 
-    topic_name = 'traptor.prod-darpa1'
+    topic_name = KAFKA_TOPIC
     producer = kafka_producer()
 
     for data in resource.stream():
@@ -67,8 +72,6 @@ def run():
         logger.debug(json.dumps(data))
         producer.send_messages(topic_name, json.dumps(data))
 
-
-# print json.dumps(next(resource.stream()), indent=2)
 
 if __name__ == '__main__':
     twids = zscanit()
