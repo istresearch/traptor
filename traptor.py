@@ -14,7 +14,7 @@ formatter = logging.Formatter(
         '%(asctime)s %(name)-4s %(levelname)-4s %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # logging.basicConfig(level=logging.CRITICAL)
 # logging.getLogger(__main__)
@@ -24,7 +24,8 @@ r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 def sscanit(traptor_type, traptor_id):
     twids = []
-    for idx, key in enumerate(r.sscan_iter(traptor_id)):
+    redis_key = 'traptor-{0}:{1}'.format(traptor_type, traptor_id)
+    for idx, key in enumerate(r.sscan_iter(redis_key)):
         if idx < 5000:
             twids.append(key)
             logger.debug('{0}: {1}'.format(idx, key))
@@ -70,8 +71,11 @@ def run(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID):
     for data in resource.stream():
         logger.info(json.dumps(data.get('text')))
         logger.debug(json.dumps(data))
-        producer.send_messages(topic_name, json.dumps(data))
+        try:
+            producer.send_messages(topic_name, json.dumps(data))
+        except kafka.common.NotLeaderForPartitionError as e:
+            logger.error(e)
 
 
 if __name__ == '__main__':
-    twids = zscanit()
+    twids = run()
