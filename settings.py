@@ -1,4 +1,5 @@
 KAFKA_HOSTS = "localhost:9092"
+REDIS_HOST = "localhost"
 
 KAFKA_TOPIC = "traptor"
 

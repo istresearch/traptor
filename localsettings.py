@@ -1,4 +1,5 @@
 KAFKA_HOSTS = "***REMOVED***"
+REDIS_HOST = "localhost"
 
 KAFKA_TOPIC = "traptor.***REMOVED***1"
 

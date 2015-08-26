@@ -6,7 +6,7 @@ import redis
 import logging
 
 from kafka import SimpleProducer, KafkaClient
-from settings import KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID, TRAPTOR_TYPE
+from settings import KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID, TRAPTOR_TYPE, REDIS_HOST
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -19,7 +19,7 @@ logger.setLevel(logging.INFO)
 # logging.basicConfig(level=logging.CRITICAL)
 # logging.getLogger(__main__)
 
-r = redis.StrictRedis(host='localhost', port=6379, db=0)
+r = redis.StrictRedis(host='REDIS_HOST', port=6379, db=0)
 
 
 def sscanit(traptor_type, traptor_id):
