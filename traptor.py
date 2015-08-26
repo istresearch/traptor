@@ -19,7 +19,7 @@ logger.setLevel(logging.INFO)
 # logging.basicConfig(level=logging.CRITICAL)
 # logging.getLogger(__main__)
 
-r = redis.StrictRedis(host='REDIS_HOST', port=6379, db=0)
+r = redis.StrictRedis(host=REDIS_HOST, port=6379, db=0)
 
 
 def sscanit(traptor_type, traptor_id):
@@ -62,8 +62,12 @@ def run(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID):
                           APIKEYS['ACCESS_TOKEN'],
                           APIKEYS['ACCESS_TOKEN_SECRET']
                           )
-
-    resource = client.stream.statuses.filter.post(follow=twids_str)
+    if traptor_type == 'follow':
+        resource = client.stream.statuses.filter.post(follow=twids_str)
+    elif traptor_type == 'track':
+        sys.exit('track not implemented yet')
+    else:
+        sys.exit('that type has not been implemented or does not exist')
 
     topic_name = KAFKA_TOPIC
     producer = kafka_producer()
