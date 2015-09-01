@@ -80,6 +80,8 @@ def run(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID):
         except kafka.common.NotLeaderForPartitionError as e:
             logger.error(e)
 
+def main():
+    run()
 
 if __name__ == '__main__':
-    twids = run()
+    main()
