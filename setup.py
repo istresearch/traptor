@@ -14,8 +14,14 @@ def readme():
     with open('README.rst') as f:
         return f.read()
 
-with open('requirements.txt') as f:
-    install_requires = [x.strip() for x in f]
+# with open('requirements.txt') as f:
+#     install_requires = [x.strip() for x in f]
+install_requires = [
+    'requests>=1.2.3',
+    'requests-oauthlib>=0.3.2',
+    'redis',
+    'kafka-python'
+]
 
 lint_requires = [
     'pep8',
