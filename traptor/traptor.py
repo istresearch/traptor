@@ -2,15 +2,18 @@
 import json
 import logging
 import sys
+import time
 
 from redis import StrictRedis, ConnectionError
 from kafka import SimpleProducer, KafkaClient
-from kafka.common import NotLeaderForPartitionError
+from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
 from birdy.twitter import StreamClient, TwitterApiError
 
-from settings import KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID, TRAPTOR_TYPE, REDIS_HOST
+from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
+                      TRAPTOR_TYPE, REDIS_HOST)
 
-logging.basicConfig(level=logging.CRITICAL)
+# logging.basicConfig(level=logging.CRITICAL)
+
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 formatter = logging.Formatter(
@@ -20,7 +23,22 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
 
-def sscanit(traptor_type, traptor_id, redis_host=REDIS_HOST):
+def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
+                          redis_host=REDIS_HOST):
+    """ Return a list of twitter ids from the service server.  This function
+        expects that the redis keys are set up like follows:
+
+        traptor-<traptor_type>:<crawler_num>
+
+        For example,
+
+        traptor-follow:0
+        traptor-follow:1
+
+        In the case of the 'follow' twitter streaming, each traptor may only
+        follow 5000 twitter ids, as per the Twitter API.
+    """
+    # This line is lazy, nothing touches Redis until a command is issued
     r = StrictRedis(host=redis_host, port=6379, db=0)
 
     twids = []
@@ -32,62 +50,78 @@ def sscanit(traptor_type, traptor_id, redis_host=REDIS_HOST):
                 logger.debug('{0}: {1}'.format(idx, key))
     except ConnectionError as e:
         logger.critical(e)
-        sys.exit(3) # Special error code to track known failures
+        sys.exit(3)  # Special error code to track known failures
     return twids
 
 
-def rpopit():
-    twids = []
-    for x in xrange(1, 5000):
-        if r.scard('twitter_ids'):
-            twids.append(r.spop('twitter_ids'))
-    return twids
+def create_kafka_producer(kafka_hosts=KAFKA_HOSTS, kafka_topic=KAFKA_TOPIC):
+    """ Create a kafka producer.
+        If it cannot find one it will exit with error code 3.
+    """
+    try:
+        client = KafkaClient(hosts=kafka_hosts)
+        producer = SimpleProducer(client)
+    except KafkaUnavailableError as e:
+        logger.critical(e)
+        sys.exit(3)
+    try:
+        client.ensure_topic_exists(kafka_topic)
+    except:
+        raise
 
-
-def zscanit():
-    twids = []
-    for idx, key in enumerate(r.zscan_iter('twitter_ids')):
-        if 5000 < idx < 10000:
-            twids.append(key[0])
-            logger.debug('{0}: {1}'.format(idx, key))
-    return twids
-
-
-def kafka_producer():
-    client = KafkaClient(hosts=KAFKA_HOSTS)
-    producer = SimpleProducer(client)
     return producer
 
 
-def run(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID):
-    twids_str = ','.join(sscanit(traptor_type, traptor_id))
-    logger.debug('Twitter ids: {0}'.format(twids_str))
-    client = StreamClient(APIKEYS['CONSUMER_KEY'],
-                          APIKEYS['CONSUMER_SECRET'],
-                          APIKEYS['ACCESS_TOKEN'],
-                          APIKEYS['ACCESS_TOKEN_SECRET']
-                          )
+def create_birdy_stream(rules,
+                        traptor_type=TRAPTOR_TYPE,
+                        traptor_id=TRAPTOR_ID,
+                        ):
+    """ Set up a birdy twitter stream.
+        If there is a TwitterApiError it will exit with status code 3.
+        This was done to prevent services like supervisor from automatically
+        restart the process causing the twitter API to get locked out.
+    """
+    # Check traptor_type
     if traptor_type == 'follow':
+        # Set up a birdy twitter streaming client
+        client = StreamClient(
+                              APIKEYS['CONSUMER_KEY'],
+                              APIKEYS['CONSUMER_SECRET'],
+                              APIKEYS['ACCESS_TOKEN'],
+                              APIKEYS['ACCESS_TOKEN_SECRET']
+                          )
+        # Try to set up a twitter stream using twitter id list
         try:
-            resource = client.stream.statuses.filter.post(follow=twids_str)
+            resource = client.stream.statuses.filter.post(follow=rules)
+            return resource
         except TwitterApiError as e:
             logger.critical(e)
             sys.exit(3)
-    elif traptor_type == 'track':
-        sys.exit('track not implemented yet')
     else:
-        sys.exit('that type has not been implemented or does not exist')
+        sys.exit('That traptor type has not been implemented yet')
 
-    topic_name = KAFKA_TOPIC
-    producer = kafka_producer()
 
-    for data in resource.stream():
+def run():
+    # Grab a list of twitter ids from the get_redis_twitter_ids function
+    twids_str = ','.join(get_redis_twitter_ids())
+
+    # Set up Kafka producer
+    producer = create_kafka_producer()
+
+    # Set up a birdy streaming client
+    birdyclient = create_birdy_stream(twids_str)
+
+    # Iterate through the twitter results
+    for data in birdyclient.stream():
         logger.info(json.dumps(data.get('text')))
         logger.debug(json.dumps(data))
         try:
-            producer.send_messages(topic_name, json.dumps(data))
-        except NotLeaderForPartitionError as e:
-            logger.error(e)
+            producer.send_messages(KAFKA_TOPIC, json.dumps(data))
+        except:
+            logger.error('Could not write to kafka topic {0}'.format(
+                         KAFKA_TOPIC))
+            sys.exit(3)
+
 
 def main():
     run()
