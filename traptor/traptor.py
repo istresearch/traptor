@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import time
+import dateutil.parser as parser
 
 from redis import StrictRedis, ConnectionError
 from kafka import SimpleProducer, KafkaClient
@@ -116,6 +117,11 @@ def run():
     for data in birdyclient.stream():
         logging.info(json.dumps(data.get('text')))
         logging.debug(json.dumps(data))
+        # Convert date to ISO format
+        _time = data.get('created_at')
+        if _time:
+            data['created_at'] = parser.parse(_time).isoformat()
+
         try:
             producer.send_messages(KAFKA_TOPIC, json.dumps(data))
         except:

@@ -20,7 +20,8 @@ install_requires = [
     'requests>=1.2.3',
     'requests-oauthlib>=0.3.2',
     'redis',
-    'kafka-python'
+    'kafka-python',
+    'dateutil'
 ]
 
 lint_requires = [
