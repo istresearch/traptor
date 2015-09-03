@@ -12,15 +12,15 @@ from birdy.twitter import StreamClient, TwitterApiError
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST)
 
-# logging.basicConfig(level=logging.CRITICAL)
+logging.basicConfig(level=logging.INFO)
 
-logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-formatter = logging.Formatter(
-        '%(asctime)s %(name)-4s %(levelname)-4s %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+# logging = logging.getLogger(__name__)
+# handler = logging.StreamHandler()
+# formatter = logging.Formatter(
+#         '%(asctime)s %(name)-4s %(levelname)-4s %(message)s')
+# handler.setFormatter(formatter)
+# logging.addHandler(handler)
+# logging.setLevel(logging.INFO)
 
 
 def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
@@ -47,9 +47,9 @@ def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
         for idx, key in enumerate(r.sscan_iter(redis_key)):
             if idx < 5000:
                 twids.append(key)
-                logger.debug('{0}: {1}'.format(idx, key))
+                logging.debug('{0}: {1}'.format(idx, key))
     except ConnectionError as e:
-        logger.critical(e)
+        logging.critical(e)
         sys.exit(3)  # Special error code to track known failures
     return twids
 
@@ -62,7 +62,7 @@ def create_kafka_producer(kafka_hosts=KAFKA_HOSTS, kafka_topic=KAFKA_TOPIC):
         client = KafkaClient(hosts=kafka_hosts)
         producer = SimpleProducer(client)
     except KafkaUnavailableError as e:
-        logger.critical(e)
+        logging.critical(e)
         sys.exit(3)
     try:
         client.ensure_topic_exists(kafka_topic)
@@ -95,10 +95,11 @@ def create_birdy_stream(rules,
             resource = client.stream.statuses.filter.post(follow=rules)
             return resource
         except TwitterApiError as e:
-            logger.critical(e)
+            logging.critical(e)
             sys.exit(3)
     else:
-        sys.exit('That traptor type has not been implemented yet')
+        logging.critical('That traptor type has not been implemented yet')
+        sys.exit(3)
 
 
 def run():
@@ -113,12 +114,12 @@ def run():
 
     # Iterate through the twitter results
     for data in birdyclient.stream():
-        logger.info(json.dumps(data.get('text')))
-        logger.debug(json.dumps(data))
+        logging.info(json.dumps(data.get('text')))
+        logging.debug(json.dumps(data))
         try:
             producer.send_messages(KAFKA_TOPIC, json.dumps(data))
         except:
-            logger.error('Could not write to kafka topic {0}'.format(
+            logging.error('Could not write to kafka topic {0}'.format(
                          KAFKA_TOPIC))
             sys.exit(3)
 
