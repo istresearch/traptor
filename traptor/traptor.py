@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-
-from birdy.twitter import StreamClient
-from birdy import twitter
 import json
-from redis import StrictRedis, ConnectionError
 import logging
 import sys
 
+from redis import StrictRedis, ConnectionError
 from kafka import SimpleProducer, KafkaClient
+from kafka.common import NotLeaderForPartitionError
+from birdy.twitter import StreamClient, TwitterApiError
+
 from settings import KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID, TRAPTOR_TYPE, REDIS_HOST
 
+logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 formatter = logging.Formatter(
@@ -17,9 +18,6 @@ formatter = logging.Formatter(
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
-
-# logging.basicConfig(level=logging.CRITICAL)
-# logging.getLogger(__main__)
 
 
 def sscanit(traptor_type, traptor_id, redis_host=REDIS_HOST):
@@ -34,8 +32,7 @@ def sscanit(traptor_type, traptor_id, redis_host=REDIS_HOST):
                 logger.debug('{0}: {1}'.format(idx, key))
     except ConnectionError as e:
         logger.critical(e)
-        # 3 is still an error code, but supervisor will not try to restart
-        sys.exit(3)
+        sys.exit(3) # Special error code to track known failures
     return twids
 
 
@@ -73,9 +70,8 @@ def run(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID):
     if traptor_type == 'follow':
         try:
             resource = client.stream.statuses.filter.post(follow=twids_str)
-        except twitter.TwitterApiError as e:
+        except TwitterApiError as e:
             logger.critical(e)
-            # 3 is still an error code, but supervisor will not try to restart
             sys.exit(3)
     elif traptor_type == 'track':
         sys.exit('track not implemented yet')
@@ -90,7 +86,7 @@ def run(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID):
         logger.debug(json.dumps(data))
         try:
             producer.send_messages(topic_name, json.dumps(data))
-        except kafka.common.NotLeaderForPartitionError as e:
+        except NotLeaderForPartitionError as e:
             logger.error(e)
 
 def main():
