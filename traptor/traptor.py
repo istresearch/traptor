@@ -23,6 +23,12 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
+# Override the default JSONobject 
+class MyClient(StreamClient):
+    @staticmethod
+    def get_json_object_hook(data):
+        return data
+
 
 def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
                           redis_host=REDIS_HOST):
@@ -85,7 +91,7 @@ def create_birdy_stream(rules,
     # Check traptor_type
     if traptor_type == 'follow':
         # Set up a birdy twitter streaming client
-        client = StreamClient(
+        client = MyClient(
                               APIKEYS['CONSUMER_KEY'],
                               APIKEYS['CONSUMER_SECRET'],
                               APIKEYS['ACCESS_TOKEN'],
