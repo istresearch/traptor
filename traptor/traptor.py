@@ -109,6 +109,18 @@ def create_birdy_stream(rules,
         sys.exit(3)
 
 
+def tweet_time_to_iso(tweet_time):
+    return parser.parse(tweet_time).isoformat()
+
+def clean_tweet_data(tweet_dict):
+    # Convert time to ISO format
+    if tweet_dict.get('created_at'):
+        tweet_dict['created_at'] = tweet_time_to_iso(tweet_dict['created_at'])
+    return tweet_dict
+    # if data.get('reweeted_status', {}).get('created_at'):
+    #     data['reweeted_status']['created_at']
+
+
 def run():
     # Grab a list of twitter ids from the get_redis_twitter_ids function
     twids_str = ','.join(get_redis_twitter_ids())
@@ -120,14 +132,14 @@ def run():
     birdyclient = create_birdy_stream(twids_str)
 
     # Iterate through the twitter results
-    for data in birdyclient.stream():
-        logging.info(json.dumps(data.get('text')))
-        logging.debug(json.dumps(data))
-        # Convert date to ISO format
-        _time = data.get('created_at')
-        if _time:
-            data['created_at'] = parser.parse(_time).isoformat()
+    for _data in birdyclient.stream():
+        logger.info('Raw Text: {0}'.format(json.dumps(_data.get('text'))))
+        logger.debug('Raw Data: {0}'.format(json.dumps(_data)))
 
+        # Do tweet data pre-processing
+        data = clean_tweet_data(_data)
+        logger.info('Cleaned Text: {0}'.format(json.dumps(data.get('text'))))
+        logger.debug('Cleaned Data: {0}'.format(json.dumps(data)))
         try:
             producer.send_messages(KAFKA_TOPIC, json.dumps(data))
         except NotLeaderForPartitionError as e:
