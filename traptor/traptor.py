@@ -13,15 +13,15 @@ from birdy.twitter import StreamClient, TwitterApiError
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST)
 
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
-# logging = logging.getLogger(__name__)
-# handler = logging.StreamHandler()
-# formatter = logging.Formatter(
-#         '%(asctime)s %(name)-4s %(levelname)-4s %(message)s')
-# handler.setFormatter(formatter)
-# logging.addHandler(handler)
-# logging.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+        '%(asctime)s %(name)-4s %(levelname)-4s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 
 
 def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
@@ -48,9 +48,9 @@ def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
         for idx, key in enumerate(r.sscan_iter(redis_key)):
             if idx < 5000:
                 twids.append(key)
-                logging.debug('{0}: {1}'.format(idx, key))
+                logger.debug('{0}: {1}'.format(idx, key))
     except ConnectionError as e:
-        logging.critical(e)
+        logger.critical(e)
         sys.exit(3)  # Special error code to track known failures
     return twids
 
@@ -63,7 +63,7 @@ def create_kafka_producer(kafka_hosts=KAFKA_HOSTS, kafka_topic=KAFKA_TOPIC):
         client = KafkaClient(hosts=kafka_hosts)
         producer = SimpleProducer(client)
     except KafkaUnavailableError as e:
-        logging.critical(e)
+        logger.critical(e)
         sys.exit(3)
     try:
         client.ensure_topic_exists(kafka_topic)
@@ -96,10 +96,10 @@ def create_birdy_stream(rules,
             resource = client.stream.statuses.filter.post(follow=rules)
             return resource
         except TwitterApiError as e:
-            logging.critical(e)
+            logger.critical(e)
             sys.exit(3)
     else:
-        logging.critical('That traptor type has not been implemented yet')
+        logger.critical('That traptor type has not been implemented yet')
         sys.exit(3)
 
 
@@ -124,9 +124,8 @@ def run():
 
         try:
             producer.send_messages(KAFKA_TOPIC, json.dumps(data))
-        except:
-            logging.error('Could not write to kafka topic {0}'.format(
-                         KAFKA_TOPIC))
+        except NotLeaderForPartitionError as e:
+            logger.error(e)
             sys.exit(3)
 
 
