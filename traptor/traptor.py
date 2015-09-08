@@ -21,9 +21,10 @@ formatter = logging.Formatter(
         '%(asctime)s %(name)-4s %(levelname)-4s %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
-# Override the default JSONobject 
+
+# Override the default JSONobject
 class MyClient(StreamClient):
     @staticmethod
     def get_json_object_hook(data):
@@ -112,6 +113,7 @@ def create_birdy_stream(rules,
 def tweet_time_to_iso(tweet_time):
     return parser.parse(tweet_time).isoformat()
 
+
 def clean_tweet_data(tweet_dict):
     # Convert time to ISO format
     if tweet_dict.get('created_at'):
@@ -128,6 +130,8 @@ def run():
     # Set up Kafka producer
     producer = create_kafka_producer()
 
+    # Sleep before setting up twitter stream
+    time.sleep(60)
     # Set up a birdy streaming client
     birdyclient = create_birdy_stream(twids_str)
 
@@ -138,13 +142,12 @@ def run():
 
         # Do tweet data pre-processing
         data = clean_tweet_data(_data)
-        logger.info('Cleaned Text: {0}'.format(json.dumps(data.get('text'))))
         logger.debug('Cleaned Data: {0}'.format(json.dumps(data)))
-        try:
-            producer.send_messages(KAFKA_TOPIC, json.dumps(data))
-        except NotLeaderForPartitionError as e:
-            logger.error(e)
-            sys.exit(3)
+        # try:
+        producer.send_messages(KAFKA_TOPIC, json.dumps(data))
+        # except NotLeaderForPartitionError as e:
+        #     logger.error(e)
+        #     sys.exit(3)
 
 
 def main():
