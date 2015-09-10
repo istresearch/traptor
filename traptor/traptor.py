@@ -31,8 +31,8 @@ class MyClient(StreamClient):
         return data
 
 
-def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
-                          redis_host=REDIS_HOST):
+def get_redis_twitter_rules(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
+                            redis_host=REDIS_HOST):
     """ Return a list of twitter ids from the service server.  This function
         expects that the redis keys are set up like follows:
 
@@ -43,9 +43,25 @@ def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
         traptor-follow:0
         traptor-follow:1
 
-        In the case of the 'follow' twitter streaming, each traptor may only
+        traptor-track:0
+        traptor-track:1
+
+        For 'follow' twitter streaming, each traptor may only
         follow 5000 twitter ids, as per the Twitter API.
+
+        For 'track' twitter stream, each traptor may only
+        track 400 keywords, as per the Twitter API.
     """
+    # Set up API limitation checks
+    if traptor_type == 'follow':
+        rule_max = 5000
+    elif traptor_type == 'track':
+        rule_max = 400
+    else:
+        logger.error('traptor_type of {0} is not supported'.format(
+                     traptor_type))
+        return list()
+
     # This line is lazy, nothing touches Redis until a command is issued
     r = StrictRedis(host=redis_host, port=6379, db=0)
 
@@ -53,7 +69,7 @@ def get_redis_twitter_ids(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
     redis_key = 'traptor-{0}:{1}'.format(traptor_type, traptor_id)
     try:
         for idx, key in enumerate(r.sscan_iter(redis_key)):
-            if idx < 5000:
+            if idx < rule_max:
                 twids.append(key)
                 logger.debug('{0}: {1}'.format(idx, key))
     except ConnectionError as e:
@@ -89,18 +105,26 @@ def create_birdy_stream(rules,
         This was done to prevent services like supervisor from automatically
         restart the process causing the twitter API to get locked out.
     """
-    # Check traptor_type
+
+    # Set up a birdy twitter streaming client
+    client = MyClient(
+                          APIKEYS['CONSUMER_KEY'],
+                          APIKEYS['CONSUMER_SECRET'],
+                          APIKEYS['ACCESS_TOKEN'],
+                          APIKEYS['ACCESS_TOKEN_SECRET']
+                      )
     if traptor_type == 'follow':
-        # Set up a birdy twitter streaming client
-        client = MyClient(
-                              APIKEYS['CONSUMER_KEY'],
-                              APIKEYS['CONSUMER_SECRET'],
-                              APIKEYS['ACCESS_TOKEN'],
-                              APIKEYS['ACCESS_TOKEN_SECRET']
-                          )
         # Try to set up a twitter stream using twitter id list
         try:
             resource = client.stream.statuses.filter.post(follow=rules)
+            return resource
+        except TwitterApiError as e:
+            logger.critical(e)
+            sys.exit(3)
+    elif traptor_type == 'track':
+        # Try to set up a twitter stream using twitter term list
+        try:
+            resource = client.stream.statuses.filter.post(track=rules)
             return resource
         except TwitterApiError as e:
             logger.critical(e)
@@ -110,30 +134,29 @@ def create_birdy_stream(rules,
         sys.exit(3)
 
 
-def tweet_time_to_iso(tweet_time):
-    return parser.parse(tweet_time).isoformat()
-
-
 def clean_tweet_data(tweet_dict):
-    # Convert time to ISO format
+    """ Do any pre-processing to raw tweet data before passing on
+        to Kafka
+    """
+
+    def tweet_time_to_iso(tweet_time):
+        return parser.parse(tweet_time).isoformat()
+
     if tweet_dict.get('created_at'):
         tweet_dict['created_at'] = tweet_time_to_iso(tweet_dict['created_at'])
     return tweet_dict
-    # if data.get('reweeted_status', {}).get('created_at'):
-    #     data['reweeted_status']['created_at']
 
 
 def run():
-    # Grab a list of twitter ids from the get_redis_twitter_ids function
-    twids_str = ','.join(get_redis_twitter_ids())
+    # Grab a list of twitter ids from the get_redis_twitter_rules function
+    rules_str = ','.join(get_redis_twitter_rules())
 
     # Set up Kafka producer
     producer = create_kafka_producer()
 
-    # Sleep before setting up twitter stream
-    time.sleep(60)
     # Set up a birdy streaming client
-    birdyclient = create_birdy_stream(twids_str)
+    time.sleep(60)
+    birdyclient = create_birdy_stream(rules_str)
 
     # Iterate through the twitter results
     for _data in birdyclient.stream():
@@ -143,11 +166,9 @@ def run():
         # Do tweet data pre-processing
         data = clean_tweet_data(_data)
         logger.debug('Cleaned Data: {0}'.format(json.dumps(data)))
-        # try:
+
+        # Send to Kafka
         producer.send_messages(KAFKA_TOPIC, json.dumps(data))
-        # except NotLeaderForPartitionError as e:
-        #     logger.error(e)
-        #     sys.exit(3)
 
 
 def main():
