@@ -114,4 +114,4 @@ if __name__ == '__main__':
 
     the_rules = parse_ctd_rules('track')
     print the_rules
-    send_to_redis('track', the_rules, host='localhost')
+    send_to_redis('track', the_rules)
