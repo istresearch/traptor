@@ -9,6 +9,7 @@ from redis import StrictRedis, ConnectionError
 from kafka import SimpleProducer, KafkaClient
 from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
 from birdy.twitter import StreamClient, TwitterApiError
+import click
 
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST)
@@ -146,8 +147,9 @@ def clean_tweet_data(tweet_dict):
         tweet_dict['created_at'] = tweet_time_to_iso(tweet_dict['created_at'])
     return tweet_dict
 
-
-def run():
+@click.command()
+@click.option('--test', is_flag=True)
+def run(test):
     # Grab a list of twitter ids from the get_redis_twitter_rules function
     rules_str = ','.join(get_redis_twitter_rules())
 
@@ -167,8 +169,9 @@ def run():
         data = clean_tweet_data(_data)
         logger.debug('Cleaned Data: {0}'.format(json.dumps(data)))
 
-        # Send to Kafka
-        producer.send_messages(KAFKA_TOPIC, json.dumps(data))
+        if not test:
+            # Send to Kafka
+            producer.send_messages(KAFKA_TOPIC, json.dumps(data))
 
 
 def main():
