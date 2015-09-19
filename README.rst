@@ -7,5 +7,3 @@ Traptor -- A distributed Twitter feed
 .. _Kafka: http://http://kafka.apache.org/
 .. _Redis: http://redis.io
 .. _birdy: https://github.com/inueni/birdy
-
-Please see the traptor docs at http://traptor.readthedocs.org for the complete documentation.
