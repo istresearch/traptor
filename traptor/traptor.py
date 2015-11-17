@@ -147,22 +147,25 @@ def clean_tweet_data(tweet_dict):
         tweet_dict['created_at'] = tweet_time_to_iso(tweet_dict['created_at'])
     return tweet_dict
 
+
 @click.command()
 @click.option('--test', is_flag=True)
 def run(test):
     # Grab a list of twitter ids from the get_redis_twitter_rules function
     rules_str = ','.join(get_redis_twitter_rules())
 
-    # Set up Kafka producer
-    producer = create_kafka_producer()
+    if not test:
+        # Set up Kafka producer
+        producer = create_kafka_producer()
 
-    # Set up a birdy streaming client
-    time.sleep(60)
+        # Set up a birdy streaming client
+        time.sleep(60)
+
     birdyclient = create_birdy_stream(rules_str)
 
     # Iterate through the twitter results
     for _data in birdyclient.stream():
-        logger.info('Raw Text: {0}'.format(json.dumps(_data.get('text'))))
+        logger.info('utf-8 Text: {0}'.format(_data.get('text').encode('utf-8')))
         logger.debug('Raw Data: {0}'.format(json.dumps(_data)))
 
         # Do tweet data pre-processing
@@ -178,4 +181,4 @@ def main():
     run()
 
 if __name__ == '__main__':
-    main()
+    run()
