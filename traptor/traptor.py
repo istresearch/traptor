@@ -9,6 +9,7 @@ from redis import StrictRedis, ConnectionError
 from kafka import SimpleProducer, KafkaClient
 from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
 from birdy.twitter import StreamClient, TwitterApiError
+import click
 
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST)
@@ -147,32 +148,37 @@ def clean_tweet_data(tweet_dict):
     return tweet_dict
 
 
-def run():
+@click.command()
+@click.option('--test', is_flag=True)
+def run(test):
     # Grab a list of twitter ids from the get_redis_twitter_rules function
     rules_str = ','.join(get_redis_twitter_rules())
 
-    # Set up Kafka producer
-    producer = create_kafka_producer()
+    if not test:
+        # Set up Kafka producer
+        producer = create_kafka_producer()
 
-    # Set up a birdy streaming client
-    time.sleep(60)
+        # Set up a birdy streaming client
+        time.sleep(60)
+
     birdyclient = create_birdy_stream(rules_str)
 
     # Iterate through the twitter results
     for _data in birdyclient.stream():
-        logger.info('Raw Text: {0}'.format(json.dumps(_data.get('text'))))
+        logger.info('utf-8 Text: {0}'.format(_data.get('text').encode('utf-8')))
         logger.debug('Raw Data: {0}'.format(json.dumps(_data)))
 
         # Do tweet data pre-processing
         data = clean_tweet_data(_data)
         logger.debug('Cleaned Data: {0}'.format(json.dumps(data)))
 
-        # Send to Kafka
-        producer.send_messages(KAFKA_TOPIC, json.dumps(data))
+        if not test:
+            # Send to Kafka
+            producer.send_messages(KAFKA_TOPIC, json.dumps(data))
 
 
 def main():
     run()
 
 if __name__ == '__main__':
-    main()
+    run()

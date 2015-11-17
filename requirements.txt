@@ -3,3 +3,4 @@ requests-oauthlib>=0.3.2
 redis
 kafka-python
 python-dateutil
+click
