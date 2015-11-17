@@ -9,7 +9,7 @@ import logging
 
 from settings import mysql_settings, redis_settings
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 def find_unqiue_ids():
     def wrapper(values):
@@ -78,7 +78,7 @@ def parse_ctd_rules(traptor_type,
                 v = re.sub(r'\.', ' ', v)
             rules.append(v)
     else:
-        pass
+        raise ValueError('{} is not a valid traptor_type'.format(traptor_type))
 
     # Get rid of the dupicates
     rules = set(rules)
@@ -106,12 +106,13 @@ def send_to_redis(traptor_type,
 
     for idx, i in enumerate(rules):
         crawler_num = idx / rule_max
-        print idx, crawler_num
+        logging.debug('idx: {}, crawler_num: {}'.format(idx, crawler_num))
         r.sadd('traptor-{0}:{1}'.format(traptor_type, crawler_num), i.encode('utf-8'))
 
 
 if __name__ == '__main__':
+    """ To put rules in redis, run python rule_extract.py <track|follow> """
 
-    the_rules = parse_ctd_rules('track')
-    print the_rules
-    send_to_redis('track', the_rules)
+    the_rules = parse_ctd_rules(sys.argv[1])
+    logging.debug(the_rules)
+    send_to_redis(sys.argv[1], the_rules)
