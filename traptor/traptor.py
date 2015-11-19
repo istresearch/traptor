@@ -11,18 +11,12 @@ from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
 from birdy.twitter import StreamClient, TwitterApiError
 import click
 
+from scutils.log_factory import LogObject
+
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST)
 
-# logging.basicConfig(level=logging.INFO)
-
-logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-formatter = logging.Formatter(
-        '%(asctime)s %(name)-4s %(levelname)-4s %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+logger = LogObject(name='traptor', level='INFO')
 
 
 # Override the default JSONobject
@@ -175,10 +169,6 @@ def run(test):
         if not test:
             # Send to Kafka
             producer.send_messages(KAFKA_TOPIC, json.dumps(data))
-
-
-def main():
-    run()
 
 if __name__ == '__main__':
     run()
