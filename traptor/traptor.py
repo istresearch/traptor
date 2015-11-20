@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import json
 import logging
+import re
 import sys
 import time
 import dateutil.parser as parser
@@ -16,7 +17,7 @@ from scutils.log_factory import LogObject
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST)
 
-logger = LogObject(name='traptor', level='INFO')
+logger = LogObject(name='traptor', level='DEBUG')
 
 
 # Override the default JSONobject
@@ -61,15 +62,18 @@ def get_redis_twitter_rules(traptor_type=TRAPTOR_TYPE, traptor_id=TRAPTOR_ID,
     r = StrictRedis(host=redis_host, port=6379, db=0)
 
     twids = []
+    # for rule in xrange(rule_max):
     redis_key = 'traptor-{0}:{1}'.format(traptor_type, traptor_id)
+    match = ':'.join([redis_key, '*'])
     try:
-        for idx, key in enumerate(r.sscan_iter(redis_key)):
+        for idx, hashname in enumerate(r.scan_iter(match=match)):
             if idx < rule_max:
-                twids.append(key)
-                logger.debug('{0}: {1}'.format(idx, key))
+                twids.append(r.hgetall(hashname))
+                logger.debug('{0}: {1}'.format(idx, hashname))
     except ConnectionError as e:
         logger.critical(e)
         sys.exit(3)  # Special error code to track known failures
+
     return twids
 
 
@@ -145,8 +149,13 @@ def clean_tweet_data(tweet_dict):
 @click.command()
 @click.option('--test', is_flag=True)
 def run(test):
-    # Grab a list of twitter ids from the get_redis_twitter_rules function
-    rules_str = ','.join(get_redis_twitter_rules())
+    # Grab a list of {tag:, value:} rules
+    rules = get_redis_twitter_rules()
+    logger.info(rules)
+
+    # Concatenate all of the rule['value'] fields
+    rules_str = ','.join([rule['value'] for rule in rules])
+    logger.info(rules_str)
 
     if not test:
         # Set up Kafka producer
@@ -159,11 +168,23 @@ def run(test):
 
     # Iterate through the twitter results
     for _data in birdyclient.stream():
-        logger.info('utf-8 Text: {0}'.format(_data.get('text').encode('utf-8')))
-        logger.debug('Raw Data: {0}'.format(json.dumps(_data)))
+        # logger.debug('Raw Data: {0}'.format(json.dumps(_data)))
 
         # Do tweet data pre-processing
         data = clean_tweet_data(_data)
+
+        # Find which rule the tweet matched.  This code only expects there to
+        # be one match.  If there is more than one, it will use the last one
+        # it finds since the first match will be overwritten.
+        for rule in rules:
+            search_str = rule['value'].split()[0]
+            if re.search(search_str, json.dumps(data)):
+                data['rule_tag'] = rule['tag']
+                data['rule_value'] = rule['value']
+
+        logger.info('utf-8 Text: {0}'.format(data.get('text').encode('utf-8')))
+        logger.info('Rule matched - tag:{}, value:{}'.format(
+                    data.get('rule_tag'), data.get('rule_value')))
         logger.debug('Cleaned Data: {0}'.format(json.dumps(data)))
 
         if not test:
