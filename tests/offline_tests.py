@@ -1,39 +1,17 @@
 # from nose.tools import assert_equal
 from unittest import TestCase
 from mock import MagicMock
+
 from scripts.rule_extract import CooperRules, RulesToRedis
+from sample_rules import FOLLOW_RULES, TRACK_RULES
 
 
 class TestRuleExtract(TestCase):
 
     def setUp(self):
-        follow_rule_0 = {
-            'tag': 'marketing',
-            'value': 'from:345345234 OR someguy'
-        }
 
-        follow_rule_1 = {
-            'tag': 'sales',
-            'value': 'someguy'
-        }
-
-        follow_rule_2 = {
-            'tag': 'random',
-            'value': 'from:34534509889 OR someguy'
-        }
-
-        track_rule_0 = {
-            'tag': 'short link',
-            'value': 'url_contains: dump.to'
-        }
-
-        track_rule_1 = {
-            'tag': 'ref_keywords',
-            'value': 'something random'
-        }
-
-        self.follow_rules = [follow_rule_0, follow_rule_1, follow_rule_2]
-        self.track_rules = [track_rule_0, track_rule_1]
+        self.follow_rules = FOLLOW_RULES
+        self.track_rules = TRACK_RULES
 
         self.fixed_follow_rules = [
                          {'tag': 'marketing', 'value': '345345234'},
@@ -56,8 +34,7 @@ class TestRuleExtract(TestCase):
         fixed_rules = CooperRules._fix_track(self.track_rules)
         self.assertEqual(fixed_rules, self.fixed_track_rules)
 
-    def test_send_to_redis(self):
-        """ Testing the logic that sends the rules to Redis. """
-        # rc1 = RulesToRedis('track', self.fixed_track_rules)
-        raise NotImplementedError
-
+    # def test_send_to_redis(self):
+    #     """ Testing the logic that sends the rules to Redis. """
+    #     # rc1 = RulesToRedis('track', self.fixed_track_rules)
+    #     raise NotImplementedError
