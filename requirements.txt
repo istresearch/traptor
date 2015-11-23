@@ -4,3 +4,5 @@ redis
 kafka-python
 python-dateutil
 click
+scutils
+pymysql
