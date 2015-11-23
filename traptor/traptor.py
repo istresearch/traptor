@@ -17,7 +17,7 @@ from scutils.log_factory import LogObject
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST)
 
-logger = LogObject(name='traptor', level='DEBUG')
+logger = LogObject(name='traptor', level='INFO')
 
 
 # Override the default JSONobject
@@ -151,11 +151,11 @@ def clean_tweet_data(tweet_dict):
 def run(test):
     # Grab a list of {tag:, value:} rules
     rules = get_redis_twitter_rules()
-    logger.info(rules)
+    logger.debug(rules)
 
     # Concatenate all of the rule['value'] fields
     rules_str = ','.join([rule['value'] for rule in rules])
-    logger.info(rules_str)
+    logger.debug(rules_str)
 
     if not test:
         # Set up Kafka producer
