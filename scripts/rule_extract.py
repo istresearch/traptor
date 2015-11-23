@@ -105,7 +105,7 @@ class CooperRules(object):
         new_rules = []
         for idx, d in enumerate(raw_rules):
             # Twitter rules only only a single twitter id
-            m = re.search(r'(\d{7,10})', d['value'])
+            m = re.search(r'(\d{7,})', d['value'])
             if m:
                 d['value'] = m.group(1)
                 new_rules.append(d)
