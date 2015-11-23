@@ -129,28 +129,47 @@ class CooperRules(object):
         return new_rules
 
 
-def send_to_redis(traptor_type,
-                  rules,
-                  host=redis_settings['HOST'],
-                  port=redis_settings['PORT'],
-                  db=redis_settings['DB']
-                  ):
-    """ Send rules to Redis"""
+class RulesToRedis(object):
+    """ Class to connect to redis and send traptor rules. """
+    def __init__(self,
+                 traptor_type,
+                 rules,
+                 host=redis_settings['HOST'],
+                 port=redis_settings['PORT'],
+                 db=redis_settings['DB']
+                 ):
 
-    # Set up API limitation checks
-    if traptor_type == 'follow':
-        rule_max = 5000
-    elif traptor_type == 'track':
-        rule_max = 400
-    else:
-        raise ValueError('{} is not a valid traptor_type'.format(traptor_type))
+        self.traptor_type = traptor_type
+        self.rules = rules
+        self.host = host
+        self.port = port
+        self.db = db
 
-    r = redis.StrictRedis(host=host, port=port, db=db)
+    @property
+    def rule_max(self):
+        """ Send the rule_max based on what traptor_type is passed in. """
+        if self.traptor_type == 'follow':
+            self._rule_max = 5000
+        elif self.traptor_type == 'track':
+            self._rule_max = 400
+        else:
+            raise ValueError('{} is not a valid traptor_type'.format(
+                             self.traptor_type))
 
-    for idx, d in enumerate(rules):
-        crawler_num = idx / rule_max
-        logging.debug('idx: {}, crawler_num: {}'.format(idx, crawler_num))
-        r.hmset('traptor-{0}:{1}:{2}'.format(traptor_type, crawler_num, idx), d)
+        return self._rule_max
+
+    def connect(self):
+        """ Connect to a Redis database. """
+        self.redis_conn = redis.StrictRedis(host=self.host, port=self.port, db=self.db)
+        return self.redis_conn
+
+    def send_rules(self, redis_conn):
+        """ Send rules out to Redis with the appropriate key, value format. """
+        for idx, d in enumerate(self.rules):
+            crawler_num = idx / self.rule_max
+            logging.debug('idx: {}, crawler_num: {}'.format(idx, crawler_num))
+            redis_conn.hmset('traptor-{0}:{1}:{2}'.format(
+                             self.traptor_type, crawler_num, idx), d)
 
 
 if __name__ == '__main__':
@@ -162,4 +181,7 @@ if __name__ == '__main__':
 
     for i in rules:
         logging.debug(i)
-    send_to_redis(sys.argv[1], rules)
+
+    rc = RulesToRedis(sys.argv[1], rules)
+    redis_conn = rc.connect()
+    rc.send_rules(redis_conn)
