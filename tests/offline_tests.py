@@ -34,7 +34,7 @@ class TestRuleExtract(TestCase):
         fixed_rules = CooperRules._fix_track(self.track_rules)
         self.assertEqual(fixed_rules, self.fixed_track_rules)
 
-    # def test_send_to_redis(self):
-    #     """ Testing the logic that sends the rules to Redis. """
-    #     # rc1 = RulesToRedis('track', self.fixed_track_rules)
-    #     raise NotImplementedError
+    def test_send_to_redis(self):
+        """ Testing the logic that sends the rules to Redis. """
+        # rc1 = RulesToRedis('track', self.fixed_track_rules)
+        raise NotImplementedError
