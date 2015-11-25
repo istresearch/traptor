@@ -6,3 +6,4 @@ python-dateutil
 click
 scutils
 pymysql
+nose
