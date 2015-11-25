@@ -17,7 +17,7 @@ from scutils.log_factory import LogObject
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST)
 
-logger = LogObject(name='traptor', level='DEBUG')
+logger = LogObject(name='traptor', level='INFO')
 
 
 # Override the default JSONobject
@@ -96,6 +96,7 @@ def create_kafka_producer(kafka_hosts=KAFKA_HOSTS, kafka_topic=KAFKA_TOPIC):
 
 
 def create_birdy_stream(rules,
+                        apikeys=APIKEYS,
                         traptor_type=TRAPTOR_TYPE,
                         traptor_id=TRAPTOR_ID,
                         ):
@@ -132,14 +133,13 @@ def create_birdy_stream(rules,
         logger.critical('That traptor type has not been implemented yet')
         sys.exit(3)
 
+def tweet_time_to_iso(tweet_time):
+    return parser.parse(tweet_time).isoformat()
 
 def clean_tweet_data(tweet_dict):
     """ Do any pre-processing to raw tweet data before passing on
         to Kafka
     """
-
-    def tweet_time_to_iso(tweet_time):
-        return parser.parse(tweet_time).isoformat()
 
     if tweet_dict.get('created_at'):
         tweet_dict['created_at'] = tweet_time_to_iso(tweet_dict['created_at'])
@@ -151,11 +151,11 @@ def clean_tweet_data(tweet_dict):
 def run(test):
     # Grab a list of {tag:, value:} rules
     rules = get_redis_twitter_rules()
-    logger.info(rules)
+    logger.debug(rules)
 
     # Concatenate all of the rule['value'] fields
     rules_str = ','.join([rule['value'] for rule in rules])
-    logger.info(rules_str)
+    logger.debug(rules_str)
 
     if not test:
         # Set up Kafka producer
@@ -168,7 +168,7 @@ def run(test):
 
     # Iterate through the twitter results
     for _data in birdyclient.stream():
-        # logger.debug('Raw Data: {0}'.format(json.dumps(_data)))
+        logger.debug('Raw Data: {0}'.format(json.dumps(_data)))
 
         # Do tweet data pre-processing
         data = clean_tweet_data(_data)
