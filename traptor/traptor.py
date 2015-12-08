@@ -57,6 +57,20 @@ class Traptor(object):
         self.kafka_enabled = kafka_enabled
         self.log_level = log_level
 
+    def __repr__(self):
+        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {})'.format(
+            self.apikeys,
+            self.traptor_type,
+            self.traptor_id,
+            self.kafka_hosts,
+            self.kafka_topic,
+            self.redis_host,
+            self.redis_port,
+            self.redis_db,
+            self.kafka_enabled,
+            self.log_level
+        )
+
     def setup(self, level='INFO', log_file=None, json=None):
         """
         Load everything up. Note that any arg here will override both
