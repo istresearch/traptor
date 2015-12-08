@@ -81,9 +81,8 @@ class Traptor(object):
             self.log_level
         )
 
-    def setup(self, level='INFO', log_file=None, json=None):
+    def _setup(self):
         """
-        ***This method is currently not used.***
 
         Load everything up. Note that any arg here will override both
         default and custom settings
@@ -94,13 +93,14 @@ class Traptor(object):
         """
 
         # Set up logging
-        # my_level = level if level else self.settings['LOG_LEVEL']
-        self.logger = LogFactory.get_instance(name='traptor', level=level)
+        self.logger = LogFactory.get_instance(name='traptor',
+                                              level=self.log_level)
 
-        # Set up all connections
-        self._setup_redis(self)
-        self._setup_kafka(self)
-        self._setup_birdy(self)
+        # Set up required connections
+        self._setup_redis()
+        self._setup_birdy()
+        if self.kafka_enabled:
+            self._setup_kafka()
 
     def _setup_birdy(self):
         """ Set up a birdy twitter stream.
@@ -333,15 +333,9 @@ class Traptor(object):
             It sets up the logging, connections, grabs the rules from redis,
             and starts writing data to kafka if enabled.
         """
-        # Set up logging
-        self.logger = LogFactory.get_instance(name='traptor',
-                                              level=self.log_level)
 
-        # Set up required connections
-        self._setup_redis()
-        self._setup_birdy()
-        if self.kafka_enabled:
-            self._setup_kafka()
+        # Setup connections and logging
+        self._setup()
 
         # Grab a list of {tag:, value:} rules
         self.redis_rules = [rule for rule in self._get_redis_rules()]
