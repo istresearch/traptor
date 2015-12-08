@@ -198,6 +198,8 @@ class Traptor(object):
 
             For 'track' twitter stream, each traptor may only
             track 400 keywords, as per the Twitter API.
+
+            :returns: Yields a traptor rule from redis.
         """
         # Set up API limitation checks
         if self.traptor_type == 'follow':
@@ -207,9 +209,8 @@ class Traptor(object):
         else:
             self.logger.error('traptor_type of {0} is not supported'.format(
                          self.traptor_type))
-            return list()
+            raise(NotImplementedError)
 
-        twids = []
         # for rule in xrange(rule_max):
         redis_key = 'traptor-{0}:{1}'.format(self.traptor_type,
                                              self.traptor_id)
@@ -217,8 +218,10 @@ class Traptor(object):
         try:
             for idx, hashname in enumerate(self.redis_conn.scan_iter(match=match)):
                 if idx < rule_max:
-                    twids.append(self.redis_conn.hgetall(hashname))
-                    self.logger.debug('{0}: {1}'.format(idx, hashname))
+                    redis_rule = self.redis_conn.hgetall(hashname)
+                    yield redis_rule
+                    self.logger.debug('Index: {0}, Redis_rule: {1}'.format(
+                                      idx, redis_rule))
         except ConnectionError as e:
             self.logger.critical(e)
             sys.exit(3)  # Special error code to track known failures
@@ -268,7 +271,7 @@ class Traptor(object):
             self._setup_kafka()
 
         # Grab a list of {tag:, value:} rules
-        self.redis_rules = self._get_redis_rules()
+        self.redis_rules = [rule for rule in self._get_redis_rules()]
 
         # Concatenate all of the rule['value'] fields
         self.twitter_rules = self._make_twitter_rules(self.redis_rules)
