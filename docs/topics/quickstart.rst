@@ -31,16 +31,20 @@ OK, now we've gotten that out of the way, time to install **traptor**!
 #.  Add your local settings to the file.  If you are running redis and/or kafka on the default ports, all you need to change is your Twitter API keys and the ``TRAPTOR_TYPE``.
 #.  Add your ruleset to Redis.  This can be done any number of ways depending on where you are keeping your rules.  In the in the ``scripts/rule-extract.py`` file there are examples of how to extract rules from a GNIP ruleset file and a MySQL database.  You may wish to add a custom function to parse out rules from other sources.
 
-.. important:: Be sure to insert your rules as a ``set`` redis data type with the key format of ``traptor-<type>:<id>``.
+.. important:: Be sure to insert each rule as a ``hashmap`` data type with the key format of ``traptor-<traptor_type>:<traptor_id>:<rule_id>``.
 
 Congratulations.  You are all set to run **traptor**!
 
 Running Traptor
 ---------------
 
-To start, run it *without kafka* by running ``python traptor --test`` from the command line.  The ``--test`` flag tells **traptor** to skip sending data to kafka and just print debug output at the **INFO** level.  This will print out only the tweet text field.
+To start, run it *without kafka* by running ``python traptor.py --test`` from the command line.  The ``--test`` flag tells **traptor** to skip sending data to kafka and just print to stdout.
 
-Once that is working successfully, try writing your data to kafka by running ``python traptor``.  You can tail the Kafka output by running the following command in your Kafka installation directory::
+.. tip:: You can pipe the output into jq (https://stedolan.github.io/jq/) like this ``python traptor.py --test | jq .`` to get a nicely colored JSON output.  You can also use jq to filter on specific fields for easier debugging.
+
+**traptor** also accepts a ``--info`` or ``--debug`` flag if you wish to print out logging information.
+
+Once that is working successfully, try writing your data to kafka by running ``python traptor.py``.  You can tail the Kafka output by running the following command in your Kafka installation directory::
 
     bin/kafka-console-consumer.sh --zookeeper localhost:2181 --from-beginning --topic traptor
 
