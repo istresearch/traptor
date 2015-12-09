@@ -85,11 +85,7 @@ class Traptor(object):
         """
 
         Load everything up. Note that any arg here will override both
-        default and custom settings
-
-        :param str level: the log level
-        :param bool log_file: boolean t/f whether to log to a file, else stdout
-        :param bool json: boolean t/f whether to write the logs in json
+        default and custom settings.
         """
 
         # Set up logging
@@ -126,7 +122,7 @@ class Traptor(object):
             Creates ``self.kafka_conn`` if it can reach the kafka brokers.
         """
         if self.kafka_enabled:
-            self.logger.info('Setting up kafka connection')
+            self.logger.info('Setting up kafka connection...')
             self.kafka_conn = KafkaClient(hosts=self.kafka_hosts)
         else:
             self.logger.info('Skipping kafka connection setup')
@@ -197,12 +193,6 @@ class Traptor(object):
         else:
             self.logger.critical('That traptor type has not been implemented')
             sys.exit(3)
-
-    def write_to_kafka(self):
-        pass
-
-    def write_to_stdout(self):
-        pass
 
     def _make_twitter_rules(self, rules):
         """ Convert the rules from redis into a format compatible with the

@@ -12,6 +12,7 @@
    topics/overview
    topics/quickstart
    topics/production
+   topics/traptor
 
 :doc:`topics/overview`
 ======================
@@ -27,3 +28,8 @@ Get running with a local Traptor stream!
 ========================
 
 Deploying Traptor to a distributed environment.
+
+:doc:`topics/traptor`
+=====================
+
+The Traptor API.
