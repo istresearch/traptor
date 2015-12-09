@@ -2,9 +2,12 @@
 Settings for traptor
 ====================
 '''
+LOG_LEVEL = 'INFO'
 
 KAFKA_HOSTS = "localhost:9092"
 REDIS_HOST = "localhost"
+REDIS_PORT = 6379
+REDIS_DB = 0
 
 # Kafka topic to write all twitter data
 KAFKA_TOPIC = "traptor"
@@ -23,7 +26,7 @@ where to look for a ruleset in Redis.  For example, traptor-follow:0
 '''
 
 # Options for TRAPTOR_TYPE:  follow, track
-TRAPTOR_TYPE = 'follow'
+TRAPTOR_TYPE = 'track'
 TRAPTOR_ID = 0
 
 # Local Overrides

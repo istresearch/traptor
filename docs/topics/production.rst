@@ -10,6 +10,7 @@ To run **traptor** in a distributed environment, you'll need to figure out appro
 
 - follow: 5000 rules
 - track: 400 rules
+- location: 25 rules
   
 This means that you are *limited by how many rules you can add per traptor application*.  For example, if you have 5,500 "follow" rules and 352 "track" rules, you will need 3 **traptor** connections (2 for "follow", 1 for "track").  These should be different API keys with different connection IP addresses.
 
@@ -30,9 +31,14 @@ Using the example from above, my Ansible inventory may look something like this:
     [traptor-track-nodes]
     server03
 
+    traptor-location-nodes]
+    server04
+    server05
+
     [traptor-nodes:children]
     traptor-follow-nodes
     traptor-track-nodes
+    traptor-location-nodes
 
 Group_vars
 """"""""""
