@@ -186,6 +186,14 @@ class Traptor(object):
             except TwitterApiError as e:
                 self.logger.critical(e)
                 sys.exit(3)
+        elif self.traptor_type == 'locations':
+            # Try to set up a twitter stream using twitter term list
+            try:
+                self.logger.info('Creating birdy "locations" stream')
+                self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(locations=self.twitter_rules)
+            except TwitterApiError as e:
+                self.logger.critical(e)
+                sys.exit(3)
         else:
             self.logger.critical('That traptor type has not been implemented')
             sys.exit(3)
@@ -243,11 +251,16 @@ class Traptor(object):
 
             traptor-track:0:5
 
+            traptor-locations:0:2
+
             For 'follow' twitter streaming, each traptor may only
             follow 5000 twitter ids, as per the Twitter API.
 
             For 'track' twitter stream, each traptor may only
             track 400 keywords, as per the Twitter API.
+
+            For 'locations' twitter stream, each traptor may only
+            track 25 bounding boxes, as per the Twitter API.
 
             :returns: Yields a traptor rule from redis.
         """
@@ -256,6 +269,8 @@ class Traptor(object):
             rule_max = 5000
         elif self.traptor_type == 'track':
             rule_max = 400
+        elif self.traptor_type == 'locations':
+            rule_max = 25
         else:
             self.logger.error('traptor_type of {0} is not supported'.format(
                          self.traptor_type))
