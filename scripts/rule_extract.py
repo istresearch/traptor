@@ -24,7 +24,7 @@ def find_unqiue_ids():
 
 
 def parse_gnip_rules():
-    """ Parse gnip prod-darpa rules, return tweet ids"""
+    """ Parse gnip rules, return tweet ids"""
     rules = []
     for fname in sys.argv[1:]:
         with open(fname) as f:
@@ -40,9 +40,9 @@ def parse_gnip_rules():
     return rules
 
 
-class CooperRules(object):
+class SQLRules(object):
     """
-    Class to handle a Cooper MySQL connection and parse out rules in a
+    Class to handle a MySQL connection and parse out rules in a
     traptor friendly format
     """
     def __init__(self,
@@ -70,7 +70,7 @@ class CooperRules(object):
 
     def parse_ctd_rules(self, traptor_type):
         """
-            Parse CTD prod-darpa rules.  Returns a list of dictionaries that
+            Parse SQL rules.  Returns a list of dictionaries that
             contain {tag:, value:} pairs.
         """
         if traptor_type == 'follow':
@@ -105,7 +105,7 @@ class CooperRules(object):
 
     @staticmethod
     def _fix_follow(raw_rules):
-        """ Custom fixes to convert Cooper rules to Traptor rules. """
+        """ Custom fixes to convert SQL rules to Traptor rules. """
         new_rules = []
         for idx, d in enumerate(raw_rules):
             # Twitter rules only only a single twitter id
@@ -120,7 +120,7 @@ class CooperRules(object):
 
     @staticmethod
     def _fix_track(raw_rules):
-        """ Custom fixes to convert Cooper rules to Traptor rules. """
+        """ Custom fixes to convert SQL rules to Traptor rules. """
         new_rules = []
         for d in raw_rules:
             if re.match(r'url_contains', d['value']):
@@ -134,7 +134,7 @@ class CooperRules(object):
 
     @staticmethod
     def _fix_locations(raw_rules):
-        """ Custom fixes to convert Cooper rules to Traptor rules. """
+        """ Custom fixes to convert SQL rules to Traptor rules. """
         new_rules = []
         for d in raw_rules:
             logging.debug(d)
@@ -191,9 +191,9 @@ class RulesToRedis(object):
 if __name__ == '__main__':
     """ To put rules in redis, run python rule_extract.py <track|follow> """
 
-    cooper = CooperRules()
-    cooper.connect()
-    rules = cooper.parse_ctd_rules(sys.argv[1])
+    SQL = SQLRules()
+    SQL.connect()
+    rules = SQL.parse_ctd_rules(sys.argv[1])
 
     for i in rules:
         logging.debug(i)
