@@ -74,9 +74,11 @@ class CooperRules(object):
             contain {tag:, value:} pairs.
         """
         if traptor_type == 'follow':
-            query = "select tag, value from rules where type = 'username' and rule_set = 'prod-darpa'"
+            query = "select tag, value from rules where type = 'username'"
         elif traptor_type == 'track':
-            query = "select tag, value from rules where type = 'keyword' and rule_set = 'prod-darpa'"
+            query = "select tag, value from rules where type = 'keyword'"
+        elif traptor_type == 'locations':
+            query = "select tag, value from rules where type = 'geo'"
         else:
             raise ValueError('{} is not a valid traptor_type'.format(traptor_type))
 
@@ -86,6 +88,8 @@ class CooperRules(object):
             fixed_rules = self._fix_follow(raw_rules)
         if traptor_type == 'track':
             fixed_rules = self._fix_track(raw_rules)
+        if traptor_type == 'locations':
+            fixed_rules = self._fix_locations(raw_rules)
 
         return fixed_rules
 
@@ -128,6 +132,21 @@ class CooperRules(object):
 
         return new_rules
 
+    @staticmethod
+    def _fix_locations(raw_rules):
+        """ Custom fixes to convert Cooper rules to Traptor rules. """
+        new_rules = []
+        for d in raw_rules:
+            logging.debug(d)
+            if d['value']:
+                # Take out brackets
+                d['value'] = re.sub(r'\[|\]', '', d['value'])
+                # Add commas
+                d['value'] = re.sub(r'\s', ',', d['value'])
+                new_rules.append(d)
+
+        return new_rules
+
 
 class RulesToRedis(object):
     """ Class to connect to redis and send traptor rules. """
@@ -147,6 +166,8 @@ class RulesToRedis(object):
             self._rule_max = 5000
         elif traptor_type == 'track':
             self._rule_max = 400
+        elif traptor_type == 'locations':
+            self._rule_max = 25
         else:
             raise ValueError('{} is not a valid traptor_type'.format(
                              traptor_type))
