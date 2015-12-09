@@ -1,0 +1,10 @@
+---
+
+- name: jq
+  hosts: all
+
+  sudo: yes
+
+  tasks:
+    - name: install jq
+      apt: name=jq update_cache=yes

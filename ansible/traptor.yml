@@ -8,10 +8,11 @@
   roles:
     - miniconda
 
-# Install kafka, zookeeper, redis
+# Install kafka, zookeeper, redis, jq
 - include: kafka.yml
 - include: zookeeper.yml
 - include: redis.yml
+- include: jq.yml
 
 # Restart Kafka because its finicky like that
 - hosts: scdev

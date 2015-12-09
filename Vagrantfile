@@ -23,7 +23,7 @@ Vagrant.configure(2) do |config|
         "redis" => ["scdev"],
         "all_groups:children" => ["kafka", "zookeeper", "redis"]
       }
-      ansible.playbook = "ansible/scrapy-cluster.yml"
+      ansible.playbook = "ansible/traptor.yml"
     end
   end
 end
