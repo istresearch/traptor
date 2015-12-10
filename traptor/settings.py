@@ -21,7 +21,7 @@ APIKEYS = {
 }
 
 '''
-Each 'traptor_type' has a unqiue 'traptor_id'.  This ID is how traptor knows 
+Each 'traptor_type' has a unqiue 'traptor_id'.  This ID is how traptor knows
 where to look for a ruleset in Redis.  For example, traptor-follow:0
 '''
 

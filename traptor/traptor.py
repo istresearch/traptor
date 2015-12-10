@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 import json
-import logging
 import re
 import sys
-import time
 import dateutil.parser as parser
 
 from redis import StrictRedis, ConnectionError
@@ -379,6 +377,7 @@ def main(test, info, debug):
                                traptor_type=TRAPTOR_TYPE,
                                traptor_id=TRAPTOR_ID,
                                kafka_hosts=KAFKA_HOSTS,
+                               kafka_topic=KAFKA_TOPIC,
                                redis_host=REDIS_HOST,
                                redis_port=REDIS_PORT,
                                redis_db=REDIS_DB,
