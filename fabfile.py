@@ -23,7 +23,7 @@ from fabric.api import *
 
 
 def prep():
-    local("pip install dir2pi")
+    local("pip install pip2pi")
 
 
 def package():
@@ -34,7 +34,7 @@ def deploy(pip_repo):
     name = local("python setup.py --name", capture=True)
     ver = local("python setup.py --version", capture=True)
     sdist_name = '{}-{}.tar.gz'.format(name, ver)
-    local("dir2pi {} dist/{}".format(pip_repo, sdist_name))
+    local("pip2pi {} dist/{}".format(pip_repo, sdist_name))
 
 
 def publish():
