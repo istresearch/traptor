@@ -5,12 +5,9 @@ from mock import MagicMock
 from kafka import SimpleProducer
 from redis import StrictRedis, ConnectionError
 
-from scripts.rule_extract import CooperRules, RulesToRedis
+from scripts.rule_extract import SQLRules, RulesToRedis
 from sample_rules import FOLLOW_RULES, TRACK_RULES
-from traptor.traptor import (MyClient, get_redis_twitter_rules,
-                             create_kafka_producer,
-                             create_birdy_stream, clean_tweet_data, run,
-                             tweet_time_to_iso
+from traptor.traptor import (MyBirdyClient, Traptor
                              )
 
 from traptor.settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
@@ -24,8 +21,8 @@ class TestTwitterRules(TestCase):
     """
     def setUp(self):
 
-        self.fixed_follow_rules = CooperRules._fix_follow(FOLLOW_RULES)
-        self.fixed_track_rules = CooperRules._fix_track(TRACK_RULES)
+        self.fixed_follow_rules = SQLRules._fix_follow(FOLLOW_RULES)
+        self.fixed_track_rules = SQLRules._fix_track(TRACK_RULES)
 
         # Need to test RulesToRedis class somewhere
         r = RulesToRedis()
