@@ -19,10 +19,13 @@ def readme():
 install_requires = [
     'requests>=1.2.3',
     'requests-oauthlib>=0.3.2',
-    'redis',
-    'kafka-python',
+    'redis>=2.10.3',
+    'kafka-python>=0.9.5',
     'python-dateutil',
-    'click'
+    'click',
+    # 'mock',
+    # 'pymysql',
+    'scutils>=0.0.6',
 ]
 
 lint_requires = [
@@ -30,7 +33,10 @@ lint_requires = [
     'pyflakes'
 ]
 
-tests_require = ['nose']
+tests_require = [
+    'nose',
+    'mock',
+]
 dependency_links = []
 setup_requires = []
 extras_require = {
@@ -53,7 +59,7 @@ setup(
     license='MIT',
     url='https://github.com/istresearch/traptor',
     keywords=['twitter', 'distributed', 'kafka', 'ansible', 'redis'],
-    packages=find_packages(),
+    packages=['traptor'],
     package_data={},
     # data_files=data_files,
     install_requires=install_requires,
@@ -64,5 +70,5 @@ setup(
     zip_safe=True,
     test_suite='nose.collector',
     include_package_data=True,
-    entry_points={'console_scripts': ['traptor=traptor.traptor:main']},
+    # entry_points={'console_scripts': ['traptor=traptor.traptor:main']},
 )
