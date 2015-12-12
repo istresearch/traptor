@@ -2,6 +2,7 @@
 import json
 import re
 import sys
+import time
 import dateutil.parser as parser
 
 from redis import StrictRedis, ConnectionError
@@ -359,7 +360,8 @@ class Traptor(object):
 @click.option('--test', is_flag=True)
 @click.option('--info', is_flag=True)
 @click.option('--debug', is_flag=True)
-def main(test, info, debug):
+@click.option('--delay', default=1)
+def main(test, info, debug, delay):
     """ Command line interface to run a traptor instance.
 
         Can pass it flags for debug levels and also --test mode, which means
@@ -385,6 +387,8 @@ def main(test, info, debug):
                                log_level=log_level
                                )
 
+    # Don't connect to the Twitter API too fast
+    time.sleep(delay)
     # Run the traptor instance and start collecting data
     traptor_instance.run()
 
