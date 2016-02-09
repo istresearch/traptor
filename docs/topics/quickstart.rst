@@ -20,7 +20,8 @@ Steps to launch the Vagrant VM:
 #.  ``cd traptor``
 #.  ``vagrant up`` in base **traptor** directory.
 #.  ``vagrant ssh`` to ssh into the VM.
-#.  ``sudo supervisorctl status`` to check that everything is running.
+#.  ``sudo su`` to change to root user.
+#.  ``supervisorctl status`` to check that everything is running.
 #.  ``cd /vagrant`` to get to the **traptor** directory.
 
     
