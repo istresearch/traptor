@@ -7,6 +7,8 @@ import redis
 import pymysql
 import logging
 
+import click
+
 from settings import mysql_settings, redis_settings
 
 logging.basicConfig(level=logging.INFO)
@@ -188,16 +190,46 @@ class RulesToRedis(object):
                                   traptor_type, crawler_num, idx), d)
 
 
-if __name__ == '__main__':
-    """ To put rules in redis, run python rule_extract.py <track|follow> """
+@click.group()
+def cli():
+    pass
 
-    SQL = SQLRules()
-    SQL.connect()
-    rules = SQL.parse_ctd_rules(sys.argv[1])
 
-    for i in rules:
-        logging.debug(i)
+@click.command()
+@click.option('--settings', default=mysql_settings, help='dictionary of sql settings')
+@click.argument('traptor_type')
+def sqldb(settings, traptor_type):
+    """ Connect to SQL database, send to Redis """
+    sql = SQLRules(host=settings['HOST'],
+                   port=settings['PORT'],
+                   user=settings['USER'],
+                   passwd=settings['PASSWD'],
+                   db=settings['DB']
+                   )
+    sql.connect()
+    rules = sql.parse_ctd_rules(traptor_type)
 
+    # Send to Redis
     rc = RulesToRedis()
     rc.connect()
-    rc.send_rules(sys.argv[1], rules)
+    rc.send_rules(traptor_type, rules)
+
+
+@click.command()
+@click.argument('traptor_type')
+@click.argument('filename')
+def jsonfile(traptor_type, filename):
+    """ Reads JSON rules from file, send to Redis """
+    with open(filename) as f:
+        rules = [json.loads(line) for line in f]
+
+    # Send to Redis
+    rc = RulesToRedis()
+    rc.connect()
+    rc.send_rules(traptor_type, rules)
+
+
+if __name__ == '__main__':
+    cli.add_command(get_sql_rules)
+    cli.add_command(get_json_rules)
+    cli()
