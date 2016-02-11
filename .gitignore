@@ -38,3 +38,6 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.cache
+
+dump.rdb
