@@ -230,6 +230,6 @@ def jsonfile(traptor_type, filename):
 
 
 if __name__ == '__main__':
-    cli.add_command(get_sql_rules)
-    cli.add_command(get_json_rules)
+    cli.add_command(sqldb)
+    cli.add_command(jsonfile)
     cli()
