@@ -28,16 +28,15 @@ class MyBirdyClient(StreamClient):
 class Traptor(object):
 
     def __init__(self,
-                 apikeys=None,
-                 traptor_type='track',
+                 redis_conn,
+                 traptor_type,
+                 apikeys,
                  traptor_id=0,
                  kafka_hosts='localhost:9092',
                  kafka_topic='traptor',
-                 redis_host='localhost',
-                 redis_port=6379,
-                 redis_db=0,
                  kafka_enabled=True,
-                 log_level='INFO'
+                 log_level='INFO',
+                 test=False
                  ):
         """
         Traptor base class.
@@ -48,11 +47,10 @@ class Traptor(object):
         :param int traptor_id: numerical ID of traptor instance.
         :param str kafka_hosts: kafka hosts to connect to.
         :param str kafka_topic: name of the kafka topic to write to.
-        :param str redis_host: redis host to read traptor rules from.
-        :param int redis_port: redis port number.
-        :param int redis_db: redis database number.
+        :param str redis_conn: redis connection to use.
         :param bool kafka_enabled: write to kafka or just log to something else.
         :param str log_level: log level of the traptor logger instance.
+        :param bool test: True for traptor test instance.
 
         """
         self.apikeys = apikeys
@@ -60,11 +58,10 @@ class Traptor(object):
         self.traptor_id = traptor_id
         self.kafka_hosts = kafka_hosts
         self.kafka_topic = kafka_topic
-        self.redis_host = redis_host
-        self.redis_port = redis_port
-        self.redis_db = redis_db
+        self.redis_conn = redis_conn
         self.kafka_enabled = kafka_enabled
         self.log_level = log_level
+        self.test = test
 
     def __repr__(self):
         return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {})'.format(
@@ -73,11 +70,10 @@ class Traptor(object):
             self.traptor_id,
             self.kafka_hosts,
             self.kafka_topic,
-            self.redis_host,
-            self.redis_port,
-            self.redis_db,
+            self.redis_conn,
             self.kafka_enabled,
-            self.log_level
+            self.log_level,
+            self.test
         )
 
     def _setup(self):
@@ -92,7 +88,6 @@ class Traptor(object):
                                               level=self.log_level)
 
         # Set up required connections
-        self._setup_redis()
         self._setup_birdy()
         if self.kafka_enabled:
             self._setup_kafka()
@@ -126,17 +121,6 @@ class Traptor(object):
         else:
             self.logger.info('Skipping kafka connection setup')
             self.kafka_conn = None
-
-    def _setup_redis(self):
-        """ Set up a Redis connection.
-            This line is lazy, nothing touches Redis until a command is issued.
-
-            Creates ``self.redis_conn``.
-        """
-        self.logger.info('Setting up redis connection...')
-        self.redis_conn = StrictRedis(host=self.redis_host,
-                                      port=self.redis_port,
-                                      db=self.redis_db)
 
     def _create_kafka_producer(self, kafka_topic):
         """ Create a kafka producer.
@@ -326,10 +310,12 @@ class Traptor(object):
             # Stdout data output for Traptor.
             print json.dumps(enriched_data, indent=2)
 
-
             if self.kafka_enabled:
                 self.kafka_producer.send_messages(self.kafka_topic,
                                                   json.dumps(data))
+
+            if self.test:
+                break
 
     def run(self):
         """ Run method for running a traptor instance.
@@ -375,16 +361,19 @@ def main(test, info, debug, delay):
     else:
         log_level = 'CRITICAL'
 
+    redis_conn = StrictRedis(host=REDIS_HOST,
+                             port=REDIS_PORT,
+                             db=REDIS_DB)
+
     traptor_instance = Traptor(apikeys=APIKEYS,
                                traptor_type=TRAPTOR_TYPE,
                                traptor_id=TRAPTOR_ID,
                                kafka_hosts=KAFKA_HOSTS,
                                kafka_topic=KAFKA_TOPIC,
-                               redis_host=REDIS_HOST,
-                               redis_port=REDIS_PORT,
-                               redis_db=REDIS_DB,
+                               redis_conn=redis_conn,
                                kafka_enabled=kafka_enabled,
-                               log_level=log_level
+                               log_level=log_level,
+                               test=False,
                                )
 
     # Don't connect to the Twitter API too fast
