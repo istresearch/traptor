@@ -12,6 +12,10 @@ redis_settings = {
     'DB': 0
 }
 
+cooper_settings = {
+    'RULES_URL': 'URL_TO_COOPER_RULE_LIST_URL'
+}
+
 # Local Overrides
 # ~~~~~~~~~~~~~~~
 
