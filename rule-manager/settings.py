@@ -16,6 +16,10 @@ cooper_settings = {
     'RULES_URL': 'URL_TO_COOPER_RULE_LIST_URL'
 }
 
+kafka_settings = {
+    'TOPIC_NAME': 'NAME_OF_TOPIC'
+}
+
 # Local Overrides
 # ~~~~~~~~~~~~~~~
 
