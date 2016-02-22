@@ -314,8 +314,8 @@ class Traptor(object):
                 self.kafka_producer.send_messages(self.kafka_topic,
                                                   json.dumps(data))
 
-            if self.test:
-                break
+            # if self.test:
+            #     break
 
     def run(self):
         """ Run method for running a traptor instance.
@@ -333,8 +333,9 @@ class Traptor(object):
         # Concatenate all of the rule['value'] fields
         self.twitter_rules = self._make_twitter_rules(self.redis_rules)
 
-        # Create bridy and kafka connections
-        self._create_birdy_stream()
+        if not self.test:
+            self._create_birdy_stream()
+
         if self.kafka_enabled:
             self._create_kafka_producer(self.kafka_topic)
 
