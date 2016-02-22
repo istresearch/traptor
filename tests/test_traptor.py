@@ -15,9 +15,9 @@ from scutils.log_factory import LogFactory
 def redis_rules(request):
     """ Load up some sample traptor rules into Redis. """
 
-    with open('tests/track_rules.json') as f:
+    with open('tests/data/track_rules.json') as f:
         track_rules = [json.loads(line) for line in f]
-    with open('tests/follow_rules.json') as f:
+    with open('tests/data/follow_rules.json') as f:
         follow_rules = [json.loads(line) for line in f]
 
     conn = redis.StrictRedis(host='localhost', port=6379, db=5)
@@ -55,30 +55,29 @@ def traptor(request, redis_rules):
 
 @pytest.fixture()
 def tweets(request):
-    with open('tests/twitter_tweet.json') as f:
-        twitter_tweet = json.load(f)
-    with open('tests/twitter_retweet.json') as f:
-        twitter_retweet = json.load(f)
+    with open('tests/data/track_tweet.json') as f:
+        track_tweet = json.load(f)
+    with open('tests/data/follow_tweet.json') as f:
+        follow_retweet = json.load(f)
 
-    return twitter_tweet, twitter_retweet
+    return track_tweet, follow_retweet
 
 
 class TestRuleExtract():
     def test_track(self, redis_rules):
 
         assert {'tag': 'test', 'value': 'happy'} == redis_rules.hgetall('traptor-track:0:0')
-        assert {'tag': 'test', 'value': 'love people'} == redis_rules.hgetall('traptor-track:0:1')
 
     def test_follow(self, redis_rules):
 
-        assert {'tag': 'test', 'value': '1630833338'} == redis_rules.hgetall('traptor-follow:0:0')
+        assert {'tag': 'test', 'value': '17919972'} == redis_rules.hgetall('traptor-follow:0:0')
 
 
-class TestTrackTraptor(object):
+class TestTraptor(object):
     # @vcr.use_cassette()
-    def test_setup(self, traptor, tweets):
+    def test_traptor_run(self, traptor, tweets):
 
-        for i in tweets:
-            assert 'id' in i
-        # traptor.birdy_stream = MagicMock(return_value=tweets)
-        # traptor.run()
+        traptor.birdy_stream = MagicMock(return_value=tweets)
+        traptor.birdy_stream.stream = traptor.birdy_stream
+
+        traptor.run()
