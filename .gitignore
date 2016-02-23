@@ -41,3 +41,4 @@ var/
 .cache
 
 dump.rdb
+.coverage
