@@ -89,6 +89,7 @@ class Traptor(object):
 
         # Set up required connections
         self._setup_birdy()
+
         if self.kafka_enabled:
             self._setup_kafka()
 
@@ -202,8 +203,9 @@ class Traptor(object):
         for rule in self.redis_rules:
             search_str = rule['value'].split()[0]
             if re.search(search_str, json.dumps(data)):
-                data['rule_tag'] = rule['tag']
-                data['rule_value'] = rule['value']
+                data['traptor'] = {'rule_tag': rule['tag'],
+                                   'rule_value': rule['value']
+                                   }
 
         # self.logger.info('utf-8 Text: {0}'.format(data.get('text').encode('utf-8')))
         self.logger.info('Rule matched - tag:{}, value:{}'.format(
