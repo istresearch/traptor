@@ -22,11 +22,12 @@ APIKEYS = {
 
 '''
 Each 'traptor_type' has a unqiue 'traptor_id'.  This ID is how traptor knows
-where to look for a ruleset in Redis.  For example, traptor-follow:0
+where to look for a ruleset in Redis.  For example, traptor-follow:0:5 is
+a traptor-follow instance, with traptor_id = 0, and the rule_id = 5.
 '''
 
-# Options for TRAPTOR_TYPE:  follow, track
-TRAPTOR_TYPE = 'track'
+# Options for TRAPTOR_TYPE:  follow, track, locations
+TRAPTOR_TYPE = ''
 TRAPTOR_ID = 0
 
 # Local Overrides
