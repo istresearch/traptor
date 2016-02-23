@@ -278,12 +278,13 @@ class Traptor(object):
         """ Do any pre-processing to raw tweet data.
 
             :param dict tweet_dict: A tweet dictionary object.
-            :returns: A ``dict`` of the modifed tweet data.
+            :returns: A ``dict`` with a new 'created_at_iso field.
         """
         # self.logger.info('Fixing tweet object')
         if tweet_dict.get('created_at'):
-            tweet_dict['created_at'] = self._tweet_time_to_iso(
-                                        tweet_dict['created_at'])
+            tweet_dict['traptor'] = {'created_at_iso': self._tweet_time_to_iso(
+                                    tweet_dict['created_at'])
+                                    }
             self.logger.debug('Fixed tweet object: \n {}'.format(
                               json.dumps(tweet_dict, indent=2)))
         return tweet_dict
