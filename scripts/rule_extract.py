@@ -199,7 +199,7 @@ def sqldb(settings, traptor_type):
 
     # Send to Redis
     conn = redis.StrictRedis(host=redis_settings['HOST'],
-                             post=redis_settings['PORT'],
+                             port=redis_settings['PORT'],
                              db=redis_settings['DB']
                              )
     rc = RulesToRedis(conn)
