@@ -20,8 +20,7 @@ Rule manager will:
 """
 
 from settings import (redis_settings, cooper_settings, sentry_settings,
-                      rule_refresh_settings, traptor_pubsub_settings,
-                      log_settings)
+                      rule_refresh_settings, traptor_pubsub_settings)
 import requests
 import redis
 import unicodedata
@@ -29,6 +28,8 @@ from collections import Counter
 from scutils.log_factory import LogFactory
 from raven import Client
 import time
+import click
+import sys
 
 import warnings
 warnings.filterwarnings('error', category=UnicodeWarning)
@@ -430,7 +431,7 @@ class RuleManager(object):
         self.logger.info("Finished running!")
 
 
-def run_rule_manager():
+def run_rule_manager(log_level):
     """Run the rule manager."""
     cooper_url = cooper_settings['RULES_URL']
 
@@ -443,11 +444,13 @@ def run_rule_manager():
     traptor_notify_channel = traptor_pubsub_settings['CHANNEL_NAME']
 
     # Logging
-    log_level = log_settings['LOG_LEVEL']
+    log_level = log_level
 
     # Set up a connection to Sentry if the user wants to use it
-    if sentry_settings['USE_SENTRY'] is True:
+    if sentry_settings['USE_SENTRY'] == 'True':
         sentry_client = Client(sentry_settings['SENTRY_URL'])
+    else:
+        sentry_client = None
 
     # Create a new rule manager
     rm = RuleManager(cooper_url=cooper_url,
@@ -460,15 +463,28 @@ def run_rule_manager():
     rm.run()
 
 
-def main():
-    """Run the rule manager as a background job."""
+@click.command()
+@click.option('--info', is_flag=True)
+@click.option('--debug', is_flag=True)
+def main(info, debug):
+    """Command line interface to run a Rule Manager instance.
+
+        Can pass it flags for debug levels
+    """
+    if debug:
+        log_level = 'DEBUG'
+    elif info:
+        log_level = 'INFO'
+    else:
+        log_level = 'CRITICAL'
+
+    """Run the rule manager."""
     # Rule manager refresh rate
     refresh_rate = rule_refresh_settings['RULE_REFRESH_TIME']
 
     while True:
-        run_rule_manager()
+        run_rule_manager(log_level)
         time.sleep(refresh_rate)
 
-
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

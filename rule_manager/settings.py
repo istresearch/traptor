@@ -17,7 +17,7 @@ cooper_settings = {
 }
 
 sentry_settings = {
-    'USE_SENTRY': FALSE,
+    'USE_SENTRY': 'False',
     'SENTRY_URL': 'SENTRY_URL_HERE'
 }
 
@@ -27,10 +27,6 @@ rule_refresh_settings = {
 
 traptor_pubsub_settings = {
     'CHANNEL_NAME': 'CHANNEL_NAME_HERE'
-}
-
-log_settings = {
-    'LOG_LEVEL': 'INFO'
 }
 
 
