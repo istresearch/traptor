@@ -13,12 +13,26 @@ redis_settings = {
 }
 
 cooper_settings = {
-    'RULES_URL': 'URL_TO_COOPER_RULE_LIST_URL'
+    'RULES_URL': 'COOPER_URL_HERE'
 }
 
-kafka_settings = {
-    'TOPIC_NAME': 'NAME_OF_TOPIC'
+sentry_settings = {
+    'USE_SENTRY': FALSE,
+    'SENTRY_URL': 'SENTRY_URL_HERE'
 }
+
+rule_refresh_settings = {
+    'RULE_REFRESH_TIME': 600
+}
+
+traptor_pubsub_settings = {
+    'CHANNEL_NAME': 'CHANNEL_NAME_HERE'
+}
+
+log_settings = {
+    'LOG_LEVEL': 'INFO'
+}
+
 
 # Local Overrides
 # ~~~~~~~~~~~~~~~
