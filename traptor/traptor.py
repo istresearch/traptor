@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import json
 import re
+import os
 import sys
 import time
 import dateutil.parser as parser
@@ -15,7 +16,7 @@ from scutils.log_factory import LogFactory
 
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                       TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
-                      LOG_LEVEL)
+                      REDIS_PUBSUB_CHANNEL, LOG_LEVEL)
 
 
 # Override the default JSONobject
@@ -36,7 +37,9 @@ class Traptor(object):
                  kafka_topic='traptor',
                  kafka_enabled=True,
                  log_level='INFO',
-                 test=False
+                 test=False,
+                 traptor_notify_channel='traptor-notify',
+                 pubsub_conn
                  ):
         """
         Traptor base class.
@@ -51,6 +54,8 @@ class Traptor(object):
         :param bool kafka_enabled: write to kafka or just log to something else.
         :param str log_level: log level of the traptor logger instance.
         :param bool test: True for traptor test instance.
+        :param str traptor_notify_channel: name of the Traptor PubSub channel to subscribe to
+        :param str pubsub_conn: redis pubsub connection to use
 
         """
         self.apikeys = apikeys
@@ -62,9 +67,11 @@ class Traptor(object):
         self.kafka_enabled = kafka_enabled
         self.log_level = log_level
         self.test = test
+        self.traptor_notify_channel = traptor_notify_channel
+        self.pubsub_conn = pubsub_conn
 
     def __repr__(self):
-        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {})'.format(
+        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{})'.format(
             self.apikeys,
             self.traptor_type,
             self.traptor_id,
@@ -73,7 +80,9 @@ class Traptor(object):
             self.redis_conn,
             self.kafka_enabled,
             self.log_level,
-            self.test
+            self.test,
+            self.traptor_notify_channel,
+            self.pubsub_conn
         )
 
     def _setup(self):
@@ -286,6 +295,26 @@ class Traptor(object):
                               json.dumps(tweet_dict, indent=2)))
         return tweet_dict
 
+    def _check_redis_pubsub_for_restart(self):
+        """
+        Subscribe to Redis PubSub and restart if necessary.
+
+        Check the Redis PubSub channel and restart Traptor if a message for
+        this Traptor is found.
+        """
+        p = self.pubsub_conn.pubsub()
+        p.subscribe(self.traptor_notify_channel)
+
+        while True:
+            m = p.get_message()
+            if m is not None:
+                data = str(m['data'])
+                t = data.split(':')
+                if t[0] == self.traptor_type and t[1] == self.traptor_id:
+                    # Log the action and restart
+                    self.logger.info("Redis PubSub message found. Restarting myself.")
+                    os.execv(__file__, sys.argv)
+
     def _main_loop(self):
         """ Main loop for iterating through the twitter data.
 
@@ -305,7 +334,7 @@ class Traptor(object):
             # Do any data enrichment on the base tweet data
             enriched_data = self._find_rule_matches(data)
             self.logger.debug('Tweet Text: {}'.format(json.dumps(
-                             enriched_data.get('text', '').encode('utf-8'))))
+                              enriched_data.get('text', '').encode('utf-8'))))
 
             # Stdout data output for Traptor.
             print json.dumps(enriched_data, indent=2)
@@ -338,6 +367,10 @@ class Traptor(object):
         if self.kafka_enabled:
             self._create_kafka_producer(self.kafka_topic)
 
+        # Spawn a thread to check the Redis PubSub for a message
+        ps_check = threading.Thread(group=None, target=self._check_redis_pubsub_for_restart
+        ps_check.start()
+
         # Start collecting data
         self._main_loop()
 
@@ -365,12 +398,18 @@ def main(test, info, debug, delay):
                              port=REDIS_PORT,
                              db=REDIS_DB)
 
+    pubsub_conn = StrictRedis(host=REDIS_HOST,
+                              port=REDIS_PORT,
+                              db=REDIS_DB)
+
     traptor_instance = Traptor(apikeys=APIKEYS,
                                traptor_type=TRAPTOR_TYPE,
                                traptor_id=TRAPTOR_ID,
                                kafka_hosts=KAFKA_HOSTS,
                                kafka_topic=KAFKA_TOPIC,
                                redis_conn=redis_conn,
+                               traptor_notify_channel=REDIS_PUBSUB_CHANNEL,
+                               pubsub_conn=pubsub_conn,
                                kafka_enabled=kafka_enabled,
                                log_level=log_level,
                                test=False,

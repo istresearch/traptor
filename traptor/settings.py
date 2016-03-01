@@ -8,6 +8,7 @@ KAFKA_HOSTS = "localhost:9092"
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 REDIS_DB = 0
+REDIS_PUBSUB_CHANNEL = "traptor-notify"
 
 # Kafka topic to write all twitter data
 KAFKA_TOPIC = "traptor"
