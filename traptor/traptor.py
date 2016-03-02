@@ -12,6 +12,8 @@ from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
 from birdy.twitter import StreamClient, TwitterApiError
 import click
 
+import threading
+
 from scutils.log_factory import LogFactory
 
 from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
@@ -30,6 +32,7 @@ class Traptor(object):
 
     def __init__(self,
                  redis_conn,
+                 pubsub_conn,
                  traptor_type,
                  apikeys,
                  traptor_id=0,
@@ -38,8 +41,7 @@ class Traptor(object):
                  kafka_enabled=True,
                  log_level='INFO',
                  test=False,
-                 traptor_notify_channel='traptor-notify',
-                 pubsub_conn
+                 traptor_notify_channel='traptor-notify'
                  ):
         """
         Traptor base class.
@@ -138,13 +140,13 @@ class Traptor(object):
             Creates ``self.kafka_producer``.
         """
         try:
-            self.logger.info('Creating kafka producer...')
+            self.logger.info('Creating kafka producer for "{}"...'.format(self.kafka_topic))
             self.kafka_producer = SimpleProducer(self.kafka_conn)
         except KafkaUnavailableError as e:
             self.logger.critical(e)
             sys.exit(3)
         try:
-            self.logger.info('Ensuring kafka topic exists')
+            self.logger.info('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
             self.kafka_conn.ensure_topic_exists(self.kafka_topic)
         except:
             raise
@@ -210,12 +212,13 @@ class Traptor(object):
         self.logger.info('Finding tweet rule matches')
         for rule in self.redis_rules:
             search_str = rule['value'].split()[0]
+            self.logger.info("Search string used for the rule match: {}".format(search_str))
             if re.search(search_str, json.dumps(data)):
                 data['rule_tag'] = rule['tag']
                 data['rule_value'] = rule['value']
 
         # self.logger.info('utf-8 Text: {0}'.format(data.get('text').encode('utf-8')))
-        self.logger.info('Rule matched - tag:{}, value:{}'.format(
+        self.logger.debug('Rule matched - tag:{}, value:{}'.format(
                     data.get('rule_tag'), data.get('rule_value')))
         # self.logger.debug('Cleaned Data: {0}'.format(json.dumps(data)))
 
@@ -255,7 +258,7 @@ class Traptor(object):
             rule_max = 25
         else:
             self.logger.error('traptor_type of {0} is not supported'.format(
-                         self.traptor_type))
+                self.traptor_type))
             raise(NotImplementedError)
 
         # for rule in xrange(rule_max):
@@ -287,10 +290,9 @@ class Traptor(object):
             :param dict tweet_dict: A tweet dictionary object.
             :returns: A ``dict`` of the modifed tweet data.
         """
-        # self.logger.info('Fixing tweet object')
         if tweet_dict.get('created_at'):
             tweet_dict['created_at'] = self._tweet_time_to_iso(
-                                        tweet_dict['created_at'])
+                tweet_dict['created_at'])
             self.logger.debug('Fixed tweet object: \n {}'.format(
                               json.dumps(tweet_dict, indent=2)))
         return tweet_dict
@@ -302,6 +304,8 @@ class Traptor(object):
         Check the Redis PubSub channel and restart Traptor if a message for
         this Traptor is found.
         """
+        self.logger.info("Subscribing to the Traptor notification PubSub.")
+        self.logger.info("restart_flag = {}".format(self.restart_flag))
         p = self.pubsub_conn.pubsub()
         p.subscribe(self.traptor_notify_channel)
 
@@ -310,10 +314,11 @@ class Traptor(object):
             if m is not None:
                 data = str(m['data'])
                 t = data.split(':')
-                if t[0] == self.traptor_type and t[1] == self.traptor_id:
+                self.logger.info("PubSub Message: {}".format(t))
+                if t[0] == self.traptor_type and t[1] == str(self.traptor_id):
                     # Log the action and restart
-                    self.logger.info("Redis PubSub message found. Restarting myself.")
-                    os.execv(__file__, sys.argv)
+                    self.restart_flag = True
+                    self.logger.info("Redis PubSub message found. Setting restart flag to True.")
 
     def _main_loop(self):
         """ Main loop for iterating through the twitter data.
@@ -324,26 +329,34 @@ class Traptor(object):
             the Traptor class.
         """
         # Iterate through the twitter results
-        for _data in self.birdy_stream.stream():
-            self.logger.debug('Raw Tweet Data: \n {0}'.format(
-                              json.dumps(_data, indent=2)))
+        for item in self.birdy_stream._stream_iter():
+            self.logger.debug("Checking for an item from the stream")
+            if item:
+                try:
+                    # _data = json.loads(item, object_hook=self._json_object_hook)
+                    _data = json.loads(item)
+                except:
+                    pass
+                else:
+                    self.logger.debug('Raw Tweet Data: \n {0}'.format(
+                                      json.dumps(_data, indent=2)))
 
-            # Do tweet data pre-processing
-            data = self._fix_tweet_object(_data)
+                    # Do tweet data pre-processing
+                    data = self._fix_tweet_object(_data)
 
-            # Do any data enrichment on the base tweet data
-            enriched_data = self._find_rule_matches(data)
-            self.logger.debug('Tweet Text: {}'.format(json.dumps(
-                              enriched_data.get('text', '').encode('utf-8'))))
+                    # Do any data enrichment on the base tweet data
+                    enriched_data = self._find_rule_matches(data)
+                    self.logger.debug('Tweet Text: {}'.format(json.dumps(
+                                      enriched_data.get('text', '').encode('utf-8'))))
 
-            # Stdout data output for Traptor.
-            print json.dumps(enriched_data, indent=2)
+                    # Stdout data output for Traptor.
+                    # print json.dumps(enriched_data, indent=2)
 
-            if self.kafka_enabled:
-                self.kafka_producer.send_messages(self.kafka_topic,
-                                                  json.dumps(data))
-
-            if self.test:
+                    if self.kafka_enabled:
+                        self.kafka_producer.send_messages(self.kafka_topic,
+                                                          json.dumps(data))
+            if self.test or self.restart_flag:
+                self.logger.info("Reset flag is true; restarting myself.")
                 break
 
     def run(self):
@@ -352,27 +365,30 @@ class Traptor(object):
             It sets up the logging, connections, grabs the rules from redis,
             and starts writing data to kafka if enabled.
         """
-
-        # Setup connections and logging
-        self._setup()
-
-        # Grab a list of {tag:, value:} rules
-        self.redis_rules = [rule for rule in self._get_redis_rules()]
-
-        # Concatenate all of the rule['value'] fields
-        self.twitter_rules = self._make_twitter_rules(self.redis_rules)
-
-        # Create bridy and kafka connections
-        self._create_birdy_stream()
-        if self.kafka_enabled:
-            self._create_kafka_producer(self.kafka_topic)
-
         # Spawn a thread to check the Redis PubSub for a message
-        ps_check = threading.Thread(group=None, target=self._check_redis_pubsub_for_restart
+        ps_check = threading.Thread(group=None, target=self._check_redis_pubsub_for_restart)
         ps_check.start()
+        
+        while True:
+            self.restart_flag = False
 
-        # Start collecting data
-        self._main_loop()
+            # Setup connections and logging
+            self._setup()
+
+            # Grab a list of {tag:, value:} rules
+            self.redis_rules = [rule for rule in self._get_redis_rules()]
+
+            # Concatenate all of the rule['value'] fields
+            self.twitter_rules = self._make_twitter_rules(self.redis_rules)
+            self.logger.info("Twitter rules: {}".format(self.twitter_rules))
+
+            # Create bridy and kafka connections
+            self._create_birdy_stream()
+            if self.kafka_enabled:
+                self._create_kafka_producer(self.kafka_topic)
+
+            # Start collecting data
+            self._main_loop()
 
 
 @click.command()

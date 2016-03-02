@@ -4,6 +4,8 @@
 """
 Run like so:
     python rule_extract.py sqldb locations
+    python rule_extract.py cooperapi follow 'http://qcr-shared:4x6ztqGF1KCF@192.168.33.99:5001/cooper/rules/list'
+    python rule_extract.py cooperapi track 'http://qcr-shared:4x6ztqGF1KCF@192.168.33.99:5001/cooper/rules/list'
     python rule_extract.py cooperapi locations 'http://qcr-shared:4x6ztqGF1KCF@192.168.33.99:5001/cooper/rules/list'
 """
 

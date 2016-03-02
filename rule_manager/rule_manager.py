@@ -218,9 +218,12 @@ class RuleManager(object):
             self.logger.error('Unable to communicate with Sentry to send message: '.format(message))
 
     def _get_traptor_hash_id(self, hash_lookup):
-        """Get the hash key of a given Traptor."""
-        max_hash_id = sorted(self.redis_conn.keys(hash_lookup), reverse=True)[0]
-        return int(max_hash_id.split(':')[2])
+        """Get the hash key of a given Traptor, or return 0 for a new one."""
+        try:
+            max_hash_id = sorted(self.redis_conn.keys(hash_lookup), reverse=True)[0]
+            return int(max_hash_id.split(':')[2])
+        except:
+            return 0
 
     def run(self):
         """Run the Rule Manager instance."""
@@ -351,13 +354,32 @@ class RuleManager(object):
         new_track_rule_count = len(track_rules_to_add)
         new_location_rule_count = len(location_rules_to_add)
 
+        self.logger.info("New rules to add. Follow: {}, Track: {}, Location: {}".format(new_follow_rule_count,
+                                                                                        new_track_rule_count,
+                                                                                        new_location_rule_count))
+        self.logger.info("Available Traptors: {}".format(len(available_traptors)))
+        self.logger.info(available_traptors)
+
         follow_traptor = None
         track_traptor = None
         locations_traptor = None
 
-        follow_traptor = next(t for t in available_traptors if t.split(':')[0] == 'follow' and t.split(':')[2] > new_follow_rule_count)
-        track_traptor = next(t for t in available_traptors if t.split(':')[0] == 'track' and t.split(':')[2] > new_track_rule_count)
-        locations_traptor = next(t for t in available_traptors if t.split(':')[0] == 'locations' and t.split(':')[2] > new_location_rule_count)
+        # For each type of Traptor, get the first with the highest availability
+        # If there are currently none of that type of Traptor, create the first one
+        try:
+            follow_traptor = next(t for t in available_traptors if t.split(':')[0] == 'follow' and t.split(':')[2] > new_follow_rule_count)
+        except:
+            follow_traptor = 'follow:0:5000'
+
+        try:
+            track_traptor = next(t for t in available_traptors if t.split(':')[0] == 'track' and t.split(':')[2] > new_track_rule_count)
+        except:
+            track_traptor = 'track:0:5000'
+
+        try:
+            locations_traptor = next(t for t in available_traptors if t.split(':')[0] == 'locations' and t.split(':')[2] > new_location_rule_count)
+        except:
+            locations_traptor = 'locations:0:5000'
 
         for rule in follow_rules_to_add:
             traptor_type, traptor_id, capacity = follow_traptor.split(':')
