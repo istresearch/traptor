@@ -7,3 +7,4 @@ click
 scutils>=0.0.6
 pymysql
 nose
+birdy>=0.2
