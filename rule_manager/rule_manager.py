@@ -23,7 +23,6 @@ from settings import (redis_settings, cooper_settings, sentry_settings,
                       rule_refresh_settings, traptor_pubsub_settings)
 import requests
 import redis
-import unicodedata
 from collections import Counter
 from scutils.log_factory import LogFactory
 from raven import Client
@@ -62,7 +61,7 @@ class RuleManager(object):
 
     def __repr__(self):
         """Represent yourself."""
-        return 'RuleManager({}, {}, {}, {}, {})'.format(
+        return 'RuleManager({}, {}, {}, {})'.format(
             self.cooper_url,
             self.redis_conn,
             self.traptor_notify_channel,
@@ -76,12 +75,6 @@ class RuleManager(object):
         self.logger = LogFactory.get_instance(name='traptor-rule-manager',
                                               level=self.log_level)
         self.logger.info('Finished set up. Continuing on.')
-
-    def _normalize_unicode_funk(self, item):
-        """Normalize the unicode funk."""
-        if isinstance(item, unicode):
-            item = unicodedata.normalize('NFKD', item).encode('utf-8')
-        return (item)
 
     def _get_rules_from_cooper(self):
         """Get the list of rules from Cooper."""
@@ -326,7 +319,8 @@ class RuleManager(object):
                 available_traptors.append(t_notify)
 
         # Sort the traptors in order of capacity
-        available_traptors = sorted(available_traptors, key=lambda traptor: traptor[2])
+        available_traptors = sorted(available_traptors,
+                                    key=lambda traptor: traptor[2])
 
         """
         Create Redis rules for the appropriate Traptors, add to Redis, and
@@ -354,18 +348,12 @@ class RuleManager(object):
         new_track_rule_count = len(track_rules_to_add)
         new_location_rule_count = len(location_rules_to_add)
 
-        self.logger.info("New rules to add. Follow: {}, Track: {}, Location: {}".format(new_follow_rule_count,
-                                                                                        new_track_rule_count,
-                                                                                        new_location_rule_count))
-        self.logger.info("Available Traptors: {}".format(len(available_traptors)))
-        self.logger.info(available_traptors)
-
         follow_traptor = None
         track_traptor = None
         locations_traptor = None
 
         # For each type of Traptor, get the first with the highest availability
-        # If there are currently none of that type of Traptor, create the first one
+        # If there are currently none of that type of Traptor, create the first
         try:
             follow_traptor = next(t for t in available_traptors if t.split(':')[0] == 'follow' and t.split(':')[2] > new_follow_rule_count)
         except:
@@ -450,7 +438,7 @@ class RuleManager(object):
                 self._add_message_to_redis(self.traptor_notify_channel,
                                            traptor)
 
-        self.logger.info("Finished running!")
+        self.logger.info("I have finished running!")
 
 
 def run_rule_manager(log_level):
@@ -489,9 +477,10 @@ def run_rule_manager(log_level):
 @click.option('--info', is_flag=True)
 @click.option('--debug', is_flag=True)
 def main(info, debug):
-    """Command line interface to run a Rule Manager instance.
+    """
+    Command line interface to run a Rule Manager instance.
 
-        Can pass it flags for debug levels
+    Can pass it flags for debug levels
     """
     if debug:
         log_level = 'DEBUG'

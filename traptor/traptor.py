@@ -140,13 +140,13 @@ class Traptor(object):
             Creates ``self.kafka_producer``.
         """
         try:
-            self.logger.info('Creating kafka producer for "{}"...'.format(self.kafka_topic))
+            self.logger.debug('Creating kafka producer for "{}"...'.format(self.kafka_topic))
             self.kafka_producer = SimpleProducer(self.kafka_conn)
         except KafkaUnavailableError as e:
             self.logger.critical(e)
             sys.exit(3)
         try:
-            self.logger.info('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
+            self.logger.debug('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
             self.kafka_conn.ensure_topic_exists(self.kafka_topic)
         except:
             raise
@@ -209,10 +209,10 @@ class Traptor(object):
             :param dict data: The dictionary twitter object.
             :returns: a ``dict`` with the augmented data fields.
         """
-        self.logger.info('Finding tweet rule matches')
+        self.logger.debug('Finding tweet rule matches')
         for rule in self.redis_rules:
             search_str = rule['value'].split()[0]
-            self.logger.info("Search string used for the rule match: {}".format(search_str))
+            self.logger.debug("Search string used for the rule match: {}".format(search_str))
             if re.search(search_str, json.dumps(data)):
                 data['rule_tag'] = rule['tag']
                 data['rule_value'] = rule['value']
@@ -305,7 +305,7 @@ class Traptor(object):
         this Traptor is found.
         """
         self.logger.info("Subscribing to the Traptor notification PubSub.")
-        self.logger.info("restart_flag = {}".format(self.restart_flag))
+        self.logger.debug("restart_flag = {}".format(self.restart_flag))
         p = self.pubsub_conn.pubsub()
         p.subscribe(self.traptor_notify_channel)
 
@@ -314,11 +314,11 @@ class Traptor(object):
             if m is not None:
                 data = str(m['data'])
                 t = data.split(':')
-                self.logger.info("PubSub Message: {}".format(t))
+                self.logger.debug("PubSub Message: {}".format(t))
                 if t[0] == self.traptor_type and t[1] == str(self.traptor_id):
                     # Log the action and restart
                     self.restart_flag = True
-                    self.logger.info("Redis PubSub message found. Setting restart flag to True.")
+                    self.logger.debug("Redis PubSub message found. Setting restart flag to True.")
 
     def _main_loop(self):
         """ Main loop for iterating through the twitter data.
@@ -380,7 +380,7 @@ class Traptor(object):
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
-            self.logger.info("Twitter rules: {}".format(self.twitter_rules))
+            self.logger.debug("Twitter rules: {}".format(self.twitter_rules))
 
             # Create bridy and kafka connections
             self._create_birdy_stream()
