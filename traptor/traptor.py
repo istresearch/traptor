@@ -100,6 +100,7 @@ class Traptor(object):
 
         # Set up required connections
         self._setup_birdy()
+
         if self.kafka_enabled:
             self._setup_kafka()
 
@@ -214,8 +215,9 @@ class Traptor(object):
             search_str = rule['value'].split()[0]
             self.logger.debug("Search string used for the rule match: {}".format(search_str))
             if re.search(search_str, json.dumps(data)):
-                data['rule_tag'] = rule['tag']
-                data['rule_value'] = rule['value']
+                data['traptor'] = {'rule_tag': rule['tag'],
+                                   'rule_value': rule['value']
+                                   }
 
         # self.logger.info('utf-8 Text: {0}'.format(data.get('text').encode('utf-8')))
         self.logger.debug('Rule matched - tag:{}, value:{}'.format(
@@ -288,11 +290,12 @@ class Traptor(object):
         """ Do any pre-processing to raw tweet data.
 
             :param dict tweet_dict: A tweet dictionary object.
-            :returns: A ``dict`` of the modifed tweet data.
+            :returns: A ``dict`` with a new 'created_at_iso field.
         """
         if tweet_dict.get('created_at'):
-            tweet_dict['created_at'] = self._tweet_time_to_iso(
-                tweet_dict['created_at'])
+            tweet_dict['traptor'] = {'created_at_iso': self._tweet_time_to_iso(
+                                    tweet_dict['created_at'])
+                                    }
             self.logger.debug('Fixed tweet object: \n {}'.format(
                               json.dumps(tweet_dict, indent=2)))
         return tweet_dict
@@ -329,35 +332,27 @@ class Traptor(object):
             the Traptor class.
         """
         # Iterate through the twitter results
-        for item in self.birdy_stream._stream_iter():
-            self.logger.debug("Checking for an item from the stream")
-            if item:
-                try:
-                    # _data = json.loads(item, object_hook=self._json_object_hook)
-                    _data = json.loads(item)
-                except:
-                    pass
-                else:
-                    self.logger.debug('Raw Tweet Data: \n {0}'.format(
-                                      json.dumps(_data, indent=2)))
+        for _data in self.birdy_stream.stream():
+            self.logger.debug('Raw Tweet Data: \n {0}'.format(
+                              json.dumps(_data, indent=2)))
 
-                    # Do tweet data pre-processing
-                    data = self._fix_tweet_object(_data)
+            # Do tweet data pre-processing
+            data = self._fix_tweet_object(_data)
 
-                    # Do any data enrichment on the base tweet data
-                    enriched_data = self._find_rule_matches(data)
-                    self.logger.debug('Tweet Text: {}'.format(json.dumps(
-                                      enriched_data.get('text', '').encode('utf-8'))))
+            # Do any data enrichment on the base tweet data
+            enriched_data = self._find_rule_matches(data)
+            self.logger.debug('Tweet Text: {}'.format(json.dumps(
+                             enriched_data.get('text', '').encode('utf-8'))))
 
-                    # Stdout data output for Traptor.
-                    # print json.dumps(enriched_data, indent=2)
+            # Stdout data output for Traptor.
+            print json.dumps(enriched_data, indent=2)
 
-                    if self.kafka_enabled:
-                        self.kafka_producer.send_messages(self.kafka_topic,
-                                                          json.dumps(data))
-            if self.test or self.restart_flag:
-                self.logger.info("Reset flag is true; restarting myself.")
-                break
+            if self.kafka_enabled:
+                self.kafka_producer.send_messages(self.kafka_topic,
+                                                  json.dumps(data))
+
+            # if self.test:
+            #     break
 
     def run(self):
         """ Run method for running a traptor instance.
@@ -382,10 +377,11 @@ class Traptor(object):
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
             self.logger.debug("Twitter rules: {}".format(self.twitter_rules))
 
-            # Create bridy and kafka connections
+        if not self.test:
             self._create_birdy_stream()
-            if self.kafka_enabled:
-                self._create_kafka_producer(self.kafka_topic)
+
+        if self.kafka_enabled:
+            self._create_kafka_producer(self.kafka_topic)
 
             # Start collecting data
             self._main_loop()

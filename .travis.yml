@@ -1,0 +1,13 @@
+sudo: false
+language: python
+python:
+  - "2.7"
+services:
+  - redis-server
+install: 'pip install -r requirements.txt'
+script: 'python -m pytest -v'
+
+notifications:
+  slack:
+    rooms:
+      - secure: "l5Hp+/WfDG5fjDGydrB006tkQeRA2XvmVadDPOPzw6neR42XTt95v9FKBYydP+CJyqQGxuB1oaobIgUyz/QOyLcjtn7qf25fBDWfyHYkfWcSQz/3q7aHh0oBBnHzhGTB8hhkSSaEw50qoPi12FT20RNIKncDPqRPA1izVpVYoxcAS7aKOKQcvm+ZUNkggZptK0iZHUWZ/lhv3k/JbLgUT1db5/IK20P4p6IvQJ37ippzhn532zb9sKq9pQsWgmb6Su4BEJJhPnDfh5o7NhLzyPTSUcPmHFW1IiakxAy6pn/bYkEpST+tV3iyI5Vet4/8HMYnPruwtDA4UU+RvQ9FFKr2aHrGsBVbxLDTeqhnjxeI5ZAWKdd9wX0YghqKOSp7eD9ajU2xNDCGhIwJNNCaoxqhZTCV5C9hGVv1cimazmSaEXqxY7tUZ5AR7uj7vovY/pGPGtLJOMuaioosJljhGAWRm0WQFGS9atBuLAia7ORBmBf8p16wvhyvH/gxlTDCxID7z4I+mjtEycLWlZj+1tbZgGzNTx/ZIUwXXzz/+0UCle6aDGGcEJwfaoyZcYlyZDpwAyZrSABhu3KAgbuqedv4Z6pOP23+HsNgesFecArmonHHfqK17+L+YHVICQqixH05Bki8f4oS/YS4Q+TRuVrTpcqXCO3k+UwqXL7gk1g="

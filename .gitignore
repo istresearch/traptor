@@ -44,3 +44,5 @@ dump.rdb
 
 # Jupyter notebooks used for testing
 *.ipynb
+
+.coverage
