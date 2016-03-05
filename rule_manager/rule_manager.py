@@ -441,35 +441,13 @@ class RuleManager(object):
         self.logger.info("I have finished running!")
 
 
-def run_rule_manager(log_level):
+def run_rule_manager(cooper_url, redis_conn, traptor_notify_channel, log_level, sentry_client):
     """Run the rule manager."""
-    cooper_url = cooper_settings['RULES_URL']
-
-    # Redis connection
-    redis_conn = redis.StrictRedis(host=redis_settings['HOST'],
-                                   port=redis_settings['PORT'],
-                                   db=redis_settings['DB'])
-
-    # Redis PubSub channel to notify the traptors
-    traptor_notify_channel = traptor_pubsub_settings['CHANNEL_NAME']
-
-    # Logging
-    log_level = log_level
-
-    # Set up a connection to Sentry if the user wants to use it
-    if sentry_settings['USE_SENTRY'] == 'True':
-        sentry_client = Client(sentry_settings['SENTRY_URL'])
-    else:
-        sentry_client = None
-
-    # Create a new rule manager
     rm = RuleManager(cooper_url=cooper_url,
                      redis_conn=redis_conn,
                      traptor_notify_channel=traptor_notify_channel,
                      log_level=log_level,
                      sentry_client=sentry_client)
-
-    # Run it
     rm.run()
 
 
@@ -490,11 +468,34 @@ def main(info, debug):
         log_level = 'CRITICAL'
 
     """Run the rule manager."""
+    cooper_url = cooper_settings['RULES_URL']
+
+    # Redis connection
+    redis_conn = redis.StrictRedis(host=redis_settings['HOST'],
+                                   port=redis_settings['PORT'],
+                                   db=redis_settings['DB'])
+
+    # Redis PubSub channel to notify the traptors
+    traptor_notify_channel = traptor_pubsub_settings['CHANNEL_NAME']
+
+    # Logging
+    log_level = log_level
+
+    # Set up a connection to Sentry if the user wants to use it
+    if sentry_settings['USE_SENTRY'] == 'True':
+        sentry_client = Client(sentry_settings['SENTRY_URL'])
+    else:
+        sentry_client = None
+
     # Rule manager refresh rate
     refresh_rate = rule_refresh_settings['RULE_REFRESH_TIME']
 
     while True:
-        run_rule_manager(log_level)
+        run_rule_manager(cooper_url,
+                         redis_conn,
+                         traptor_notify_channel,
+                         log_level,
+                         sentry_client)
         time.sleep(refresh_rate)
 
 if __name__ == '__main__':
