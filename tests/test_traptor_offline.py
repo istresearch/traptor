@@ -129,7 +129,6 @@ class TestTraptor(object):
 
         assert isinstance(traptor.logger, LogObject)
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
-        assert traptor.restart_flag is False
 
     def test_redis_rules(self, redis_rules, traptor):
         """Ensure the correct rules are retrieved for the Traptor type."""

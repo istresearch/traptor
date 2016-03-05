@@ -70,8 +70,6 @@ class Traptor(object):
         self.test = test
         self.traptor_notify_channel = traptor_notify_channel
         self.pubsub_conn = pubsub_conn
-        # Set the restart flag to True
-        self.restart_flag = False
 
     def __repr__(self):
         return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{})'.format(
@@ -97,6 +95,9 @@ class Traptor(object):
         # Set up logging
         self.logger = LogFactory.get_instance(name='traptor',
                                               level=self.log_level)
+
+        # Set the restart_flag to False
+        self.restart_flag = False
 
         # Set up required connections
         self._setup_birdy()
@@ -322,8 +323,6 @@ class Traptor(object):
                     self.restart_flag = True
                     self.logger.debug("Redis PubSub message found. \
                                       Setting restart flag to True.")
-            # if self.restart_flag:
-            #     break
 
     def _main_loop(self):
         """
@@ -368,7 +367,7 @@ class Traptor(object):
         ps_check = threading.Thread(group=None, target=self._check_redis_pubsub_for_restart)
         ps_check.start()
 
-        while self.restart_flag is False:
+        while True:
             # Setup connections and logging
             self._setup()
 
@@ -387,9 +386,6 @@ class Traptor(object):
 
                 # Start collecting data
                 self._main_loop()
-
-    def stop(self):
-        return 0
 
 
 @click.command()
