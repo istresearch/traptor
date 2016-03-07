@@ -1,5 +1,6 @@
 """Test Rule Manager."""
-# To run with autotest, run: py.test --looponfail
+# IMPORTANT: Ensure that Cooper is pointing to the test database before running these.
+# To run with autotest and print all output to console run: py.test -s --looponfail
 
 import pytest
 from rule_manager.settings import (redis_settings, cooper_settings,
@@ -11,11 +12,12 @@ from rule_manager.rule_manager import run_rule_manager
 from rule_manager.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 import json
+import pymysql
 
 
 @pytest.fixture()
 def cooper_url():
-    """Create a connection to the Redis PubSub."""
+    """Provide the Cooper URL."""
     cooper_url = cooper_settings['RULES_URL']
     return cooper_url
 
@@ -141,7 +143,7 @@ class TestRuleManager(object):
         c_follow_rules, c_track_rules, c_location_rules = \
             rule_manager._get_rules_from_cooper()
         assert len(c_follow_rules) == 1
-        assert len(c_track_rules) == 7
+        assert len(c_track_rules) == 1
         assert len(c_location_rules) == 1
 
     def test_get_traptor_rules_from_redis(self,
@@ -167,10 +169,114 @@ class TestRuleManager(object):
         assert len(all_traptor_rules) == 3
 
     def test_determine_rules_to_add_and_delete(self,
+                                               rule_manager,
                                                cooper_url,
                                                redis_rules):
         """Test the rule comparison."""
-        # Populate the Cooper database with the rules from Redis. Mark them as inactive.
-        # Add two new rules for each rule type
+        # Connect to the Cooper database
+        connection = pymysql.connect(host=cooper_settings['TEST_DB_HOST'],
+                                     user=cooper_settings['TEST_DB_USER'],
+                                     passwd=cooper_settings['TEST_DB_PASSWORD'])
+
+        with connection.cursor() as cursor:
+            # Drop the current test database
+            cursor.execute('drop database if exists {}'.format(cooper_settings['TEST_DB']))
+            # Create the database
+            cursor.execute('create database {}'.format(cooper_settings['TEST_DB']))
+            cursor.execute('use {}'.format(cooper_settings['TEST_DB']))
+            # Create the rules table
+            cursor.execute("""CREATE TABLE `rules` (
+                              `id` int(11) NOT NULL AUTO_INCREMENT,
+                              `user_id` int(11) DEFAULT NULL,
+                              `rule_set` varchar(40) DEFAULT NULL,
+                              `tag` varchar(100) DEFAULT NULL,
+                              `type` varchar(100) DEFAULT NULL,
+                              `value` varchar(100) CHARACTER SET utf8 DEFAULT NULL,
+                              `description` varchar(100) DEFAULT NULL,
+                              `status` varchar(100) DEFAULT NULL,
+                              `detasking` varchar(100) DEFAULT NULL,
+                              `date_added` datetime DEFAULT NULL,
+                              `notes` varchar(100) DEFAULT NULL,
+                              `appid` varchar(100) DEFAULT NULL,
+                              PRIMARY KEY (`id`),
+                              KEY `user_id` (`user_id`)
+                           ) ENGINE=InnoDB DEFAULT CHARSET=latin1;""")
+        connection.commit()
+
+        # Add the rules to use for testing
+        with open('tests/data/track_rules.json') as f:
+            track_rules = [json.loads(line) for line in f]
+        with open('tests/data/follow_rules.json') as f:
+            follow_rules = [json.loads(line) for line in f]
+        with open('tests/data/locations_rules.json') as f:
+            locations_rules = [json.loads(line) for line in f]
+
+        with connection.cursor() as cursor:
+            for rule in track_rules:
+                sql = "insert into `rules` (`tag`, `value`, `type`, `status`) values (%s, %s, %s, %s)"
+                cursor.execute(sql, (rule.get('tag'), rule.get('value'), 'keyword', 'Active'))
+            for rule in follow_rules:
+                sql = "insert into `rules` (`tag`, `value`, `type`, `status`) values (%s, %s, %s, %s)"
+                cursor.execute(sql, (rule.get('tag'), rule.get('value'), 'username', 'Active'))
+            for rule in locations_rules:
+                sql = "insert into `rules` (`tag`, `value`, `type`, `status`) values (%s, %s, %s, %s)"
+                cursor.execute(sql, (rule.get('tag'), rule.get('value'), 'geo', 'Active'))
+        connection.commit()
+
         # Run the method and check that the counts are correct
-        pass
+        rule_manager._setup()
+        rule_manager.cooper_url = cooper_url
+
+        c_follow_rules, c_track_rules, c_location_rules = rule_manager._get_rules_from_cooper()
+        r_follow_rules, r_track_rules, r_location_rules = rule_manager._get_traptor_rules_from_redis()
+
+        follow_rules_to_add, follow_rules_to_delete = rule_manager._determine_rules_to_add_and_delete('follow', c_follow_rules, r_follow_rules)
+        track_rules_to_add, track_rules_to_delete = rule_manager._determine_rules_to_add_and_delete('track', c_track_rules, r_track_rules)
+        location_rules_to_add, location_rules_to_delete = rule_manager._determine_rules_to_add_and_delete('location', c_location_rules, r_location_rules)
+
+        # All things should at first be equal
+        assert len(follow_rules_to_add) == 0
+        assert len(follow_rules_to_delete) == 0
+        assert len(track_rules_to_add) == 0
+        assert len(track_rules_to_delete) == 0
+        assert len(location_rules_to_add) == 0
+        assert len(location_rules_to_delete) == 0
+
+        # Add one of each type of rule to the database
+        with connection.cursor() as cursor:
+            sql = "insert into `rules` (`tag`, `value`, `type`, `status`) values (%s, %s, %s, %s)"
+            cursor.execute(sql, ('another_keyword_test', 'kickass', 'keyword', 'Active'))
+            sql = "insert into `rules` (`tag`, `value`, `type`, `status`) values (%s, %s, %s, %s)"
+            cursor.execute(sql, ('another_username_test', '48892028', 'username', 'Active'))
+            sql = "insert into `rules` (`tag`, `value`, `type`, `status`) values (%s, %s, %s, %s)"
+            cursor.execute(sql, ('another_geo_test', '-120.75,36.8,-119.75,37.8', 'geo', 'Active'))
+        connection.commit()
+
+        # Mark the initial rules inactive
+        with connection.cursor() as cursor:
+            for rule in track_rules:
+                sql = "update `rules` set `status` = 'Inactive' where `tag` = %s and `value` = %s and `type` = %s"
+                cursor.execute(sql, (rule.get('tag'), rule.get('value'), 'keyword'))
+            for rule in follow_rules:
+                sql = "update `rules` set `status` = 'Inactive' where `tag` = %s and `value` = %s and `type` = %s"
+                cursor.execute(sql, (rule.get('tag'), rule.get('value'), 'username'))
+            for rule in locations_rules:
+                sql = "update `rules` set `status` = 'Inactive' where `tag` = %s and `value` = %s and `type` = %s"
+                cursor.execute(sql, (rule.get('tag'), rule.get('value'), 'geo'))
+        connection.commit()
+
+        # Recreate the rule lists
+        c_follow_rules, c_track_rules, c_location_rules = rule_manager._get_rules_from_cooper()
+        r_follow_rules, r_track_rules, r_location_rules = rule_manager._get_traptor_rules_from_redis()
+
+        follow_rules_to_add, follow_rules_to_delete = rule_manager._determine_rules_to_add_and_delete('follow', c_follow_rules, r_follow_rules)
+        track_rules_to_add, track_rules_to_delete = rule_manager._determine_rules_to_add_and_delete('track', c_track_rules, r_track_rules)
+        location_rules_to_add, location_rules_to_delete = rule_manager._determine_rules_to_add_and_delete('location', c_location_rules, r_location_rules)
+
+        # Test that we have one of each rule to add and one of each to delete
+        assert len(follow_rules_to_add) == 1
+        assert len(follow_rules_to_delete) == 1
+        assert len(track_rules_to_add) == 1
+        assert len(track_rules_to_delete) == 1
+        assert len(location_rules_to_add) == 1
+        assert len(location_rules_to_delete) == 1

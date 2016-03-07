@@ -13,7 +13,12 @@ redis_settings = {
 }
 
 cooper_settings = {
-    'RULES_URL': 'COOPER_URL_HERE'
+    'RULES_URL': 'COOPER_URL_HERE',
+    'TEST_DB_HOST': 'TEST_DB_HOST_HERE',
+    'TEST_DB_PORT': 3306,
+    'TEST_DB_USER': 'TEST_DB_USER_HERE',
+    'TEST_DB_PASSWORD': 'TEST_DB_PASSWORD_HERE',
+    'TEST_DB': 'TEST_DB_NAME_HERE'
 }
 
 sentry_settings = {
