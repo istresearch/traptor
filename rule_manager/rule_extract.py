@@ -1,11 +1,21 @@
 #!/usr/bin/env python
 
+
+"""
+Run like so:
+    python rule_extract.py sqldb locations
+    python rule_extract.py cooperapi follow 'http://qcr-shared:4x6ztqGF1KCF@192.168.33.99:5001/cooper/rules/list'
+    python rule_extract.py cooperapi track 'http://qcr-shared:4x6ztqGF1KCF@192.168.33.99:5001/cooper/rules/list'
+    python rule_extract.py cooperapi locations 'http://qcr-shared:4x6ztqGF1KCF@192.168.33.99:5001/cooper/rules/list'
+"""
+
 import sys
 import json
 import re
 import redis
 import pymysql
 import logging
+import requests
 
 import click
 
@@ -225,7 +235,37 @@ def jsonfile(traptor_type, filename, conn):
     rc.send_rules(traptor_type, rules)
 
 
+@click.command()
+@click.argument('traptor_type')
+@click.argument('cooper_url')
+@click.option('--conn', default=None)
+def cooperapi(traptor_type, cooper_url, conn):
+    """ Contacts the Cooper API and sends rules to Redis """
+    payload = {'status': 'active', 'public_format': True}
+    response = requests.post(cooper_url, json=payload)
+    data = response.json()
+
+    # Create an array of dictionaries
+    rules = []
+    for rule in data['data']:
+        if rule['type'].lower() == traptor_type:
+            tag = rule['tag']
+            value = rule['value']
+            r = {'tag': tag, 'value': value}
+            rules.append(r)
+
+    # Send to Redis
+    if not conn:
+        conn = redis.StrictRedis(host=redis_settings['HOST'],
+                                 port=redis_settings['PORT'],
+                                 db=redis_settings['DB']
+                                 )
+    rc = RulesToRedis(conn)
+    rc.send_rules(traptor_type, rules)
+
+
 if __name__ == '__main__':
     cli.add_command(sqldb)
     cli.add_command(jsonfile)
+    cli.add_command(cooperapi)
     cli()

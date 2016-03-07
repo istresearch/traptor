@@ -41,4 +41,12 @@ var/
 .cache
 
 dump.rdb
+
+# Jupyter notebooks used for testing
+*.ipynb
+
+# Testing things to ignore
 .coverage
+.cagoule.db
+.pytest-incremental*
+deps.json

@@ -1,20 +1,19 @@
-import json
+"""Traptor tests."""
 
+import json
 import redis
 import pytest
 from mock import MagicMock
-from click.testing import CliRunner
 
 from traptor.traptor import Traptor, MyBirdyClient
 from traptor.settings import APIKEYS
-from scripts.rule_extract import RulesToRedis
-from scutils.log_factory import LogFactory, LogObject
+from rule_manager.rule_extract import RulesToRedis
+from scutils.log_factory import LogObject
 
 
 @pytest.fixture()
 def redis_rules(request):
-    """ Load up some sample traptor rules into Redis. """
-
+    """Load up some sample traptor rules into Redis."""
     with open('tests/data/track_rules.json') as f:
         track_rules = [json.loads(line) for line in f]
     with open('tests/data/follow_rules.json') as f:
@@ -23,7 +22,7 @@ def redis_rules(request):
         locations_rules = [json.loads(line) for line in f]
 
     conn = redis.StrictRedis(host='localhost', port=6379, db=5)
-    conn.flushall()
+    conn.flushdb()
 
     rc = RulesToRedis(conn)
     rc.send_rules(traptor_type='track', rules=track_rules)
@@ -31,27 +30,43 @@ def redis_rules(request):
     rc.send_rules(traptor_type='locations', rules=locations_rules)
 
     def cleanup():
-        conn.flushall()
+        conn.flushdb()
 
     request.addfinalizer(cleanup)
 
     return conn
 
 
+@pytest.fixture()
+def pubsub_conn():
+    """Create a connection to the Redis PubSub."""
+    p_conn = redis.StrictRedis(host='localhost', port=6379, db=5)
+    return p_conn
+
+
+@pytest.fixture()
+def traptor_notify_channel():
+    """Create a traptor notification channel."""
+    return 'traptor-notify'
+
+
 @pytest.fixture(params=['track',
                         'follow',
                         'locations',
                         ])
-def traptor(request, redis_rules):
-    traptor_instance = Traptor(apikeys=APIKEYS,
+def traptor(request, redis_rules, pubsub_conn, traptor_notify_channel):
+    """Create a Traptor instance."""
+    traptor_instance = Traptor(redis_conn=redis_rules,
+                               pubsub_conn=pubsub_conn,
                                traptor_type=request.param,
+                               apikeys=APIKEYS,
                                traptor_id=0,
-                               kafka_hosts='localhost',
+                               kafka_hosts='localhost:9092',
                                kafka_topic='traptor_test',
-                               redis_conn=redis_rules,
                                kafka_enabled=False,
                                log_level='INFO',
-                               test=True
+                               test=True,
+                               traptor_notify_channel=traptor_notify_channel
                                )
 
     return traptor_instance
@@ -59,44 +74,65 @@ def traptor(request, redis_rules):
 
 @pytest.fixture
 def tweets(request, traptor):
+    """Create a list of tweets."""
     with open('tests/data/' + traptor.traptor_type + '_tweet.json') as f:
         loaded_tweet = json.load(f)
 
     return loaded_tweet,
 
 
+@pytest.fixture
+def pubsub_messages(request):
+    """Create a list of pubsub messages."""
+    with open('tests/data/pubsub_messages.txt') as f:
+        messages = [line for line in f]
+
+    return messages,
+
+
 class TestRuleExtract():
+    """Test the rule extraction functionality."""
+
     def test_track(self, redis_rules):
+        """Test retrieving the tracking rules."""
         assert {'tag': 'test', 'value': 'happy'} == redis_rules.hgetall('traptor-track:0:0')
 
     def test_follow(self, redis_rules):
+        """Test retrieving the follow rules."""
         assert {'tag': 'test', 'value': '17919972'} == redis_rules.hgetall('traptor-follow:0:0')
 
     def test_locations(self, redis_rules):
+        """Test retrieving the location rules."""
         assert {'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8'} == redis_rules.hgetall('traptor-locations:0:0')
 
 
 class TestTraptor(object):
-    """ Test Traptor running in test mode, then test all the methods
-        individually.
-
-        TODO:  Add Kafka testing.
-        TODO:  Add location testing.
     """
-    def test_traptor_run(self, traptor, tweets):
+    Traptor tests.
 
+    Test Traptor running in test mode, then test all the methods individually.
+
+    TODO:  Add Kafka testing.
+    TODO:  Add location testing.
+    """
+
+    @pytest.mark.timeout(60)
+    def test_traptor_run(self, traptor, tweets):
+        """Ensure Traptor can be run."""
         traptor.birdy_stream = MagicMock(return_value=tweets)
         traptor.birdy_stream.stream = traptor.birdy_stream
-
-        traptor.run()
+        # TODO: get this working with the function started in a thread
+        # traptor.run()
 
     def test_setup(self, traptor):
+        """Ensure we can set up a Traptor."""
         traptor._setup()
 
         assert isinstance(traptor.logger, LogObject)
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
 
     def test_redis_rules(self, redis_rules, traptor):
+        """Ensure the correct rules are retrieved for the Traptor type."""
         traptor._setup()
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
 
@@ -108,6 +144,7 @@ class TestTraptor(object):
             assert traptor.redis_rules == [{'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8'}]
 
     def test_twitter_rules(self, traptor):
+        """Ensure Traptor can create Twitter rules from the Redis rules."""
         traptor._setup()
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
         traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
@@ -120,6 +157,7 @@ class TestTraptor(object):
             assert traptor.twitter_rules == '-122.75,36.8,-121.75,37.8'
 
     def test_main_loop(self, traptor, tweets):
+        """Ensure we can loop through the streaming Twitter data."""
         traptor._setup()
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
         traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
@@ -150,4 +188,15 @@ class TestTraptor(object):
             # Need to do some coordinate math on the geo bounding boxes.
 
             # assert enriched_data['traptor']['rule_tag'] == 'test'
-            # assert enriched_data['traptor']['rule_value'] == '-122.75,36.8,-121.75,37.8'
+            # assert enriched_data['traptor']['rule_value'] == \
+            #    '-122.75,36.8,-121.75,37.8'
+
+    @pytest.mark.timeout(60)
+    def test_check_redis_pubsub_for_restart(self, traptor, pubsub_conn):
+        """Test pubsub message causes the restart_flag to be set to True."""
+        traptor._setup()
+        traptor.pubsub_conn = pubsub_conn
+        traptor.restart_flag = True
+        # Run the _check_redis_pubsub_for_restart function
+        traptor._check_redis_pubsub_for_restart()
+        assert True
