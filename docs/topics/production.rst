@@ -71,3 +71,15 @@ Tasks
 Coming soon... how to set up Ansible tasks (link to sample code)
 
 
+Redis PubSub for Automatic Rule Refresh
+---------------------------------------
+
+When your Twitter rule set changes, the Traptor to which rules have been either added or deleted can be automatically restarted. While running, Traptor continuously checks a Redis pubsub channel for a message for itself, in the following format:
+
+<traptor-type>:<traptor-id>
+
+An example message is:
+
+track:0
+
+In order to use this functionality, add a message as formatted above to the Redis pubsub channel for each Traptor for which the rules changed.
