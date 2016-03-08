@@ -369,12 +369,13 @@ class Traptor(object):
             It sets up the logging, connections, grabs the rules from redis,
             and starts writing data to kafka if enabled.
         """
-
         # Setup connections and logging
         self._setup()
 
         # Spawn a thread to check the Redis PubSub for a message
-        ps_check = threading.Thread(group=None, target=self._check_redis_pubsub_for_restart)
+        ps_check = threading.Thread(group=None,
+                                    target=self._check_redis_pubsub_for_restart
+                                    )
         ps_check.setDaemon(True)
         ps_check.start()
 
@@ -392,12 +393,10 @@ class Traptor(object):
             if self.kafka_enabled:
                 self._create_kafka_producer(self.kafka_topic)
 
-                self.restart_flag = False
-                self.logger.info("Restart flag: {}".format(self.restart_flag))
+            self.restart_flag = False
 
-                # Start collecting data
-                self._main_loop()
-
+            # Start collecting data
+            self._main_loop()
 
 @click.command()
 @click.option('--test', is_flag=True)
