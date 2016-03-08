@@ -367,7 +367,9 @@ class Traptor(object):
         self._setup()
 
         # Spawn a thread to check the Redis PubSub for a message
-        ps_check = threading.Thread(group=None, target=self._check_redis_pubsub_for_restart)
+        ps_check = threading.Thread(group=None,
+                                    target=self._check_redis_pubsub_for_restart
+                                    )
         ps_check.start()
 
         while True:
