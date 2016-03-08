@@ -363,14 +363,14 @@ class Traptor(object):
             It sets up the logging, connections, grabs the rules from redis,
             and starts writing data to kafka if enabled.
         """
+        # Setup connections and logging
+        self._setup()
+
         # Spawn a thread to check the Redis PubSub for a message
         ps_check = threading.Thread(group=None, target=self._check_redis_pubsub_for_restart)
         ps_check.start()
 
         while True:
-            # Setup connections and logging
-            self._setup()
-
             # Grab a list of {tag:, value:} rules
             self.redis_rules = [rule for rule in self._get_redis_rules()]
 
