@@ -34,11 +34,13 @@ lint_requires = [
 ]
 
 tests_require = [
-    'nose',
+    # 'nose',
     'mock',
+    'pytest',
+    'pymysql'
 ]
 dependency_links = []
-setup_requires = []
+setup_requires = ['pytest-runner']
 extras_require = {
     'test': tests_require,
     'all': install_requires + tests_require,
@@ -68,7 +70,7 @@ setup(
     extras_require=extras_require,
     dependency_links=dependency_links,
     zip_safe=True,
-    test_suite='nose.collector',
+    # test_suite='nose.collector',
     include_package_data=True,
     # entry_points={'console_scripts': ['traptor=traptor.traptor:main']},
 )
