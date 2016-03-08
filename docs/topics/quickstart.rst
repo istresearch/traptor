@@ -36,6 +36,7 @@ Configuring Traptor
 #.  Remove the "Local Overrides" section from the ``localsettings.py`` file.
 #.  Fill in the ``APIKEYS`` and  ``TRAPTOR_TYPE`` fields.
 #.  Optionally update the kafka and redis connection information if you are not running locally.
+#.  Optionally add a Redis pubsub channel if you are using pubsub to automatically refresh the rules Traptor uses.
 #.  Add your ruleset to Redis.  This can be done any number of ways depending on where you are keeping your rules.  In the in the ``scripts/rule-extract.py`` file there are examples of how to extract rules from a GNIP ruleset file and a MySQL database.  You may wish to add a custom function to parse out rules from other sources.
 
 .. important:: Be sure to insert each rule as a ``hashmap`` data type with the key format of ``traptor-<traptor_type>:<traptor_id>:<rule_id>``.

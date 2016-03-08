@@ -9,6 +9,13 @@ REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 REDIS_DB = 0
 
+'''
+In order for a Traptor to restart itself, it looks for a message in
+Redis in the format of <traptor-type>:<traptor-id>. Once it sees a
+message for itself it restarts, thus refreshing it's rules.
+'''
+REDIS_PUBSUB_CHANNEL = "traptor-notify"
+
 # Kafka topic to write all twitter data
 KAFKA_TOPIC = "traptor"
 
