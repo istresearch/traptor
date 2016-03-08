@@ -384,8 +384,8 @@ class Traptor(object):
             if self.kafka_enabled:
                 self._create_kafka_producer(self.kafka_topic)
 
-                # Start collecting data
-                self._main_loop()
+            # Start collecting data
+            self._main_loop()
 
 
 @click.command()
