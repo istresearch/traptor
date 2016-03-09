@@ -312,7 +312,7 @@ class Traptor(object):
         p = self.pubsub_conn.pubsub()
         p.subscribe(self.traptor_notify_channel)
 
-        while True:
+        while self.restart_flag is not True:
             m = p.get_message()
             if m is not None:
                 data = str(m['data'])
