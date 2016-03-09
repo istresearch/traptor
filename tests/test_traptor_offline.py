@@ -118,15 +118,6 @@ class TestTraptor(object):
     TODO:  Add location testing.
     """
 
-    @pytest.mark.timeout(15)
-    def test_traptor_run(self, traptor, tweets):
-        """Ensure Traptor can be run."""
-        traptor.birdy_stream = MagicMock(return_value=tweets)
-        traptor.birdy_stream.stream = traptor.birdy_stream
-        # TODO: get this working with the function started in a thread
-        # traptor.run()
-
-    @pytest.mark.timeout(15)
     def test_setup(self, traptor):
         """Ensure we can set up a Traptor."""
         traptor._setup()
@@ -134,7 +125,6 @@ class TestTraptor(object):
         assert isinstance(traptor.logger, LogObject)
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
 
-    @pytest.mark.timeout(15)
     def test_redis_rules(self, redis_rules, traptor):
         """Ensure the correct rules are retrieved for the Traptor type."""
         traptor._setup()
@@ -147,7 +137,6 @@ class TestTraptor(object):
         if traptor.traptor_type == 'locations':
             assert traptor.redis_rules == [{'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8'}]
 
-    @pytest.mark.timeout(15)
     def test_twitter_rules(self, traptor):
         """Ensure Traptor can create Twitter rules from the Redis rules."""
         traptor._setup()
@@ -161,7 +150,6 @@ class TestTraptor(object):
         if traptor.traptor_type == 'locations':
             assert traptor.twitter_rules == '-122.75,36.8,-121.75,37.8'
 
-    @pytest.mark.timeout(15)
     def test_main_loop(self, traptor, tweets):
         """Ensure we can loop through the streaming Twitter data."""
         traptor._setup()
@@ -197,7 +185,6 @@ class TestTraptor(object):
             # assert enriched_data['traptor']['rule_value'] == \
             #    '-122.75,36.8,-121.75,37.8'
 
-    @pytest.mark.timeout(15)
     def test_check_redis_pubsub_for_restart(self, traptor, pubsub_conn):
         """Test pubsub message causes the restart_flag to be set to True."""
         traptor._setup()
