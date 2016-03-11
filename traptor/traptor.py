@@ -337,7 +337,7 @@ class Traptor(object):
         for item in self.birdy_stream._stream_iter():
             if item:
                 try:
-                    _data = json.loads(item, object_hook=self._json_object_hook)
+                    _data = json.loads(item)
                 except:
                     pass
                 else:
@@ -359,9 +359,9 @@ class Traptor(object):
                         self.kafka_producer.send_messages(self.kafka_topic,
                                                           json.dumps(data))
 
-            if self.restart_flag:
-                self.logger.info("Reset flag is true; restarting myself.")
-                break
+                    if self.restart_flag:
+                        self.logger.info("Reset flag is true; restarting myself.")
+                        break
 
     def run(self):
         """ Run method for running a traptor instance.
