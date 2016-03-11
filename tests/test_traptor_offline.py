@@ -118,14 +118,6 @@ class TestTraptor(object):
     TODO:  Add location testing.
     """
 
-    @pytest.mark.timeout(60)
-    def test_traptor_run(self, traptor, tweets):
-        """Ensure Traptor can be run."""
-        traptor.birdy_stream = MagicMock(return_value=tweets)
-        traptor.birdy_stream.stream = traptor.birdy_stream
-        # TODO: get this working with the function started in a thread
-        # traptor.run()
-
     def test_setup(self, traptor):
         """Ensure we can set up a Traptor."""
         traptor._setup()
@@ -193,7 +185,6 @@ class TestTraptor(object):
             # assert enriched_data['traptor']['rule_value'] == \
             #    '-122.75,36.8,-121.75,37.8'
 
-    @pytest.mark.timeout(60)
     def test_check_redis_pubsub_for_restart(self, traptor, pubsub_conn):
         """Test pubsub message causes the restart_flag to be set to True."""
         traptor._setup()
