@@ -353,11 +353,11 @@ class Traptor(object):
                                       enriched_data.get('text', '').encode('utf-8'))))
 
                     # Stdout data output for Traptor.
-                    # print json.dumps(enriched_data, indent=2)
+                    print json.dumps(enriched_data, indent=2)
 
                     if self.kafka_enabled:
                         self.kafka_producer.send_messages(self.kafka_topic,
-                                                          json.dumps(data))
+                                                          json.dumps(enriched_data))
 
                     if self.restart_flag:
                         self.logger.info("Reset flag is true; restarting myself.")
