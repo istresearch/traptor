@@ -203,29 +203,29 @@ class Traptor(object):
         self.logger.debug('Twitter rules string: {}'.format(rules_str))
         return rules_str
 
-    def _find_rule_matches(self, data):
+    def _find_rule_matches(self, tweet_dict):
         """ Find which rule the tweet matched.  This code only expects there to
             be one match.  If there is more than one, it will use the last one
             it finds since the first match will be overwritten.
 
-            :param dict data: The dictionary twitter object.
+            :param dict tweet_dict: The dictionary twitter object.
             :returns: a ``dict`` with the augmented data fields.
         """
+        new_dict = self._create_traptor_obj(tweet_dict)
         self.logger.debug('Finding tweet rule matches')
         for rule in self.redis_rules:
             search_str = rule['value'].split()[0]
             self.logger.debug("Search string used for the rule match: {}".format(search_str))
-            if re.search(search_str, json.dumps(data)):
-                data['traptor'] = {'rule_tag': rule['tag'],
-                                   'rule_value': rule['value']
-                                   }
+            if re.search(search_str, json.dumps(new_dict)):
+                new_dict['traptor']['rule_tag'] = rule['tag']
+                new_dict['traptor']['rule_value'] = rule['value']
 
-        # self.logger.info('utf-8 Text: {0}'.format(data.get('text').encode('utf-8')))
+        # self.logger.info('utf-8 Text: {0}'.format(new_dict.get('text').encode('utf-8')))
         self.logger.debug('Rule matched - tag:{}, value:{}'.format(
-                    data.get('rule_tag'), data.get('rule_value')))
-        # self.logger.debug('Cleaned Data: {0}'.format(json.dumps(data)))
+                    new_dict.get('rule_tag'), new_dict.get('rule_value')))
+        # self.logger.debug('Cleaned Data: {0}'.format(json.dumps(new_dict)))
 
-        return data
+        return new_dict
 
     def _get_redis_rules(self):
         """ Yields a traptor rule from redis.  This function
@@ -287,18 +287,26 @@ class Traptor(object):
         """
         return parser.parse(tweet_time).isoformat()
 
+    def _create_traptor_obj(self, tweet_dict):
+        if 'traptor' not in tweet_dict:
+            tweet_dict['traptor'] = {}
+
+        return tweet_dict
+
     def _fix_tweet_object(self, tweet_dict):
         """ Do any pre-processing to raw tweet data.
 
             :param dict tweet_dict: A tweet dictionary object.
             :returns: A ``dict`` with a new 'created_at_iso field.
         """
-        if tweet_dict.get('created_at'):
-            tweet_dict['traptor'] = {'created_at_iso': self._tweet_time_to_iso(
-                                     tweet_dict['created_at'])}
+        new_dict = self._create_traptor_obj(tweet_dict)
+        if new_dict.get('created_at'):
+
+            new_dict['traptor']['created_at_iso'] = self._tweet_time_to_iso(
+                                                    new_dict['created_at'])
             self.logger.debug('Fixed tweet object: \n {}'.format(
-                              json.dumps(tweet_dict, indent=2)))
-        return tweet_dict
+                              json.dumps(new_dict, indent=2)))
+        return new_dict
 
     def _check_redis_pubsub_for_restart(self):
         """

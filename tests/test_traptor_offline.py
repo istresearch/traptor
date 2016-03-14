@@ -162,20 +162,20 @@ class TestTraptor(object):
         data = traptor._fix_tweet_object(_data)
 
         if traptor.traptor_type == 'track':
-            assert data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
             enriched_data = traptor._find_rule_matches(data)
+            assert data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == 'happy'
 
         if traptor.traptor_type == 'follow':
-            assert data['traptor']['created_at_iso'] == '2016-02-20T03:52:59+00:00'
             enriched_data = traptor._find_rule_matches(data)
+            assert data['traptor']['created_at_iso'] == '2016-02-20T03:52:59+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == '17919972'
 
         if traptor.traptor_type == 'locations':
-            assert data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
             enriched_data = traptor._find_rule_matches(data)
+            assert data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
 
             # TODO.
             # Need to figure out how to map location rules back to results.
