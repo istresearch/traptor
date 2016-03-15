@@ -406,12 +406,16 @@ class Traptor(object):
 @click.option('--info', is_flag=True)
 @click.option('--debug', is_flag=True)
 @click.option('--delay', default=1)
-def main(test, info, debug, delay):
+@click.option('--id')
+@click.option('--type')
+@click.option('--key', default=0)
+def main(test, info, debug, delay, id, type, key):
     """ Command line interface to run a traptor instance.
 
         Can pass it flags for debug levels and also --test mode, which means
         it will not write to kafka but stdout instread.
     """
+
     kafka_enabled = False if test else True
     if debug:
         log_level = 'DEBUG'
@@ -419,6 +423,9 @@ def main(test, info, debug, delay):
         log_level = 'INFO'
     else:
         log_level = 'CRITICAL'
+
+    traptor_id = id if id else TRAPTOR_ID
+    traptor_type = type if type else TRAPTOR_TYPE
 
     redis_conn = StrictRedis(host=REDIS_HOST,
                              port=REDIS_PORT,
@@ -428,9 +435,9 @@ def main(test, info, debug, delay):
                               port=REDIS_PORT,
                               db=REDIS_DB)
 
-    traptor_instance = Traptor(apikeys=APIKEYS,
-                               traptor_type=TRAPTOR_TYPE,
-                               traptor_id=TRAPTOR_ID,
+    traptor_instance = Traptor(apikeys=APIKEYS[key],
+                               traptor_type=traptor_type,
+                               traptor_id=traptor_id,
                                kafka_hosts=KAFKA_HOSTS,
                                kafka_topic=KAFKA_TOPIC,
                                redis_conn=redis_conn,
