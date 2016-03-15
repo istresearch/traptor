@@ -15,10 +15,6 @@ import threading
 
 from scutils.log_factory import LogFactory
 
-from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
-                      TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
-                      REDIS_PUBSUB_CHANNEL)
-
 
 # Override the default JSONobject
 class MyBirdyClient(StreamClient):
@@ -451,4 +447,7 @@ def main(test, info, debug, delay):
     traptor_instance.run()
 
 if __name__ == '__main__':
+    from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
+                          TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
+                          REDIS_PUBSUB_CHANNEL)
     sys.exit(main())
