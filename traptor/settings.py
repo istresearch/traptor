@@ -20,12 +20,14 @@ REDIS_PUBSUB_CHANNEL = "traptor-notify"
 KAFKA_TOPIC = "traptor"
 
 # Your API information.  Fill this out in localsettings.py!
-APIKEYS = {
-    'CONSUMER_KEY': "",
-    'CONSUMER_SECRET': "",
-    'ACCESS_TOKEN': "",
-    'ACCESS_TOKEN_SECRET': ""
-}
+APIKEYS = (
+           {
+            'CONSUMER_KEY': "",
+            'CONSUMER_SECRET': "",
+            'ACCESS_TOKEN': "",
+            'ACCESS_TOKEN_SECRET': ""
+            }
+)
 
 '''
 Each 'traptor_type' has a unqiue 'traptor_id'.  This ID is how traptor knows
