@@ -100,10 +100,12 @@ class Traptor(object):
         self.restart_flag = False
 
         # Set up required connections
-        self._setup_birdy()
 
         if self.kafka_enabled:
             self._setup_kafka()
+
+        self._setup_birdy()
+
 
     def _setup_birdy(self):
         """ Set up a birdy twitter stream.
@@ -200,8 +202,22 @@ class Traptor(object):
                       a birdy twitter stream.
         """
         rules_str = ','.join([rule['value'] for rule in rules])
-        self.logger.debug('Twitter rules string: {}'.format(rules_str))
+        self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
         return rules_str
+
+    def _add_rule_tag_and_value_to_tweet(self, tweet_dict, search_str, rule_tag, rule_value):
+
+        for i in tweet_dict.keys():
+            if isinstance(tweet_dict[i], unicode) and search_str.lower() in tweet_dict[i].lower():
+                tweet_dict['traptor']['rule_tag'] = rule_tag
+                tweet_dict['traptor']['rule_value'] = rule_value
+            elif isinstance(tweet_dict[i], dict):
+                for attribute, value in tweet_dict[i].iteritems():
+                    if isinstance(value, unicode) and search_str.lower() in value.lower():
+                        tweet_dict['traptor']['rule_tag'] = rule_tag
+                        tweet_dict['traptor']['rule_value'] = rule_value
+
+        return tweet_dict
 
     def _find_rule_matches(self, tweet_dict):
         """ Find which rule the tweet matched.  This code only expects there to
@@ -213,18 +229,25 @@ class Traptor(object):
         """
         new_dict = self._create_traptor_obj(tweet_dict)
         self.logger.debug('Finding tweet rule matches')
+
         for rule in self.redis_rules:
-            search_str = rule['value'].split()[0]
-            self.logger.debug("Search string used for the rule match: {}".format(search_str))
-            if re.search(search_str, json.dumps(new_dict)):
-                new_dict['traptor']['rule_tag'] = rule['tag']
-                new_dict['traptor']['rule_value'] = rule['value']
-
-        # self.logger.info('utf-8 Text: {0}'.format(new_dict.get('text').encode('utf-8')))
-        self.logger.debug('Rule matched - tag:{}, value:{}'.format(
-                    new_dict.get('rule_tag'), new_dict.get('rule_value')))
-        # self.logger.debug('Cleaned Data: {0}'.format(json.dumps(new_dict)))
-
+            search_str = rule['value']
+            # self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
+            if re.search(',', search_str):
+                for s in search_str.split(','):
+                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
+                                                                     s,
+                                                                     rule['tag'],
+                                                                     rule['value'])
+            else:
+                search_str = rule['value'].split()[0]
+                for i in new_dict.keys():
+                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
+                                                                     search_str,
+                                                                     rule['tag'],
+                                                                     rule['value'])
+            # self.logger.debug('Rule matched - tag:{}, value:{}'.format(rule['tag'],
+            #                                                            rule['value'].encode('utf-8')))
         return new_dict
 
     def _get_redis_rules(self):
@@ -304,8 +327,8 @@ class Traptor(object):
 
             new_dict['traptor']['created_at_iso'] = self._tweet_time_to_iso(
                                                     new_dict['created_at'])
-            self.logger.debug('Fixed tweet object: \n {}'.format(
-                              json.dumps(new_dict, indent=2)))
+            # self.logger.debug('Fixed tweet object: \n {}'.format(
+            #                   json.dumps(new_dict, indent=2)))
         return new_dict
 
     def _check_redis_pubsub_for_restart(self):
@@ -349,16 +372,14 @@ class Traptor(object):
                 except:
                     pass
                 else:
-                    self.logger.debug('Raw Tweet Data: \n {0}'.format(
-                                      json.dumps(_data, indent=2)))
+                    # self.logger.debug('Raw Tweet Data: \n {0}'.format(
+                    #                   json.dumps(_data, indent=2)))
 
                     # Do tweet data pre-processing
                     data = self._fix_tweet_object(_data)
 
                     # Do any data enrichment on the base tweet data
                     enriched_data = self._find_rule_matches(data)
-                    self.logger.debug('Tweet Text: {}'.format(json.dumps(
-                                      enriched_data.get('text', '').encode('utf-8'))))
 
                     # Stdout data output for Traptor.
                     print json.dumps(enriched_data, indent=2)
@@ -367,9 +388,9 @@ class Traptor(object):
                         self.kafka_producer.send_messages(self.kafka_topic,
                                                           json.dumps(enriched_data))
 
-                    if self.restart_flag:
-                        self.logger.info("Reset flag is true; restarting myself.")
-                        break
+            if self.restart_flag:
+                self.logger.info("Reset flag is true; restarting myself.")
+                break
 
     def run(self):
         """ Run method for running a traptor instance.
@@ -389,16 +410,17 @@ class Traptor(object):
         while True:
             # Grab a list of {tag:, value:} rules
             self.redis_rules = [rule for rule in self._get_redis_rules()]
+            self.logger.debug("Redis rules: {}".format(self.redis_rules))
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
-            self.logger.debug("Twitter rules: {}".format(self.twitter_rules))
-
-            if not self.test:
-                self._create_birdy_stream()
+            self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
 
             if self.kafka_enabled:
                 self._create_kafka_producer(self.kafka_topic)
+
+            if not self.test:
+                self._create_birdy_stream()
 
             self.restart_flag = False
 
@@ -426,7 +448,8 @@ def main(test, info, debug, delay):
 
     redis_conn = StrictRedis(host=REDIS_HOST,
                              port=REDIS_PORT,
-                             db=REDIS_DB)
+                             db=REDIS_DB,
+                             decode_responses=True)
 
     pubsub_conn = StrictRedis(host=REDIS_HOST,
                               port=REDIS_PORT,
