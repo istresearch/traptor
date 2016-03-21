@@ -6,9 +6,6 @@ import pytest
 from mock import MagicMock
 
 from traptor.traptor import Traptor, MyBirdyClient
-from traptor.settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
-                              TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
-                              REDIS_PUBSUB_CHANNEL)
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
@@ -23,7 +20,7 @@ def redis_rules(request):
     with open('tests/data/locations_rules.json') as f:
         locations_rules = [json.loads(line) for line in f]
 
-    conn = redis.StrictRedis(host=REDIS_HOST, port=6379, db=5)
+    conn = redis.StrictRedis(host='localhost', port=6379, db=5)
     conn.flushdb()
 
     rc = RulesToRedis(conn)
@@ -42,7 +39,7 @@ def redis_rules(request):
 @pytest.fixture()
 def pubsub_conn():
     """Create a connection to the Redis PubSub."""
-    p_conn = redis.StrictRedis(host=REDIS_HOST, port=6379, db=5)
+    p_conn = redis.StrictRedis(host='localhost', port=6379, db=5)
     return p_conn
 
 
@@ -58,12 +55,18 @@ def traptor_notify_channel():
                         ])
 def traptor(request, redis_rules, pubsub_conn, traptor_notify_channel):
     """Create a Traptor instance."""
+    APIKEYS = ({
+        'CONSUMER_KEY': '',
+        'CONSUMER_SECRET': '',
+        'ACCESS_TOKEN': '',
+        'ACCESS_TOKEN_SECRET': ''
+    })
     traptor_instance = Traptor(redis_conn=redis_rules,
                                pubsub_conn=pubsub_conn,
                                traptor_type=request.param,
                                apikeys=APIKEYS,
                                traptor_id=0,
-                               kafka_hosts=KAFKA_HOSTS,
+                               kafka_hosts='localhost:9092',
                                kafka_topic='traptor_test',
                                kafka_enabled=False,
                                log_level='INFO',
