@@ -203,12 +203,12 @@ class Traptor(object):
 
     def _add_rule_tag_and_value_to_tweet(self, tweet_dict, search_str, rule_tag, rule_value):
 
-        for i in tweet_dict.keys():
-            if isinstance(tweet_dict[i], unicode) and search_str.lower() in tweet_dict[i].lower():
+        for k, v in tweet_dict.iteritems():
+            if isinstance(v, unicode) and search_str.lower() in v.lower():
                 tweet_dict['traptor']['rule_tag'] = rule_tag
                 tweet_dict['traptor']['rule_value'] = rule_value
-            elif isinstance(tweet_dict[i], dict):
-                for attribute, value in tweet_dict[i].iteritems():
+            elif isinstance(v, dict):
+                for attribute, value in v.iteritems():
                     if isinstance(value, unicode) and search_str.lower() in value.lower():
                         tweet_dict['traptor']['rule_tag'] = rule_tag
                         tweet_dict['traptor']['rule_value'] = rule_value
