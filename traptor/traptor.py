@@ -208,9 +208,6 @@ class Traptor(object):
             if isinstance(v, unicode) and search_str.lower() in v.lower():
                 tweet_dict['traptor']['rule_tag'] = rule_tag
                 tweet_dict['traptor']['rule_value'] = rule_value
-            else:
-                self.logger.warning('Could not find rule match for {}'.format(
-                                                    tweet_dict.get('id_str')))
 
         return tweet_dict
 
@@ -243,6 +240,13 @@ class Traptor(object):
                                                                      rule['value'])
             # self.logger.debug('Rule matched - tag:{}, value:{}'.format(rule['tag'],
             #                                                            rule['value'].encode('utf-8')))
+
+            if 'rule_tag' not in new_dict['traptor']:
+                self.logger.warning('Could not find rule_tag: {}, rule_value: {}, in tweet {}'.format(
+                                    rule['tag'], rule['value'], new_dict.get('id_str')))
+                new_dict['traptor']['rule_tag'] = 'Not found'
+                new_dict['traptor']['rule_value'] = 'Not found'
+
         return new_dict
 
     def _get_redis_rules(self):
@@ -382,6 +386,7 @@ class Traptor(object):
                     if self.kafka_enabled:
                         self.kafka_producer.send_messages(self.kafka_topic,
                                                           json.dumps(enriched_data))
+
 
             if self.restart_flag:
                 self.logger.info("Reset flag is true; restarting myself.")
