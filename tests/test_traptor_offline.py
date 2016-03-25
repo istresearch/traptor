@@ -122,11 +122,59 @@ class TestTraptor(object):
     """
 
     def test_setup(self, traptor):
-        """Ensure we can set up a Traptor."""
+        """
+            Ensure we can set up a Traptor.
+            Covers the following methods:
+
+            _setup_birdy()
+            _setup_kafka() [Kafka connection expected to be None in offline mode]
+            _setup()
+        """
         traptor._setup()
 
         assert isinstance(traptor.logger, LogObject)
+        assert traptor.restart_flag is False
+        assert traptor.kafka_conn is None
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
+
+    def test_create_kafka_producer(self, traptor):
+        traptor._setup()
+        traptor._create_kafka_producer('testtopic')
+        assert traptor.kafka_producer == None
+
+
+    # def test_create_birdy_stream(self):
+    #     pass
+
+    # def test_make_twitter_rules(self):
+    #     pass
+
+    # def test_add_rule_tag_and_value_to_tweet(self):
+    #     pass
+
+    # def test_find_rule_matches(self):
+    #     pass
+
+    # def test_get_redis_rules(self):
+    #     pass
+
+    # def test_tweet_time_to_iso(self):
+    #     pass
+
+    # def test_create_traptor_obj(self):
+    #     pass
+
+    # def test_fix_tweet_object(self):
+    #     pass
+
+    def test_check_redis_pubsub_for_restart(self, traptor, pubsub_conn):
+        """Test pubsub message causes the restart_flag to be set to True."""
+        traptor._setup()
+        traptor.pubsub_conn = pubsub_conn
+        traptor.restart_flag = True
+        # Run the _check_redis_pubsub_for_restart function
+        traptor._check_redis_pubsub_for_restart()
+        assert True
 
     def test_redis_rules(self, redis_rules, traptor):
         """Ensure the correct rules are retrieved for the Traptor type."""
@@ -163,21 +211,20 @@ class TestTraptor(object):
 
         _data = traptor.birdy_stream.stream()[0]
         data = traptor._fix_tweet_object(_data)
+        enriched_data = traptor._find_rule_matches(data)
 
         if traptor.traptor_type == 'track':
-            enriched_data = traptor._find_rule_matches(data)
+            
             assert data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == 'happy'
 
         if traptor.traptor_type == 'follow':
-            enriched_data = traptor._find_rule_matches(data)
             assert data['traptor']['created_at_iso'] == '2016-02-20T03:52:59+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == '17919972'
 
         if traptor.traptor_type == 'locations':
-            enriched_data = traptor._find_rule_matches(data)
             assert data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
 
             # TODO.
@@ -187,12 +234,3 @@ class TestTraptor(object):
             # assert enriched_data['traptor']['rule_tag'] == 'test'
             # assert enriched_data['traptor']['rule_value'] == \
             #    '-122.75,36.8,-121.75,37.8'
-
-    def test_check_redis_pubsub_for_restart(self, traptor, pubsub_conn):
-        """Test pubsub message causes the restart_flag to be set to True."""
-        traptor._setup()
-        traptor.pubsub_conn = pubsub_conn
-        traptor.restart_flag = True
-        # Run the _check_redis_pubsub_for_restart function
-        traptor._check_redis_pubsub_for_restart()
-        assert True
