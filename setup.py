@@ -26,6 +26,7 @@ install_requires = [
     # 'mock',
     # 'pymysql',
     'scutils>=0.0.6',
+    'flatdict'
 ]
 
 lint_requires = [

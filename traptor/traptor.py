@@ -10,6 +10,7 @@ from kafka import SimpleProducer, KafkaClient
 from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
 from birdy.twitter import StreamClient, TwitterApiError
 import click
+from flatdict import FlatDict
 
 import threading
 
@@ -82,27 +83,6 @@ class Traptor(object):
             self.pubsub_conn
         )
 
-    def _setup(self):
-        """
-        Load everything up. Note that any arg here will override both
-        default and custom settings.
-        """
-
-        # Set up logging
-        self.logger = LogFactory.get_instance(name='traptor',
-                                              level=self.log_level)
-
-        # Set the restart_flag to False
-        self.restart_flag = False
-
-        # Set up required connections
-
-        if self.kafka_enabled:
-            self._setup_kafka()
-
-        self._setup_birdy()
-
-
     def _setup_birdy(self):
         """ Set up a birdy twitter stream.
             If there is a TwitterApiError it will exit with status code 3.
@@ -133,23 +113,44 @@ class Traptor(object):
             self.logger.info('Skipping kafka connection setup')
             self.kafka_conn = None
 
+    def _setup(self):
+        """
+        Load everything up. Note that any arg here will override both
+        default and custom settings.
+        """
+
+        # Set up logging
+        self.logger = LogFactory.get_instance(name='traptor',
+                                              level=self.log_level)
+
+        # Set the restart_flag to False
+        self.restart_flag = False
+
+        # Set up required connections
+        self._setup_kafka()
+        self._setup_birdy()
+
+
     def _create_kafka_producer(self, kafka_topic):
         """ Create a kafka producer.
             If it cannot find one it will exit with error code 3.
 
             Creates ``self.kafka_producer``.
         """
-        try:
-            self.logger.debug('Creating kafka producer for "{}"...'.format(self.kafka_topic))
-            self.kafka_producer = SimpleProducer(self.kafka_conn)
-        except KafkaUnavailableError as e:
-            self.logger.critical(e)
-            sys.exit(3)
-        try:
-            self.logger.debug('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
-            self.kafka_conn.ensure_topic_exists(self.kafka_topic)
-        except:
-            raise
+        if self.kafka_conn:
+            try:
+                self.logger.debug('Creating kafka producer for "{}"...'.format(self.kafka_topic))
+                self.kafka_producer = SimpleProducer(self.kafka_conn)
+            except KafkaUnavailableError as e:
+                self.logger.critical(e)
+                sys.exit(3)
+            try:
+                self.logger.debug('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
+                self.kafka_conn.ensure_topic_exists(self.kafka_topic)
+            except:
+                raise
+        else:
+            self.kafka_producer = None
 
     def _create_birdy_stream(self):
         """ Create a birdy twitter stream.
@@ -203,15 +204,13 @@ class Traptor(object):
 
     def _add_rule_tag_and_value_to_tweet(self, tweet_dict, search_str, rule_tag, rule_value):
 
-        for k, v in tweet_dict.iteritems():
+        for k, v in FlatDict(tweet_dict).iteritems():
             if isinstance(v, unicode) and search_str.lower() in v.lower():
                 tweet_dict['traptor']['rule_tag'] = rule_tag
                 tweet_dict['traptor']['rule_value'] = rule_value
-            elif isinstance(v, dict):
-                for attribute, value in v.iteritems():
-                    if isinstance(value, unicode) and search_str.lower() in value.lower():
-                        tweet_dict['traptor']['rule_tag'] = rule_tag
-                        tweet_dict['traptor']['rule_value'] = rule_value
+            else:
+                self.logger.warning('Could not find rule match for {}'.format(
+                                                    tweet_dict.get('id_str')))
 
         return tweet_dict
 
