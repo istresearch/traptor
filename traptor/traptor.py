@@ -83,27 +83,6 @@ class Traptor(object):
             self.pubsub_conn
         )
 
-    def _setup(self):
-        """
-        Load everything up. Note that any arg here will override both
-        default and custom settings.
-        """
-
-        # Set up logging
-        self.logger = LogFactory.get_instance(name='traptor',
-                                              level=self.log_level)
-
-        # Set the restart_flag to False
-        self.restart_flag = False
-
-        # Set up required connections
-
-        if self.kafka_enabled:
-            self._setup_kafka()
-
-        self._setup_birdy()
-
-
     def _setup_birdy(self):
         """ Set up a birdy twitter stream.
             If there is a TwitterApiError it will exit with status code 3.
@@ -133,6 +112,24 @@ class Traptor(object):
         else:
             self.logger.info('Skipping kafka connection setup')
             self.kafka_conn = None
+
+    def _setup(self):
+        """
+        Load everything up. Note that any arg here will override both
+        default and custom settings.
+        """
+
+        # Set up logging
+        self.logger = LogFactory.get_instance(name='traptor',
+                                              level=self.log_level)
+
+        # Set the restart_flag to False
+        self.restart_flag = False
+
+        # Set up required connections
+        self._setup_kafka()
+        self._setup_birdy()
+
 
     def _create_kafka_producer(self, kafka_topic):
         """ Create a kafka producer.
