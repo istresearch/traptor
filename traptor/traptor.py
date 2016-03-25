@@ -458,7 +458,7 @@ def main(test, info, debug, delay, id, type, key):
                               port=REDIS_PORT,
                               db=REDIS_DB)
 
-    traptor_instance = Traptor(apikeys=APIKEYS,
+    traptor_instance = Traptor(apikeys=APIKEYS[key],
                                traptor_type=traptor_type,
                                traptor_id=traptor_id,
                                kafka_hosts=KAFKA_HOSTS,
