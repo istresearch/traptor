@@ -137,17 +137,20 @@ class Traptor(object):
 
             Creates ``self.kafka_producer``.
         """
-        try:
-            self.logger.debug('Creating kafka producer for "{}"...'.format(self.kafka_topic))
-            self.kafka_producer = SimpleProducer(self.kafka_conn)
-        except KafkaUnavailableError as e:
-            self.logger.critical(e)
-            sys.exit(3)
-        try:
-            self.logger.debug('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
-            self.kafka_conn.ensure_topic_exists(self.kafka_topic)
-        except:
-            raise
+        if self.kafka_conn:
+            try:
+                self.logger.debug('Creating kafka producer for "{}"...'.format(self.kafka_topic))
+                self.kafka_producer = SimpleProducer(self.kafka_conn)
+            except KafkaUnavailableError as e:
+                self.logger.critical(e)
+                sys.exit(3)
+            try:
+                self.logger.debug('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
+                self.kafka_conn.ensure_topic_exists(self.kafka_topic)
+            except:
+                raise
+        else:
+            self.kafka_producer = None
 
     def _create_birdy_stream(self):
         """ Create a birdy twitter stream.
