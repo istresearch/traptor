@@ -380,13 +380,11 @@ class Traptor(object):
                     # Do any data enrichment on the base tweet data
                     enriched_data = self._find_rule_matches(data)
 
-                    # Stdout data output for Traptor.
-                    print json.dumps(enriched_data, indent=2)
-
                     if self.kafka_enabled:
                         self.kafka_producer.send_messages(self.kafka_topic,
                                                           json.dumps(enriched_data))
-
+                    elif not self.kafka_enabled:
+                        print json.dumps(enriched_data, indent=2)
 
             if self.restart_flag:
                 self.logger.info("Reset flag is true; restarting myself.")
@@ -428,21 +426,21 @@ class Traptor(object):
             self._main_loop()
 
 @click.command()
-@click.option('--test', is_flag=True)
+@click.option('--stdout', is_flag=True)
 @click.option('--info', is_flag=True)
 @click.option('--debug', is_flag=True)
 @click.option('--delay', default=1)
 @click.option('--id')
 @click.option('--type')
 @click.option('--key', default=0)
-def main(test, info, debug, delay, id, type, key):
+def main(stdout, info, debug, delay, id, type, key):
     """ Command line interface to run a traptor instance.
 
-        Can pass it flags for debug levels and also --test mode, which means
+        Can pass it flags for debug levels and also --stdout mode, which means
         it will not write to kafka but stdout instread.
     """
 
-    kafka_enabled = False if test else True
+    kafka_enabled = False if stdout else True
     if debug:
         log_level = 'DEBUG'
     elif info:
