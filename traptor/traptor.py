@@ -202,12 +202,17 @@ class Traptor(object):
         self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
         return rules_str
 
-    def _add_rule_tag_and_value_to_tweet(self, tweet_dict, search_str, rule_tag, rule_value):
+    def _add_rule_tag_and_value_to_tweet(self, tweet_dict, search_str, matched_rule):
 
         for k, v in FlatDict(tweet_dict).iteritems():
             if isinstance(v, unicode) and search_str.lower() in v.lower():
-                tweet_dict['traptor']['rule_tag'] = rule_tag
-                tweet_dict['traptor']['rule_value'] = rule_value
+                # These two lines kept for backwards compatibility
+                tweet_dict['traptor']['rule_tag'] = matched_rule['tag']
+                tweet_dict['traptor']['rule_value'] = matched_rule['value']
+
+                # Pass all key/value pairs from matched rule through to Traptor
+                for k, v in matched_rule.iteritems():
+                    tweet_dict['traptor'][k] = v
 
         return tweet_dict
 
@@ -227,17 +232,11 @@ class Traptor(object):
             # self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
             if re.search(',', search_str):
                 for s in search_str.split(','):
-                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
-                                                                     s,
-                                                                     rule['tag'],
-                                                                     rule['value'])
+                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict, s, rule)
             else:
                 search_str = rule['value'].split()[0]
                 for i in new_dict.keys():
-                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
-                                                                     search_str,
-                                                                     rule['tag'],
-                                                                     rule['value'])
+                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict, search_str, rule)
             # self.logger.debug('Rule matched - tag:{}, value:{}'.format(rule['tag'],
             #                                                            rule['value'].encode('utf-8')))
 
@@ -375,6 +374,7 @@ class Traptor(object):
                     #                   json.dumps(_data, indent=2)))
 
                     # Do tweet data pre-processing
+                    # if 'in_reply_to_status_id' in _data:
                     data = self._fix_tweet_object(_data)
 
                     # Do any data enrichment on the base tweet data
