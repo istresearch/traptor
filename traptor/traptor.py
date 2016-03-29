@@ -242,7 +242,7 @@ class Traptor(object):
 
             if 'rule_tag' not in new_dict['traptor']:
                 self.logger.warning('Could not find rule_tag: {}, rule_value: {}, in tweet {}'.format(
-                                    rule['tag'], rule['value'], new_dict.get('id_str')))
+                                    rule['tag'], rule['value'].encode('utf-8'), new_dict.get('id_str')))
                 new_dict['traptor']['rule_tag'] = 'Not found'
                 new_dict['traptor']['rule_value'] = 'Not found'
 
