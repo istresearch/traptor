@@ -1,13 +1,20 @@
 sudo: false
 language: python
 python:
-  - "2.7"
+- '2.7'
 services:
-  - redis-server
-install: 'pip install -r requirements.txt'
-script: 'python -m pytest -v'
-
+- redis-server
+install: pip install -r requirements.txt
+script: python -m pytest -v
 notifications:
   slack:
     rooms:
-      - secure: "l5Hp+/WfDG5fjDGydrB006tkQeRA2XvmVadDPOPzw6neR42XTt95v9FKBYydP+CJyqQGxuB1oaobIgUyz/QOyLcjtn7qf25fBDWfyHYkfWcSQz/3q7aHh0oBBnHzhGTB8hhkSSaEw50qoPi12FT20RNIKncDPqRPA1izVpVYoxcAS7aKOKQcvm+ZUNkggZptK0iZHUWZ/lhv3k/JbLgUT1db5/IK20P4p6IvQJ37ippzhn532zb9sKq9pQsWgmb6Su4BEJJhPnDfh5o7NhLzyPTSUcPmHFW1IiakxAy6pn/bYkEpST+tV3iyI5Vet4/8HMYnPruwtDA4UU+RvQ9FFKr2aHrGsBVbxLDTeqhnjxeI5ZAWKdd9wX0YghqKOSp7eD9ajU2xNDCGhIwJNNCaoxqhZTCV5C9hGVv1cimazmSaEXqxY7tUZ5AR7uj7vovY/pGPGtLJOMuaioosJljhGAWRm0WQFGS9atBuLAia7ORBmBf8p16wvhyvH/gxlTDCxID7z4I+mjtEycLWlZj+1tbZgGzNTx/ZIUwXXzz/+0UCle6aDGGcEJwfaoyZcYlyZDpwAyZrSABhu3KAgbuqedv4Z6pOP23+HsNgesFecArmonHHfqK17+L+YHVICQqixH05Bki8f4oS/YS4Q+TRuVrTpcqXCO3k+UwqXL7gk1g="
+    - secure: l5Hp+/WfDG5fjDGydrB006tkQeRA2XvmVadDPOPzw6neR42XTt95v9FKBYydP+CJyqQGxuB1oaobIgUyz/QOyLcjtn7qf25fBDWfyHYkfWcSQz/3q7aHh0oBBnHzhGTB8hhkSSaEw50qoPi12FT20RNIKncDPqRPA1izVpVYoxcAS7aKOKQcvm+ZUNkggZptK0iZHUWZ/lhv3k/JbLgUT1db5/IK20P4p6IvQJ37ippzhn532zb9sKq9pQsWgmb6Su4BEJJhPnDfh5o7NhLzyPTSUcPmHFW1IiakxAy6pn/bYkEpST+tV3iyI5Vet4/8HMYnPruwtDA4UU+RvQ9FFKr2aHrGsBVbxLDTeqhnjxeI5ZAWKdd9wX0YghqKOSp7eD9ajU2xNDCGhIwJNNCaoxqhZTCV5C9hGVv1cimazmSaEXqxY7tUZ5AR7uj7vovY/pGPGtLJOMuaioosJljhGAWRm0WQFGS9atBuLAia7ORBmBf8p16wvhyvH/gxlTDCxID7z4I+mjtEycLWlZj+1tbZgGzNTx/ZIUwXXzz/+0UCle6aDGGcEJwfaoyZcYlyZDpwAyZrSABhu3KAgbuqedv4Z6pOP23+HsNgesFecArmonHHfqK17+L+YHVICQqixH05Bki8f4oS/YS4Q+TRuVrTpcqXCO3k+UwqXL7gk1g=
+deploy:
+  provider: pypi
+  user: istresearch
+  password:
+    secure: s4mw2MK054DAFzPTXKCxGUoCL11KrrWBg9ZUxZvDxJBzV2xkTYTJ0ZeW1X7yafH1kcAaQovcQ4Dh0p1MJRgmWffoG69bXYe/bXBdrq9IzSVM4Kdm25cb6wvhwHfCVCU1KgXR8UsEdnvpwlOaF1PuAsk8DvLrGclOvoKbnHy5nMJq34FpZ1WKZN/AQgGiKF9OHeKrEWL4CmkDSRqDJuEzkB/fUI+8lRD25X2+0tw11TteKBq/iESblQsDDfFlpMY4oA+WJHcdWuGOnZqn/XcFDGf1cOTt+bVBrbaNHHwMkvqbjfvOjyWYIKX4xuLw1X3t7QIQB8AhI3PW+v+afSdbq9D+iMW20hN6MjP/No2W1PWapHWTNJ2r+SN7Vs24hJLgb4ljJHYIAUdKFV4iYnntSFVtEpUP7J7AIAOMhuxlqRp38zC9PBJ1Qgcn27qUbStipGbms2FBASHB0ZDycKu5YogXh6Z5v7hUh8FBnw2HyUvzkHXzi4uQGCXK6dl1/4u+whVi7wnc5a3fp5ObTptzCEea412/k9wO0sn8OwZM1XLG0i8d7vSX5D9ZkUCUL3vBf3ZmzdNQGG11/LXegYErzFbGDglCLsRkh7vk3XXxS6kWym7XMhf46Dq7Haeop3Oc5V/G7Gxx6IeeNDVWZWtGuSZ+POzA2xAJ1sOA3jDOgAs=
+  on:
+    tags: true
+    repo: istresearch/traptor
