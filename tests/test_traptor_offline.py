@@ -22,7 +22,7 @@ def redis_rules(request):
     with open('tests/data/locations_rules.json') as f:
         locations_rules = [json.loads(line) for line in f]
 
-    conn = StrictRedis(host='scdev', port=6379, db=5)
+    conn = StrictRedis(host='localhost', port=6379, db=5)
     conn.flushdb()
 
     rc = RulesToRedis(conn)
@@ -41,7 +41,7 @@ def redis_rules(request):
 @pytest.fixture()
 def pubsub_conn():
     """Create a connection for the Redis PubSub."""
-    p_conn = StrictRedis(host='scdev', port=6379, db=5)
+    p_conn = StrictRedis(host='localhost', port=6379, db=5)
     return p_conn
 
 
@@ -69,7 +69,7 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
                                traptor_type=request.param,
                                apikeys=APIKEYS,
                                traptor_id=0,
-                               kafka_hosts='scdev:9092',
+                               kafka_hosts='localhost:9092',
                                kafka_topic='traptor_test',
                                kafka_enabled=False,
                                log_level='INFO',
