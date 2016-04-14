@@ -1,7 +1,9 @@
 """Traptor tests."""
 
 import json
-import redis
+import time
+from datetime import datetime
+from redis import StrictRedis, ConnectionError
 import pytest
 from mock import MagicMock
 
@@ -20,7 +22,7 @@ def redis_rules(request):
     with open('tests/data/locations_rules.json') as f:
         locations_rules = [json.loads(line) for line in f]
 
-    conn = redis.StrictRedis(host='localhost', port=6379, db=5)
+    conn = StrictRedis(host='localhost', port=6379, db=5)
     conn.flushdb()
 
     rc = RulesToRedis(conn)
@@ -38,8 +40,8 @@ def redis_rules(request):
 
 @pytest.fixture()
 def pubsub_conn():
-    """Create a connection to the Redis PubSub."""
-    p_conn = redis.StrictRedis(host='localhost', port=6379, db=5)
+    """Create a connection for the Redis PubSub."""
+    p_conn = StrictRedis(host='localhost', port=6379, db=5)
     return p_conn
 
 
@@ -53,7 +55,7 @@ def traptor_notify_channel():
                         'follow',
                         'locations',
                         ])
-def traptor(request, redis_rules, pubsub_conn, traptor_notify_channel):
+def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_channel):
     """Create a Traptor instance."""
     APIKEYS = ({
         'CONSUMER_KEY': '',
@@ -63,6 +65,7 @@ def traptor(request, redis_rules, pubsub_conn, traptor_notify_channel):
     })
     traptor_instance = Traptor(redis_conn=redis_rules,
                                pubsub_conn=pubsub_conn,
+                               heartbeat_conn=heartbeat_conn,
                                traptor_type=request.param,
                                apikeys=APIKEYS,
                                traptor_id=0,
@@ -83,7 +86,7 @@ def tweets(request, traptor):
     with open('tests/data/' + traptor.traptor_type + '_tweet.json') as f:
         loaded_tweet = json.load(f)
 
-    return loaded_tweet,
+    return loaded_tweet
 
 
 @pytest.fixture
@@ -92,7 +95,14 @@ def pubsub_messages(request):
     with open('tests/data/pubsub_messages.txt') as f:
         messages = [line for line in f]
 
-    return messages,
+    return messages
+
+
+@pytest.fixture()
+def heartbeat_conn():
+    """Create a connection for the heartbeat."""
+    hb_conn = MagicMock()
+    return hb_conn
 
 
 class TestRuleExtract():
@@ -209,12 +219,12 @@ class TestTraptor(object):
         traptor.birdy_stream = MagicMock(return_value=tweets)
         traptor.birdy_stream.stream = traptor.birdy_stream
 
-        _data = traptor.birdy_stream.stream()[0]
+        _data = traptor.birdy_stream.stream()
         data = traptor._fix_tweet_object(_data)
         enriched_data = traptor._find_rule_matches(data)
 
         if traptor.traptor_type == 'track':
-            
+
             assert data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == 'happy'
@@ -234,3 +244,25 @@ class TestTraptor(object):
             # assert enriched_data['traptor']['rule_tag'] == 'test'
             # assert enriched_data['traptor']['rule_value'] == \
             #    '-122.75,36.8,-121.75,37.8'
+
+    def test_ensure_heartbeat_message_is_produced(self, traptor):
+        """Ensure Traptor can produce heartbeat messages."""
+        traptor._setup()
+
+        traptor.heartbeat_conn = MagicMock()
+        traptor._add_heartbeat_message_to_redis = MagicMock(return_value=1)
+
+        result = traptor._add_heartbeat_message_to_redis(traptor.heartbeat_conn,
+                                                         'track',
+                                                         '0')
+        assert result == 1
+
+    def test_ensure_heartbeat_raises_error_if_encountered(self, traptor):
+        """Ensure Traptor handles Redis connection issues when producing a heartbeat."""
+        with pytest.raises(ConnectionError):
+            traptor._setup()
+
+            traptor.heartbeat_conn = MagicMock()
+            traptor.heartbeat_conn.setex.side_effect = ConnectionError
+
+            traptor._add_heartbeat_message_to_redis(traptor.heartbeat_conn)
