@@ -3,6 +3,7 @@ import json
 import re
 import sys
 import time
+from datetime import datetime
 import dateutil.parser as parser
 
 from redis import StrictRedis, ConnectionError
@@ -29,6 +30,7 @@ class Traptor(object):
     def __init__(self,
                  redis_conn,
                  pubsub_conn,
+                 heartbeat_conn,
                  traptor_type,
                  apikeys,
                  traptor_id=0,
@@ -54,6 +56,7 @@ class Traptor(object):
         :param bool test: True for traptor test instance.
         :param str traptor_notify_channel: name of the Traptor PubSub channel to subscribe to
         :param str pubsub_conn: redis pubsub connection to use
+        :param str heartbeat_conn: redis connection to use for the heartbeat messages
 
         """
         self.apikeys = apikeys
@@ -67,9 +70,10 @@ class Traptor(object):
         self.test = test
         self.traptor_notify_channel = traptor_notify_channel
         self.pubsub_conn = pubsub_conn
+        self.heartbeat_conn = heartbeat_conn
 
     def __repr__(self):
-        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{})'.format(
+        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {})'.format(
             self.apikeys,
             self.traptor_type,
             self.traptor_id,
@@ -80,7 +84,8 @@ class Traptor(object):
             self.log_level,
             self.test,
             self.traptor_notify_channel,
-            self.pubsub_conn
+            self.pubsub_conn,
+            self.heartbeat_conn
         )
 
     def _setup_birdy(self):
@@ -353,6 +358,30 @@ class Traptor(object):
                     self.logger.debug("Redis PubSub message found. \
                                       Setting restart flag to True.")
 
+    def _add_heartbeat_message_to_redis(self,
+                                        heartbeat_conn):
+        """Add a heartbeat message to Redis."""
+        time_to_live = 5
+        now = datetime.now().strftime("%Y%M%d%H%M%S")
+        key_to_add = "{}:{}:{}".format(self.traptor_type,
+                                       self.traptor_id,
+                                       now)
+        message = "alive"
+        try:
+            return heartbeat_conn.setex(key_to_add, time_to_live, message)
+        except ConnectionError as e:
+            self.logger.error("Unable to add heartbeat message to Redis: {}".format(e))
+            raise
+
+    def _send_heartbeat_message(self):
+        """Add an expiring key to Redis as a heartbeat on a timed basis."""
+        hb_interval = 5
+
+        # while Traptor is running, add a heartbeat message every 5 seconds
+        while True:
+            self._add_heartbeat_message_to_redis(self.heartbeat_conn)
+            time.sleep(hb_interval)
+
     def _main_loop(self):
         """
         Main loop for iterating through the twitter data.
@@ -399,11 +428,19 @@ class Traptor(object):
         # Setup connections and logging
         self._setup()
 
+        # Create the thread for the pubsub restart check
         ps_check = threading.Thread(group=None,
                                     target=self._check_redis_pubsub_for_restart
                                     )
         ps_check.setDaemon(True)
         ps_check.start()
+
+        # Create the thread for the heartbeat message
+        heartbeat = threading.Thread(group=None,
+                                     target=self._send_heartbeat_message
+                                     )
+        heartbeat.setDaemon(True)
+        heartbeat.start()
 
         while True:
             # Grab a list of {tag:, value:} rules
@@ -460,6 +497,10 @@ def main(stdout, info, debug, delay, id, type, key):
                               port=REDIS_PORT,
                               db=REDIS_DB)
 
+    heartbeat_conn = StrictRedis(host=REDIS_HOST,
+                                 port=REDIS_PORT,
+                                 db=REDIS_DB)
+
     traptor_instance = Traptor(apikeys=APIKEYS[key],
                                traptor_type=traptor_type,
                                traptor_id=traptor_id,
@@ -468,9 +509,10 @@ def main(stdout, info, debug, delay, id, type, key):
                                redis_conn=redis_conn,
                                traptor_notify_channel=REDIS_PUBSUB_CHANNEL,
                                pubsub_conn=pubsub_conn,
+                               heartbeat_conn=heartbeat_conn,
                                kafka_enabled=kafka_enabled,
                                log_level=log_level,
-                               test=False,
+                               test=False
                                )
 
     # Don't connect to the Twitter API too fast
