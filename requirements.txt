@@ -8,3 +8,6 @@ scutils>=0.0.6
 pymysql
 nose
 flatdict
+pytest
+pytest-cov
+pytest-xdist

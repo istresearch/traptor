@@ -23,10 +23,13 @@ install_requires = [
     'kafka-python>=0.9.5',
     'python-dateutil',
     'click',
-    # 'mock',
+    'mock',
     # 'pymysql',
     'scutils>=0.0.6',
-    'flatdict'
+    'flatdict',
+    'pytest',
+    'pytest-cov',
+    'pytest-xdist'
 ]
 
 lint_requires = [

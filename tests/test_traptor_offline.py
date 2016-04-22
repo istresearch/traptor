@@ -1,4 +1,6 @@
 """Traptor tests."""
+# To run with autotest and coverage and print all output to console run:
+#   py.test -s --cov=traptor --looponfail tests/
 
 import json
 import time
@@ -148,6 +150,7 @@ class TestTraptor(object):
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
 
     def test_create_kafka_producer(self, traptor):
+        """Ensure we aren't connecting to a Kafka topic that doesn't exist."""
         traptor._setup()
         traptor._create_kafka_producer('testtopic')
         assert traptor.kafka_producer == None
