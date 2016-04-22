@@ -232,6 +232,14 @@ class Traptor(object):
         new_dict = self._create_traptor_obj(tweet_dict)
         self.logger.debug('Finding tweet rule matches')
 
+        # If the Traptor is a geo traptor, assign it the one rule it collects on
+        if self.traptor_type == 'locations':
+            for rule in self.redis_rules:
+                new_dict['traptor']['rule_tag'] = rule['tag']
+                new_dict['traptor']['rule_value'] = rule['value']
+
+                return new_dict
+
         for rule in self.redis_rules:
             search_str = rule['value']
             # self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
@@ -284,7 +292,7 @@ class Traptor(object):
         elif self.traptor_type == 'track':
             rule_max = 400
         elif self.traptor_type == 'locations':
-            rule_max = 25
+            rule_max = 1
         else:
             self.logger.error('traptor_type of {0} is not supported'.format(
                 self.traptor_type))
