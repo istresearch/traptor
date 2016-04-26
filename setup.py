@@ -17,14 +17,14 @@ def readme():
 # with open('requirements.txt') as f:
 #     install_requires = [x.strip() for x in f]
 install_requires = [
+    'birdy>=0.2',
     'requests>=1.2.3',
     'requests-oauthlib>=0.3.2',
     'redis>=2.10.3',
     'kafka-python>=0.9.5',
     'python-dateutil',
     'click',
-    # 'mock',
-    # 'pymysql',
+    'mock',
     'scutils>=0.0.6',
     'flatdict'
 ]
@@ -35,10 +35,11 @@ lint_requires = [
 ]
 
 tests_require = [
-    # 'nose',
     'mock',
     'pytest',
-    'pymysql'
+    'pymysql',
+    'pytest-cov',
+    'pytest-xdist'
 ]
 dependency_links = []
 setup_requires = ['pytest-runner']
@@ -48,9 +49,6 @@ extras_require = {
     'docs': ['sphinx'] + tests_require,
     'lint': lint_requires
 }
-
-if 'nosetests' in sys.argv[1:]:
-    setup_requires.append('nose')
 
 setup(
     name='traptor',
@@ -64,14 +62,11 @@ setup(
     keywords=['twitter', 'distributed', 'kafka', 'ansible', 'redis'],
     packages=['traptor'],
     package_data={},
-    # data_files=data_files,
     install_requires=install_requires,
     tests_require=tests_require,
     setup_requires=setup_requires,
     extras_require=extras_require,
     dependency_links=dependency_links,
     zip_safe=True,
-    # test_suite='nose.collector',
     include_package_data=True,
-    # entry_points={'console_scripts': ['traptor=traptor.traptor:main']},
 )
