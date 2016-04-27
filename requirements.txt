@@ -12,3 +12,4 @@ flatdict
 pytest
 pytest-cov
 pytest-xdist
+raven

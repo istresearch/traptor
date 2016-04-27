@@ -26,7 +26,8 @@ install_requires = [
     'click',
     'mock',
     'scutils>=0.0.6',
-    'flatdict'
+    'flatdict',
+    'raven'
 ]
 
 lint_requires = [

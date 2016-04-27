@@ -2,6 +2,7 @@
 Settings for traptor
 ====================
 '''
+SENTRY_SECRET = ""
 LOG_LEVEL = 'INFO'
 
 KAFKA_HOSTS = "localhost:9092"

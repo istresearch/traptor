@@ -135,7 +135,6 @@ class Traptor(object):
         self._setup_kafka()
         self._setup_birdy()
 
-
     def _create_kafka_producer(self, kafka_topic):
         """ Create a kafka producer.
             If it cannot find one it will exit with error code 3.
@@ -470,7 +469,9 @@ class Traptor(object):
             # Start collecting data
             self._main_loop()
 
+
 @click.command()
+@click.option('--sentry', is_flag=True)
 @click.option('--stdout', is_flag=True)
 @click.option('--info', is_flag=True)
 @click.option('--debug', is_flag=True)
@@ -478,7 +479,7 @@ class Traptor(object):
 @click.option('--id')
 @click.option('--type')
 @click.option('--key', default=0)
-def main(stdout, info, debug, delay, id, type, key):
+def main(sentry, stdout, info, debug, delay, id, type, key):
     """ Command line interface to run a traptor instance.
 
         Can pass it flags for debug levels and also --stdout mode, which means
@@ -525,11 +526,24 @@ def main(stdout, info, debug, delay, id, type, key):
 
     # Don't connect to the Twitter API too fast
     time.sleep(delay)
+
+    # Set up external logging
+    logger = LogFactory.get_instance(name='traptor_main', level='INFO')
     # Run the traptor instance and start collecting data
-    traptor_instance.run()
+    try:
+        logger.info('Starting traptor_instance.run()')
+        traptor_instance.run()
+    except Exception as e:
+        if sentry:
+            client = Client(SENTRY_SECRET)
+            client.captureException()
+        logger.errror(e)
+
 
 if __name__ == '__main__':
     from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                           TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
-                          REDIS_PUBSUB_CHANNEL)
+                          REDIS_PUBSUB_CHANNEL, SENTRY_SECRET)
+    from raven import Client
+
     sys.exit(main())
