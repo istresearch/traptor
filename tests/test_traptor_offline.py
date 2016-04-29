@@ -24,7 +24,7 @@ def redis_rules(request):
     with open('tests/data/locations_rules.json') as f:
         locations_rules = [json.loads(line) for line in f]
 
-    conn = StrictRedis(host='localhost', port=6379, db=5)
+    conn = StrictRedis(host='scdev', port=6379, db=5)
     conn.flushdb()
 
     rc = RulesToRedis(conn)
@@ -43,7 +43,7 @@ def redis_rules(request):
 @pytest.fixture()
 def pubsub_conn():
     """Create a connection for the Redis PubSub."""
-    p_conn = StrictRedis(host='localhost', port=6379, db=5)
+    p_conn = StrictRedis(host='scdev', port=6379, db=5)
     return p_conn
 
 
@@ -71,7 +71,7 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
                                traptor_type=request.param,
                                apikeys=APIKEYS,
                                traptor_id=0,
-                               kafka_hosts='localhost:9092',
+                               kafka_hosts='scdev:9092',
                                kafka_topic='traptor_test',
                                kafka_enabled=False,
                                log_level='INFO',
@@ -155,31 +155,6 @@ class TestTraptor(object):
         traptor._create_kafka_producer('testtopic')
         assert traptor.kafka_producer == None
 
-
-    # def test_create_birdy_stream(self):
-    #     pass
-
-    # def test_make_twitter_rules(self):
-    #     pass
-
-    # def test_add_rule_tag_and_value_to_tweet(self):
-    #     pass
-
-    # def test_find_rule_matches(self):
-    #     pass
-
-    # def test_get_redis_rules(self):
-    #     pass
-
-    # def test_tweet_time_to_iso(self):
-    #     pass
-
-    # def test_create_traptor_obj(self):
-    #     pass
-
-    # def test_fix_tweet_object(self):
-    #     pass
-
     def test_check_redis_pubsub_for_restart(self, traptor, pubsub_conn):
         """Test pubsub message causes the restart_flag to be set to True."""
         traptor._setup()
@@ -239,14 +214,6 @@ class TestTraptor(object):
 
         if traptor.traptor_type == 'locations':
             assert data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
-
-            # TODO.
-            # Need to figure out how to map location rules back to results.
-            # Need to do some coordinate math on the geo bounding boxes.
-
-            # assert enriched_data['traptor']['rule_tag'] == 'test'
-            # assert enriched_data['traptor']['rule_value'] == \
-            #    '-122.75,36.8,-121.75,37.8'
 
     def test_ensure_heartbeat_message_is_produced(self, traptor):
         """Ensure Traptor can produce heartbeat messages."""

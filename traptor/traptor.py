@@ -243,23 +243,21 @@ class Traptor(object):
             search_str = rule['value']
             search_str = search_str.lower()
             # self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
-            if re.search(',', search_str):
-                for s in search_str.split(','):
-                    # Lower the search string
-                    s = s.lower()
-                    # Lowercase everything in the dict and flatten it out
-                    new_dict = dict((k.lower(), v.lower()) for k, v in new_dict.iteritems())
-                    new_dict = FlatDict(new_dict)
-                    # Add the rule to the tweet
-                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
-                                                                     s,
-                                                                     rule)
-            else:
-                search_str = rule['value'].split()[0]
-                for i in new_dict.keys():
-                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict, search_str, rule)
-            # self.logger.debug('Rule matched - tag:{}, value:{}'.format(rule['tag'],
-            #                                                            rule['value'].encode('utf-8')))
+            for s in search_str.split(','):
+                # Lower the search string
+                s = s.lower()
+                # Lowercase everything in the dict and flatten it out
+                for k, v in new_dict.iteritems():
+                    if v is not None and isinstance(v, str):
+                        new_dict[k] = v.lower()
+                new_dict = FlatDict(new_dict)
+                # Add the rule to the tweet
+                new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
+                                                                 s,
+                                                                 rule)
+
+            self.logger.debug('Rule matched - tag:{}, value:{}'.format(rule['tag'],
+                                                                      rule['value'].encode('utf-8')))
 
             if 'rule_tag' not in new_dict['traptor']:
                 self.logger.warning('Could not find rule_tag: {}, rule_value: {}, in tweet {}'.format(
