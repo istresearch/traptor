@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import json
-import re
 import sys
 import time
+import re
 from datetime import datetime
 import dateutil.parser as parser
 
@@ -215,8 +215,8 @@ class Traptor(object):
                 tweet_dict['traptor']['rule_value'] = matched_rule['value']
 
                 # Pass all key/value pairs from matched rule through to Traptor
-                for k, v in matched_rule.iteritems():
-                    tweet_dict['traptor'][k] = v
+                for key, value in matched_rule.iteritems():
+                    tweet_dict['traptor'][key] = value
 
         return tweet_dict
 
@@ -237,35 +237,44 @@ class Traptor(object):
                 new_dict['traptor']['rule_tag'] = rule['tag']
                 new_dict['traptor']['rule_value'] = rule['value']
 
+                for key, value in rule.iteritems():
+                    new_dict['traptor'][key] = value
+
                 return new_dict
 
-        for rule in self.redis_rules:
-            search_str = rule['value']
-            search_str = search_str.lower()
-            # self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
-            for s in search_str.split(','):
-                # Lower the search string
-                s = s.lower()
-                # Lowercase everything in the dict and flatten it out
+        if self.traptor_type == 'track':
+
+            for rule in self.redis_rules:
+                # Get the rule to search for and lowercase it
+                search_str = rule['value']
+                search_str = search_str.lower()
+
+                self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
+                # Lowercase everything in the dict
                 for k, v in new_dict.iteritems():
                     if v is not None and isinstance(v, str):
                         new_dict[k] = v.lower()
+
+                # Flatten it out
                 new_dict = FlatDict(new_dict)
+
                 # Add the rule to the tweet
                 new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
-                                                                 s,
+                                                                 search_str,
                                                                  rule)
 
-            self.logger.debug('Rule matched - tag:{}, value:{}'.format(rule['tag'],
-                                                                      rule['value'].encode('utf-8')))
+                if 'rule_tag' not in new_dict['traptor']:
+                    self.logger.warning('Could not find rule_tag: {}, rule_value: {}, in tweet {}'.format(
+                                        rule['tag'], rule['value'].encode('utf-8'), new_dict.get('id_str')))
+                    new_dict['traptor']['rule_tag'] = 'Not found'
+                    new_dict['traptor']['rule_value'] = 'Not found'
 
-            if 'rule_tag' not in new_dict['traptor']:
-                self.logger.warning('Could not find rule_tag: {}, rule_value: {}, in tweet {}'.format(
-                                    rule['tag'], rule['value'].encode('utf-8'), new_dict.get('id_str')))
-                new_dict['traptor']['rule_tag'] = 'Not found'
-                new_dict['traptor']['rule_value'] = 'Not found'
+            return new_dict
 
-        return new_dict
+        # If this is a follow Traptor, chuck everything but the id_str field
+        if self.traptor_type == 'follow':
+
+            pass
 
     def _get_redis_rules(self):
         """ Yields a traptor rule from redis.  This function
@@ -544,7 +553,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
         if sentry:
             client = Client(SENTRY_SECRET)
             client.captureException()
-        logger.errror(e)
+        logger.error(e)
 
 
 if __name__ == '__main__':
