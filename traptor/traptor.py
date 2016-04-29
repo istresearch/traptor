@@ -208,8 +208,8 @@ class Traptor(object):
 
     def _add_rule_tag_and_value_to_tweet(self, tweet_dict, search_str, matched_rule):
 
-        for k, v in FlatDict(tweet_dict).iteritems():
-            if isinstance(v, unicode) and search_str.lower() in v.lower():
+        for k, v in tweet_dict.iteritems():
+            if isinstance(v, unicode) and search_str in v:
                 # These two lines kept for backwards compatibility
                 tweet_dict['traptor']['rule_tag'] = matched_rule['tag']
                 tweet_dict['traptor']['rule_value'] = matched_rule['value']
@@ -241,10 +241,19 @@ class Traptor(object):
 
         for rule in self.redis_rules:
             search_str = rule['value']
+            search_str = search_str.lower()
             # self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
             if re.search(',', search_str):
                 for s in search_str.split(','):
-                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict, s, rule)
+                    # Lower the search string
+                    s = s.lower()
+                    # Lowercase everything in the dict and flatten it out
+                    new_dict = dict((k.lower(), v.lower()) for k, v in new_dict.iteritems())
+                    new_dict = FlatDict(new_dict)
+                    # Add the rule to the tweet
+                    new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
+                                                                     s,
+                                                                     rule)
             else:
                 search_str = rule['value'].split()[0]
                 for i in new_dict.keys():
