@@ -271,10 +271,22 @@ class Traptor(object):
 
             return new_dict
 
-        # If this is a follow Traptor, chuck everything but the id_str field
+        # If this is a follow Traptor, only check the user/id field of the tweet
         if self.traptor_type == 'follow':
+            for rule in self.redis_rules:
+                # Get the rule to search for
+                search_str = int(rule['value'])
 
-            pass
+                # Get the id field of the tweet object - that's all we need
+                if new_dict['user']['id'] and new_dict['user']['id'] == search_str:
+                    new_dict['traptor']['rule_tag'] = rule['tag']
+                    new_dict['traptor']['rule_value'] = rule['value']
+
+                    for key, value in rule.iteritems():
+                        new_dict['traptor'][key] = value
+
+                    return new_dict
+
 
     def _get_redis_rules(self):
         """ Yields a traptor rule from redis.  This function
