@@ -278,7 +278,7 @@ class Traptor(object):
                 search_str = int(rule['value'])
 
                 # Get the id field of the tweet object - that's all we need
-                if new_dict['user']['id'] and new_dict['user']['id'] == search_str:
+                if 'user' in new_dict and new_dict['user']['id'] == search_str:
                     new_dict['traptor']['rule_tag'] = rule['tag']
                     new_dict['traptor']['rule_value'] = rule['value']
 
