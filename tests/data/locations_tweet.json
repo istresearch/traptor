@@ -1,1 +1,117 @@
-{"contributors": null, "truncated": false, "text": "@Alexx__27 idk", "is_quote_status": false, "in_reply_to_status_id": 701949606007996416, "id": 701950328078348288, "favorite_count": 0, "source": "<a href=\"http://twitter.com/download/iphone\" rel=\"nofollow\">Twitter for iPhone</a>", "retweeted": false, "coordinates": null, "timestamp_ms": "1456192974477", "entities": {"user_mentions": [{"indices": [0, 10], "screen_name": "Alexx__27", "id": 2431399232, "name": "Alex \u2668\ufe0f", "id_str": "2431399232"}], "symbols": [], "hashtags": [], "urls": []}, "in_reply_to_screen_name": "Alexx__27", "in_reply_to_user_id": 2431399232, "traptor": {"created_at_iso": "2016-02-23T02:02:54+00:00"}, "id_str": "701950328078348288", "favorited": false, "user": {"follow_request_sent": null, "profile_use_background_image": true, "id": 562524394, "verified": false, "profile_image_url_https": "https://pbs.twimg.com/profile_images/701947518737715200/7vPEepur_normal.jpg", "profile_sidebar_fill_color": "DDEEF6", "is_translator": false, "geo_enabled": true, "profile_text_color": "333333", "followers_count": 754, "protected": false, "location": null, "default_profile_image": false, "id_str": "562524394", "utc_offset": -21600, "statuses_count": 45525, "description": null, "friends_count": 665, "profile_link_color": "B40B43", "profile_image_url": "http://pbs.twimg.com/profile_images/701947518737715200/7vPEepur_normal.jpg", "notifications": null, "profile_background_image_url_https": "https://pbs.twimg.com/profile_background_images/437502442461069312/yGDRa5xj.jpeg", "profile_background_color": "FF6699", "profile_banner_url": "https://pbs.twimg.com/profile_banners/562524394/1455651000", "profile_background_image_url": "http://pbs.twimg.com/profile_background_images/437502442461069312/yGDRa5xj.jpeg", "screen_name": "jeennnyy_", "lang": "en", "profile_background_tile": true, "favourites_count": 31358, "name": "Jenny Hernandez", "url": "http://Instagram.com/jeennnnyy_", "created_at": "Wed Apr 25 02:25:20 +0000 2012", "contributors_enabled": false, "time_zone": "Central Time (US & Canada)", "profile_sidebar_border_color": "000000", "default_profile": false, "following": null, "listed_count": 3}, "geo": null, "in_reply_to_user_id_str": "2431399232", "lang": "und", "retweet_count": 0, "created_at": "Tue Feb 23 02:02:54 +0000 2016", "filter_level": "low", "in_reply_to_status_id_str": "701949606007996416", "place": {"country_code": "US", "url": "https://api.twitter.com/1.1/geo/id/45cadd6ef118ec9f.json", "country": "United States", "place_type": "city", "bounding_box": {"type": "Polygon", "coordinates": [[[-122.065206, 37.330068], [-122.065206, 37.426726], [-121.982475, 37.426726], [-121.982475, 37.330068]]]}, "full_name": "Sunnyvale, CA", "attributes": {}, "id": "45cadd6ef118ec9f", "name": "Sunnyvale"}}
+{
+  "contributors": null,
+  "truncated": false,
+  "text": "@Alexx__27 idk",
+  "is_quote_status": false,
+  "in_reply_to_status_id": 701949606007996416,
+  "id": 701950328078348288,
+  "favorite_count": 0,
+  "source": "<a href=\"http://twitter.com/download/iphone\" rel=\"nofollow\">Twitter for iPhone</a>",
+  "retweeted": false,
+  "coordinates": null,
+  "timestamp_ms": "1456192974477",
+  "entities": {
+    "user_mentions": [
+      {
+        "indices": [
+          0,
+          10
+        ],
+        "screen_name": "Alexx__27",
+        "id": 2431399232,
+        "name": "Alex ♨️",
+        "id_str": "2431399232"
+      }
+    ],
+    "symbols": [],
+    "hashtags": [],
+    "urls": []
+  },
+  "in_reply_to_screen_name": "Alexx__27",
+  "in_reply_to_user_id": 2431399232,
+  "traptor": {
+    "created_at_iso": "2016-02-23T02:02:54+00:00"
+  },
+  "id_str": "701950328078348288",
+  "favorited": false,
+  "user": {
+    "follow_request_sent": null,
+    "profile_use_background_image": true,
+    "id": 562524394,
+    "verified": false,
+    "profile_image_url_https": "https://pbs.twimg.com/profile_images/701947518737715200/7vPEepur_normal.jpg",
+    "profile_sidebar_fill_color": "DDEEF6",
+    "is_translator": false,
+    "geo_enabled": true,
+    "profile_text_color": "333333",
+    "followers_count": 754,
+    "protected": false,
+    "location": null,
+    "default_profile_image": false,
+    "id_str": "562524394",
+    "utc_offset": -21600,
+    "statuses_count": 45525,
+    "description": null,
+    "friends_count": 665,
+    "profile_link_color": "B40B43",
+    "profile_image_url": "http://pbs.twimg.com/profile_images/701947518737715200/7vPEepur_normal.jpg",
+    "notifications": null,
+    "profile_background_image_url_https": "https://pbs.twimg.com/profile_background_images/437502442461069312/yGDRa5xj.jpeg",
+    "profile_background_color": "FF6699",
+    "profile_banner_url": "https://pbs.twimg.com/profile_banners/562524394/1455651000",
+    "profile_background_image_url": "http://pbs.twimg.com/profile_background_images/437502442461069312/yGDRa5xj.jpeg",
+    "screen_name": "jeennnyy_",
+    "lang": "en",
+    "profile_background_tile": true,
+    "favourites_count": 31358,
+    "name": "Jenny Hernandez",
+    "url": "http://Instagram.com/jeennnnyy_",
+    "created_at": "Wed Apr 25 02:25:20 +0000 2012",
+    "contributors_enabled": false,
+    "time_zone": "Central Time (US & Canada)",
+    "profile_sidebar_border_color": "000000",
+    "default_profile": false,
+    "following": null,
+    "listed_count": 3
+  },
+  "geo": null,
+  "in_reply_to_user_id_str": "2431399232",
+  "lang": "und",
+  "retweet_count": 0,
+  "created_at": "Tue Feb 23 02:02:54 +0000 2016",
+  "filter_level": "low",
+  "in_reply_to_status_id_str": "701949606007996416",
+  "place": {
+    "country_code": "US",
+    "url": "https://api.twitter.com/1.1/geo/id/45cadd6ef118ec9f.json",
+    "country": "United States",
+    "place_type": "city",
+    "bounding_box": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -122.065206,
+            37.330068
+          ],
+          [
+            -122.065206,
+            37.426726
+          ],
+          [
+            -121.982475,
+            37.426726
+          ],
+          [
+            -121.982475,
+            37.330068
+          ]
+        ]
+      ]
+    },
+    "full_name": "Sunnyvale, CA",
+    "attributes": {},
+    "id": "45cadd6ef118ec9f",
+    "name": "Sunnyvale"
+  }
+}
