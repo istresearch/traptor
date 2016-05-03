@@ -416,7 +416,7 @@ class Traptor(object):
                     # Do any data enrichment on the base tweet data
                     enriched_data = self._find_rule_matches(data)
 
-                    if self.kafka_enabled:
+                    if self.kafka_enabled and enriched_data['traptor']:
                         self.kafka_producer.send_messages(self.kafka_topic,
                                                           json.dumps(enriched_data))
                     elif not self.kafka_enabled:

@@ -24,7 +24,7 @@ def redis_rules(request):
     with open('tests/data/locations_rules.json') as f:
         locations_rules = [json.loads(line) for line in f]
 
-    conn = StrictRedis(host='scdev', port=6379, db=5)
+    conn = StrictRedis(host='localhost', port=6379, db=5)
     conn.flushdb()
 
     rc = RulesToRedis(conn)
@@ -43,7 +43,7 @@ def redis_rules(request):
 @pytest.fixture()
 def pubsub_conn():
     """Create a connection for the Redis PubSub."""
-    p_conn = StrictRedis(host='scdev', port=6379, db=5)
+    p_conn = StrictRedis(host='localhost', port=6379, db=5)
     return p_conn
 
 
@@ -71,7 +71,7 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
                                traptor_type=request.param,
                                apikeys=APIKEYS,
                                traptor_id=0,
-                               kafka_hosts='scdev:9092',
+                               kafka_hosts='localhost:9092',
                                kafka_topic='traptor_test',
                                kafka_enabled=False,
                                log_level='INFO',
@@ -86,6 +86,15 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
 def tweets(request, traptor):
     """Create a list of tweets."""
     with open('tests/data/' + traptor.traptor_type + '_tweet.json') as f:
+        loaded_tweet = json.load(f)
+
+    return loaded_tweet
+
+
+@pytest.fixture
+def other_twitter_messages(request, traptor):
+    """Create a list of tweets."""
+    with open('tests/data/other_twitter_messages.json') as f:
         loaded_tweet = json.load(f)
 
     return loaded_tweet
@@ -269,3 +278,22 @@ class TestTraptor(object):
             traptor.heartbeat_conn.setex.side_effect = ConnectionError
 
             traptor._add_heartbeat_message_to_redis(traptor.heartbeat_conn)
+
+    def test_ensure_only_tweets_are_processed(self, traptor, other_twitter_messages):
+        """Ensure that we are only processing actual tweets."""
+        traptor._setup()
+        traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
+        traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+        traptor.birdy_stream = MagicMock(return_value=other_twitter_messages)
+        traptor.birdy_stream.stream = traptor.birdy_stream
+
+        _data = traptor.birdy_stream.stream()
+
+        if traptor.traptor_type == 'track':
+            assert 'traptor' not in _data
+
+        if traptor.traptor_type == 'follow':
+            assert 'traptor' not in _data
+
+        if traptor.traptor_type == 'locations':
+            assert 'traptor' not in _data
