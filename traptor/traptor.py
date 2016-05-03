@@ -252,7 +252,7 @@ class Traptor(object):
                 self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
                 # Lowercase everything in the dict
                 for k, v in new_dict.iteritems():
-                    if v is not None and isinstance(v, str):
+                    if v is not None and isinstance(v, basestring):
                         new_dict[k] = v.lower()
 
                 # Flatten it out
