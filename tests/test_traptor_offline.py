@@ -92,6 +92,15 @@ def tweets(request, traptor):
 
 
 @pytest.fixture
+def other_twitter_messages(request, traptor):
+    """Create a list of tweets."""
+    with open('tests/data/other_twitter_messages.json') as f:
+        loaded_tweet = json.load(f)
+
+    return loaded_tweet
+
+
+@pytest.fixture
 def pubsub_messages(request):
     """Create a list of pubsub messages."""
     with open('tests/data/pubsub_messages.txt') as f:
@@ -236,3 +245,22 @@ class TestTraptor(object):
             traptor.heartbeat_conn.setex.side_effect = ConnectionError
 
             traptor._add_heartbeat_message_to_redis(traptor.heartbeat_conn)
+
+    def test_ensure_only_tweets_are_processed(self, traptor, other_twitter_messages):
+        """Ensure that we are only processing actual tweets."""
+        traptor._setup()
+        traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
+        traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+        traptor.birdy_stream = MagicMock(return_value=other_twitter_messages)
+        traptor.birdy_stream.stream = traptor.birdy_stream
+
+        _data = traptor.birdy_stream.stream()
+
+        if traptor.traptor_type == 'track':
+            assert 'traptor' not in _data
+
+        if traptor.traptor_type == 'follow':
+            assert 'traptor' not in _data
+
+        if traptor.traptor_type == 'locations':
+            assert 'traptor' not in _data
