@@ -368,6 +368,26 @@ class Traptor(object):
             # self.logger.debug('Fixed tweet object: \n {}'.format(
             #                   json.dumps(new_dict, indent=2)))
         return new_dict
+    
+    def _message_is_tweet(self, message):
+        """Check if the message is a tweet. If yes, return True. If not, return False."""
+        if 'id_str' in message:
+            return True
+        else:
+            return False
+    
+    def _enrich_tweet(self, tweet):
+        """Fix the tweet object and do the rule matching."""
+        enriched_data = {}
+        
+        if self._message_is_tweet(tweet):
+            data = self._fix_tweet_object(tweet)
+            enriched_data = self._find_rule_matches(data)                
+        
+        if enriched_data:
+            return enriched_data
+        else:
+            return tweet
 
     def _check_redis_pubsub_for_restart(self):
         """
@@ -430,19 +450,11 @@ class Traptor(object):
         for item in self.birdy_stream._stream_iter():
             if item:
                 try:
-                    _data = json.loads(item)
+                    tweet = json.loads(item)
                 except:
                     pass
                 else:
-                    # self.logger.debug('Raw Tweet Data: \n {0}'.format(
-                    #                   json.dumps(_data, indent=2)))
-
-                    # Do tweet data pre-processing
-                    # if 'in_reply_to_status_id' in _data:
-                    data = self._fix_tweet_object(_data)
-
-                    # Do any data enrichment on the base tweet data
-                    enriched_data = self._find_rule_matches(data)
+                    enriched_data = _enrich_tweet(tweet)
 
                     if self.kafka_enabled:
                         self.kafka_producer.send_messages(self.kafka_topic,

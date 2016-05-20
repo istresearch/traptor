@@ -42,3 +42,4 @@ var/
 
 dump.rdb
 .coverage*
+htmlcov/*
