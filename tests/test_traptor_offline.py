@@ -13,7 +13,7 @@ from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
-HOST_FOR_TESTING = 'scdev'
+HOST_FOR_TESTING = 'localhost'
 
 
 @pytest.fixture()
