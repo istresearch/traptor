@@ -13,6 +13,8 @@ from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
+HOST_FOR_TESTING = 'localhost'
+
 
 @pytest.fixture()
 def redis_rules(request):
@@ -24,7 +26,7 @@ def redis_rules(request):
     with open('tests/data/locations_rules.json') as f:
         locations_rules = [json.loads(line) for line in f]
 
-    conn = StrictRedis(host='localhost', port=6379, db=5)
+    conn = StrictRedis(host=HOST_FOR_TESTING, port=6379, db=5)
     conn.flushdb()
 
     rc = RulesToRedis(conn)
@@ -43,7 +45,7 @@ def redis_rules(request):
 @pytest.fixture()
 def pubsub_conn():
     """Create a connection for the Redis PubSub."""
-    p_conn = StrictRedis(host='localhost', port=6379, db=5)
+    p_conn = StrictRedis(host=HOST_FOR_TESTING, port=6379, db=5)
     return p_conn
 
 
@@ -89,6 +91,15 @@ def tweets(request, traptor):
         loaded_tweet = json.load(f)
 
     return loaded_tweet
+    
+
+@pytest.fixture
+def non_tweet_stream_messages(request, traptor):
+    """Create a list of non-tweet stream messages."""
+    with open('tests/data/other_tweet_messages.json') as f:
+        stream_messages = json.load(f)
+
+    return stream_messages
 
 
 @pytest.fixture
@@ -197,23 +208,22 @@ class TestTraptor(object):
         traptor.birdy_stream = MagicMock(return_value=tweets)
         traptor.birdy_stream.stream = traptor.birdy_stream
 
-        _data = traptor.birdy_stream.stream()
-        data = traptor._fix_tweet_object(_data)
-        enriched_data = traptor._find_rule_matches(data)
+        tweet = traptor.birdy_stream.stream()
+        enriched_data = traptor._enrich_tweet(tweet)
 
         if traptor.traptor_type == 'track':
 
-            assert data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
+            assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == 'happy'
 
         if traptor.traptor_type == 'follow':
-            assert data['traptor']['created_at_iso'] == '2016-02-20T03:52:59+00:00'
+            assert enriched_data['traptor']['created_at_iso'] == '2016-02-20T03:52:59+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == '17919972'
 
         if traptor.traptor_type == 'locations':
-            assert data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
+            assert enriched_data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
 
     def test_ensure_heartbeat_message_is_produced(self, traptor):
         """Ensure Traptor can produce heartbeat messages."""
@@ -236,3 +246,11 @@ class TestTraptor(object):
             traptor.heartbeat_conn.setex.side_effect = ConnectionError
 
             traptor._add_heartbeat_message_to_redis(traptor.heartbeat_conn)
+
+    def test_ensure_traptor_only_enriches_tweets(self, traptor, non_tweet_stream_messages):
+        """Ensure Traptor only performs rule matching on tweets."""
+        traptor._setup()
+        
+        for message in non_tweet_stream_messages:
+            enriched_data = traptor._enrich_tweet(message)
+            assert enriched_data == message
