@@ -217,6 +217,9 @@ class Traptor(object):
                 # Pass all key/value pairs from matched rule through to Traptor
                 for key, value in matched_rule.iteritems():
                     tweet_dict['traptor'][key] = value
+                
+                # Log that a rule was matched
+                self.logger.info("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
 
         return tweet_dict
 
@@ -240,8 +243,6 @@ class Traptor(object):
                 for key, value in rule.iteritems():
                     new_dict['traptor'][key] = value
 
-                return new_dict
-
         if self.traptor_type == 'track':
 
             for rule in self.redis_rules:
@@ -263,14 +264,6 @@ class Traptor(object):
                                                                  search_str,
                                                                  rule)
 
-                if 'rule_tag' not in new_dict['traptor']:
-                    self.logger.warning('Could not find rule_tag: {}, rule_value: {}, in tweet {}'.format(
-                                        rule['tag'], rule['value'].encode('utf-8'), new_dict.get('id_str')))
-                    new_dict['traptor']['rule_tag'] = 'Not found'
-                    new_dict['traptor']['rule_value'] = 'Not found'
-
-            return new_dict
-
         # If this is a follow Traptor, only check the user/id field of the tweet
         if self.traptor_type == 'follow':
             for rule in self.redis_rules:
@@ -286,6 +279,14 @@ class Traptor(object):
                         new_dict['traptor'][key] = value
 
                     return new_dict
+        
+        if 'rule_tag' not in new_dict['traptor']:
+            new_dict['traptor']['rule_tag'] = 'Not found'
+            new_dict['traptor']['rule_value'] = 'Not found'
+            # Log that a rule was matched
+            self.logger.warning("No rule matched for tweet id: {}".format(tweet_dict['id_str']))
+
+        return new_dict
 
 
     def _get_redis_rules(self):
