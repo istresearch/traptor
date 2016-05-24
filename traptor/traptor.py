@@ -454,7 +454,7 @@ class Traptor(object):
                 except:
                     pass
                 else:
-                    enriched_data = _enrich_tweet(tweet)
+                    enriched_data = self._enrich_tweet(tweet)
 
                     if self.kafka_enabled:
                         self.kafka_producer.send_messages(self.kafka_topic,
