@@ -217,6 +217,9 @@ class Traptor(object):
                 # Pass all key/value pairs from matched rule through to Traptor
                 for key, value in matched_rule.iteritems():
                     tweet_dict['traptor'][key] = value
+                
+                # Log that a rule was matched
+                self.logger.info("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
 
         return tweet_dict
 
@@ -280,6 +283,8 @@ class Traptor(object):
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_tag'] = 'Not found'
             new_dict['traptor']['rule_value'] = 'Not found'
+            # Log that a rule was matched
+            self.logger.warning("No rule matched for tweet id: {}".format(tweet_dict['id_str']))
 
         return new_dict
 
