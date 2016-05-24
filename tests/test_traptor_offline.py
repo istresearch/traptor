@@ -13,7 +13,7 @@ from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
-HOST_FOR_TESTING = 'localhost'
+HOST_FOR_TESTING = 'scdev'
 
 
 @pytest.fixture()
@@ -88,6 +88,14 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
 def tweets(request, traptor):
     """Create a list of tweets."""
     with open('tests/data/' + traptor.traptor_type + '_tweet.json') as f:
+        loaded_tweet = json.load(f)
+
+    return loaded_tweet
+    
+@pytest.fixture
+def no_match_tweets(request, traptor):
+    """Create a list of tweets."""
+    with open('tests/data/no_match_tweet.json') as f:
         loaded_tweet = json.load(f)
 
     return loaded_tweet
@@ -225,6 +233,24 @@ class TestTraptor(object):
         if traptor.traptor_type == 'locations':
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
 
+    def test_ensure_traptor_is_in_tweet_on_no_match(self, traptor, no_match_tweets):
+        """Ensure that the traptor section is added to a tweet when no rule matches."""
+        traptor._setup()
+        traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
+        traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+        traptor.birdy_stream = MagicMock(return_value=no_match_tweets)
+        traptor.birdy_stream.stream = traptor.birdy_stream
+
+        tweet = traptor.birdy_stream.stream()
+        enriched_data = traptor._enrich_tweet(tweet)
+
+        if traptor.traptor_type in ['track', 'follow', 'locations']:
+            assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
+            
+        if traptor.traptor_type in ['track', 'follow']:    
+            assert enriched_data['traptor']['rule_tag'] == 'Not found'
+            assert enriched_data['traptor']['rule_value'] == 'Not found'
+        
     def test_ensure_heartbeat_message_is_produced(self, traptor):
         """Ensure Traptor can produce heartbeat messages."""
         traptor._setup()
