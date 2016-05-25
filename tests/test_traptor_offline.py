@@ -13,7 +13,7 @@ from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
-HOST_FOR_TESTING = 'localhost'
+HOST_FOR_TESTING = 'scdev'
 
 
 @pytest.fixture()
@@ -131,15 +131,15 @@ class TestRuleExtract():
 
     def test_track(self, redis_rules):
         """Test retrieving the tracking rules."""
-        assert {'tag': 'test', 'value': 'happy'} == redis_rules.hgetall('traptor-track:0:0')
+        assert {'tag': 'test', 'value': 'happy', 'status': 'active', 'description': 'Tweets for a hashtag', 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34'} == redis_rules.hgetall('traptor-track:0:0')
 
     def test_follow(self, redis_rules):
         """Test retrieving the follow rules."""
-        assert {'tag': 'test', 'value': '17919972'} == redis_rules.hgetall('traptor-follow:0:0')
+        assert {'tag': 'test', 'value': '17919972', 'status': 'active', 'description': 'Tweets from some user', 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34'} == redis_rules.hgetall('traptor-follow:0:0')
 
     def test_locations(self, redis_rules):
         """Test retrieving the location rules."""
-        assert {'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8'} == redis_rules.hgetall('traptor-locations:0:0')
+        assert {'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8', 'status': 'active', 'description': 'Tweets from some continent', 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34'} == redis_rules.hgetall('traptor-locations:0:0')
 
 
 class TestTraptor(object):
@@ -189,11 +189,11 @@ class TestTraptor(object):
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
 
         if traptor.traptor_type == 'track':
-            assert traptor.redis_rules == [{'tag': 'test', 'value': 'happy'}]
+            assert traptor.redis_rules == [{'tag': 'test', 'value': 'happy', 'status': 'active', 'description': 'Tweets for a hashtag', 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34'}]
         if traptor.traptor_type == 'follow':
-            assert traptor.redis_rules == [{'tag': 'test', 'value': '17919972'}]
+            assert traptor.redis_rules == [{'tag': 'test', 'value': '17919972', 'status': 'active', 'description': 'Tweets from some user', 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34'}]
         if traptor.traptor_type == 'locations':
-            assert traptor.redis_rules == [{'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8'}]
+            assert traptor.redis_rules == [{'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8', 'status': 'active', 'description': 'Tweets from some continent', 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34'}]
 
     def test_twitter_rules(self, traptor):
         """Ensure Traptor can create Twitter rules from the Redis rules."""
@@ -213,6 +213,10 @@ class TestTraptor(object):
         traptor._setup()
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
         traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+        
+        if traptor.traptor_type == 'locations':
+            traptor.locations_rule = traptor._get_locations_traptor_rule()
+        
         traptor.birdy_stream = MagicMock(return_value=tweets)
         traptor.birdy_stream.stream = traptor.birdy_stream
 
@@ -224,14 +228,31 @@ class TestTraptor(object):
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == 'happy'
+            assert enriched_data['traptor']['tag'] == 'test'
+            assert enriched_data['traptor']['value'] == 'happy'
+            assert enriched_data['traptor']['status'] == 'active'
+            assert enriched_data['traptor']['description'] == 'Tweets for a hashtag'
+            assert enriched_data['traptor']['appid'] == 'test-appid'
 
         if traptor.traptor_type == 'follow':
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-20T03:52:59+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == '17919972'
+            assert enriched_data['traptor']['tag'] == 'test'
+            assert enriched_data['traptor']['value'] == '17919972'
+            assert enriched_data['traptor']['status'] == 'active'
+            assert enriched_data['traptor']['description'] == 'Tweets from some user'
+            assert enriched_data['traptor']['appid'] == 'test-appid'
 
         if traptor.traptor_type == 'locations':
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
+            assert enriched_data['traptor']['rule_tag'] == 'test'
+            assert enriched_data['traptor']['rule_value'] == '-122.75,36.8,-121.75,37.8'
+            assert enriched_data['traptor']['tag'] == 'test'
+            assert enriched_data['traptor']['value'] == '-122.75,36.8,-121.75,37.8'
+            assert enriched_data['traptor']['status'] == 'active'
+            assert enriched_data['traptor']['description'] == 'Tweets from some continent'
+            assert enriched_data['traptor']['appid'] == 'test-appid'
 
     def test_ensure_traptor_is_in_tweet_on_no_match(self, traptor, no_match_tweets):
         """Ensure that the traptor section is added to a tweet when no rule matches."""

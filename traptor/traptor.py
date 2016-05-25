@@ -134,6 +134,9 @@ class Traptor(object):
         # Set up required connections
         self._setup_kafka()
         self._setup_birdy()
+        
+        # Create the locations_rule dict if this is a locations traptor
+        self.locations_rule = {}
 
     def _create_kafka_producer(self, kafka_topic):
         """ Create a kafka producer.
@@ -222,6 +225,20 @@ class Traptor(object):
                 self.logger.info("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
 
         return tweet_dict
+    
+    def _get_locations_traptor_rule(self):
+        """Create a dict with the single rule the locations traptor collects on."""
+        
+        locations_rule = {}
+        
+        for rule in self.redis_rules:
+            locations_rule['rule_tag'] = rule['tag']
+            locations_rule['rule_value'] = rule['value']
+
+            for key, value in rule.iteritems():
+                locations_rule[key] = value
+        
+        return locations_rule
 
     def _find_rule_matches(self, tweet_dict):
         """ Find which rule the tweet matched.  This code only expects there to
@@ -231,17 +248,15 @@ class Traptor(object):
             :param dict tweet_dict: The dictionary twitter object.
             :returns: a ``dict`` with the augmented data fields.
         """
-        new_dict = self._create_traptor_obj(tweet_dict)
+        
+        # If the traptor is any other type, keep it going    
+        new_dict = tweet_dict
         self.logger.debug('Finding tweet rule matches')
-
-        # If the Traptor is a geo traptor, assign it the one rule it collects on
+        
+        # If the Traptor is a geo traptor, return the one rule we've already set up
         if self.traptor_type == 'locations':
-            for rule in self.redis_rules:
-                new_dict['traptor']['rule_tag'] = rule['tag']
-                new_dict['traptor']['rule_value'] = rule['value']
-
-                for key, value in rule.iteritems():
-                    new_dict['traptor'][key] = value
+            for key, value in self.locations_rule.iteritems():
+                new_dict['traptor'][key] = value
 
         if self.traptor_type == 'track':
 
@@ -355,19 +370,13 @@ class Traptor(object):
 
         return tweet_dict
 
-    def _fix_tweet_object(self, tweet_dict):
-        """ Do any pre-processing to raw tweet data.
-
-            :param dict tweet_dict: A tweet dictionary object.
-            :returns: A ``dict`` with a new 'created_at_iso field.
-        """
+    def _add_iso_created_at(self, tweet_dict):
+        """Add the created_at_iso to the tweet."""
         new_dict = self._create_traptor_obj(tweet_dict)
+        
         if new_dict.get('created_at'):
-
-            new_dict['traptor']['created_at_iso'] = self._tweet_time_to_iso(
-                                                    new_dict['created_at'])
-            # self.logger.debug('Fixed tweet object: \n {}'.format(
-            #                   json.dumps(new_dict, indent=2)))
+            new_dict['traptor']['created_at_iso'] = self._tweet_time_to_iso(new_dict['created_at'])
+        
         return new_dict
     
     def _message_is_tweet(self, message):
@@ -382,8 +391,10 @@ class Traptor(object):
         enriched_data = {}
         
         if self._message_is_tweet(tweet):
-            data = self._fix_tweet_object(tweet)
-            enriched_data = self._find_rule_matches(data)                
+            # Add the created_at_iso field
+            data = self._add_iso_created_at(tweet)
+            # Add the rule information
+            enriched_data = self._find_rule_matches(data)
         
         if enriched_data:
             return enriched_data
@@ -504,6 +515,9 @@ class Traptor(object):
 
             if not self.test:
                 self._create_birdy_stream()
+            
+            if self.traptor_type == 'locations':
+                self.locations_rule = self._get_locations_traptor_rule()
 
             self.restart_flag = False
 
