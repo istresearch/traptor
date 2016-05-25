@@ -209,9 +209,9 @@ class Traptor(object):
         self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
         return rules_str
 
-    def _add_rule_tag_and_value_to_tweet(self, tweet_dict, search_str, matched_rule):
+    def _add_rule_tag_and_value_to_tweet(self, tweet_dict, flat_dict, search_str, matched_rule):
 
-        for k, v in tweet_dict.iteritems():
+        for k, v in flat_dict.iteritems():
             if isinstance(v, unicode) and search_str in v:
                 # These two lines kept for backwards compatibility
                 tweet_dict['traptor']['rule_tag'] = matched_rule['tag']
@@ -272,10 +272,11 @@ class Traptor(object):
                         new_dict[k] = v.lower()
 
                 # Flatten it out
-                new_dict = FlatDict(new_dict)
+                flat_dict = FlatDict(new_dict)
 
                 # Add the rule to the tweet
                 new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
+                                                                 flat_dict,
                                                                  search_str,
                                                                  rule)
 
@@ -296,6 +297,7 @@ class Traptor(object):
                     return new_dict
         
         if 'rule_tag' not in new_dict['traptor']:
+            new_dict['traptor']['rule_type'] = self.traptor_type
             new_dict['traptor']['rule_tag'] = 'Not found'
             new_dict['traptor']['rule_value'] = 'Not found'
             # Log that a rule was matched
@@ -395,6 +397,8 @@ class Traptor(object):
             data = self._add_iso_created_at(tweet)
             # Add the rule information
             enriched_data = self._find_rule_matches(data)
+        else:
+            pass
         
         if enriched_data:
             return enriched_data

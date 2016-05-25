@@ -2,6 +2,7 @@
 # To run with autotest and coverage and print all output to console run:
 #   py.test -s --cov=traptor --looponfail tests/
 
+import os
 import json
 import time
 from datetime import datetime
@@ -93,19 +94,21 @@ def tweets(request, traptor):
     return loaded_tweet
     
 @pytest.fixture
-def no_match_tweets(request, traptor):
-    """Create a list of tweets."""
+def no_match_tweet(request, traptor):
+    """Create a list of non-tweet messages."""
     with open('tests/data/no_match_tweet.json') as f:
         loaded_tweet = json.load(f)
 
     return loaded_tweet
-    
+
 
 @pytest.fixture
 def non_tweet_stream_messages(request, traptor):
     """Create a list of non-tweet stream messages."""
-    with open('tests/data/other_tweet_messages.json') as f:
-        stream_messages = json.load(f)
+    for message_file in os.listdir("tests/data/"):
+        if message_file.endswith("_message.json"):
+            with open("tests/data/" + message_file) as f:
+                stream_messages = json.load(f)
 
     return stream_messages
 
@@ -254,12 +257,12 @@ class TestTraptor(object):
             assert enriched_data['traptor']['description'] == 'Tweets from some continent'
             assert enriched_data['traptor']['appid'] == 'test-appid'
 
-    def test_ensure_traptor_is_in_tweet_on_no_match(self, traptor, no_match_tweets):
+    def test_ensure_traptor_is_in_tweet_on_no_match(self, traptor, no_match_tweet):
         """Ensure that the traptor section is added to a tweet when no rule matches."""
         traptor._setup()
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
         traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
-        traptor.birdy_stream = MagicMock(return_value=no_match_tweets)
+        traptor.birdy_stream = MagicMock(return_value=no_match_tweet)
         traptor.birdy_stream.stream = traptor.birdy_stream
 
         tweet = traptor.birdy_stream.stream()
@@ -299,5 +302,6 @@ class TestTraptor(object):
         traptor._setup()
         
         for message in non_tweet_stream_messages:
+            print(message)
             enriched_data = traptor._enrich_tweet(message)
             assert enriched_data == message
