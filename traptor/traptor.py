@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import json
 import sys
 import time
@@ -11,7 +12,6 @@ from kafka import SimpleProducer, KafkaClient
 from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
 from birdy.twitter import StreamClient, TwitterApiError
 import click
-from flatdict import FlatDict
 
 import threading
 
@@ -208,23 +208,6 @@ class Traptor(object):
         rules_str = ','.join([rule['value'] for rule in rules])
         self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
         return rules_str
-
-    def _add_rule_tag_and_value_to_tweet(self, tweet_dict, flat_dict, search_str, matched_rule):
-
-        for k, v in flat_dict.iteritems():
-            if isinstance(v, unicode) and search_str in v:
-                # These two lines kept for backwards compatibility
-                tweet_dict['traptor']['rule_tag'] = matched_rule['tag']
-                tweet_dict['traptor']['rule_value'] = matched_rule['value']
-
-                # Pass all key/value pairs from matched rule through to Traptor
-                for key, value in matched_rule.iteritems():
-                    tweet_dict['traptor'][key] = value
-                
-                # Log that a rule was matched
-                self.logger.info("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
-
-        return tweet_dict
     
     def _get_locations_traptor_rule(self):
         """Create a dict with the single rule the locations traptor collects on."""
@@ -259,45 +242,128 @@ class Traptor(object):
                 new_dict['traptor'][key] = value
 
         if self.traptor_type == 'track':
+            
+            """
+            Here's how Twitter does it, and so shall we:
+            
+            The text of the Tweet and some entity fields are considered for matches.
+            Specifically, the text attribute of the Tweet, expanded_url and display_url
+            for links and media, text for hashtags, and screen_name for user mentions
+            are checked for matches.
+            """
+            
+            # Build up the query from our tweet fields
+            query = ""
+                
+            # Tweet text
+            query = query + tweet_dict['text'].encode("utf-8")
+                
+            # URLs and Media
+            url_list = []
+            if 'urls' in tweet_dict['entities']:
+                for url in tweet_dict['entities']['urls']:
+                    url_list.append(url['expanded_url'])
+                    url_list.append(url['display_url'])
+                    
+            if 'media' in tweet_dict['entities']:
+                for item in tweet_dict['entities']['media']:
+                    url_list.append(item['expanded_url'])
+                    url_list.append(item['display_url'])
+                    
+            if len(url_list) > 0:
+                url_list = set(url_list)
+                for url in url_list:
+                    query = query + " " + url.encode("utf-8")
+                
+            # Hashtags
+            if 'hashtags' in tweet_dict['entities']:
+                for tag in tweet_dict['entities']['hashtags']:
+                    query = query + " " + tag['text'].encode("utf-8")
+                
+            # Screen name
+            if 'screen_name' in tweet_dict['user']:
+                query = query + " " + tweet_dict['user']['screen_name'].encode('utf-8')
+                
+            # Lowercase the entire thing
+            query = query.lower()
 
-            for rule in self.redis_rules:
-                # Get the rule to search for and lowercase it
-                search_str = rule['value']
-                search_str = search_str.lower()
+            try:
+                for rule in self.redis_rules:
+                    # Get the rule to search for and lowercase it
+                    search_str = rule['value'].encode("utf-8").lower()
 
-                self.logger.debug("Search string used for the rule match: {}".format(search_str.encode('utf-8')))
-                # Lowercase everything in the dict
-                for k, v in new_dict.iteritems():
-                    if v is not None and isinstance(v, basestring):
-                        new_dict[k] = v.lower()
+                    self.logger.debug("Search string used for the rule match: {}".format(search_str))
+                    self.logger.debug("Query for the rule match: {}".format(query))
+                        
+                    if search_str in query:
+                        # These two lines kept for backwards compatibility
+                        new_dict['traptor']['rule_tag'] = rule['tag']
+                        new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
 
-                # Flatten it out
-                flat_dict = FlatDict(new_dict)
-
-                # Add the rule to the tweet
-                new_dict = self._add_rule_tag_and_value_to_tweet(new_dict,
-                                                                 flat_dict,
-                                                                 search_str,
-                                                                 rule)
+                        # Pass all key/value pairs from matched rule through to Traptor
+                        for key, value in rule.iteritems():
+                            new_dict['traptor'][key] = value.encode("utf-8")
+                                
+                        # Log that a rule was matched
+                        self.logger.info("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
+            except Exception as e:
+                self.logger.error("Exception while running the rule match: {}".format(e))
 
         # If this is a follow Traptor, only check the user/id field of the tweet
         if self.traptor_type == 'follow':
-            for rule in self.redis_rules:
-                # Get the rule to search for
-                search_str = int(rule['value'])
+            """
+            Here's how Twitter does it, and so shall we:
+            
+            Tweets created by the user.
+            Tweets which are retweeted by the user.
+            Replies to any Tweet created by the user.
+            Retweets of any Tweet created by the user.
+            Manual replies, created without pressing a reply button (e.g. “@twitterapi I agree”).
+            """
+            
+            # Build up the query from our tweet fields
+            query = ""
+                
+            # Tweets created by the user AND 
+            # Tweets which are retweeted by the user
+            query = query + str(tweet_dict['user']['id'])
+            
+            # Replies to any Tweet created by the user.
+            if tweet_dict['in_reply_to_user_id'] is not None and tweet_dict['in_reply_to_user_id'] != '':
+                query = query + str(tweet_dict['in_reply_to_user_id'])
+            
+            # Retweets of any Tweet created by the user; AND
+            # Manual replies, created without pressing a reply button (e.g. “@twitterapi I agree”).
+            query = query + tweet_dict['text'].encode("utf-8")
+            
+            # Lowercase the entire thing
+            query = query.lower()
+            
+            try:
+                for rule in self.redis_rules:
+                    # Get the rule to search for and lowercase it
+                    search_str = str(rule['value']).encode("utf-8").lower()
 
-                # Get the id field of the tweet object - that's all we need
-                if 'user' in new_dict and new_dict['user']['id'] == search_str:
-                    new_dict['traptor']['rule_tag'] = rule['tag']
-                    new_dict['traptor']['rule_value'] = rule['value']
+                    self.logger.debug("Search string used for the rule match: {}".format(search_str))
+                    self.logger.debug("Query for the rule match: {}".format(query))
+                        
+                    if search_str in query:
+                        # These two lines kept for backwards compatibility
+                        new_dict['traptor']['rule_tag'] = rule['tag']
+                        new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
 
-                    for key, value in rule.iteritems():
-                        new_dict['traptor'][key] = value
-
-                    return new_dict
+                        # Pass all key/value pairs from matched rule through to Traptor
+                        for key, value in rule.iteritems():
+                            new_dict['traptor'][key] = value.encode("utf-8")
+                                
+                        # Log that a rule was matched
+                        self.logger.info("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
+            except Exception as e:
+                self.logger.error("Exception while running the rule match: {}".format(e))
         
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
+            new_dict['traptor']['id'] = self.traptor_id
             new_dict['traptor']['rule_tag'] = 'Not found'
             new_dict['traptor']['rule_value'] = 'Not found'
             # Log that a rule was matched
@@ -367,19 +433,19 @@ class Traptor(object):
         return parser.parse(tweet_time).isoformat()
 
     def _create_traptor_obj(self, tweet_dict):
+        """Add the traptor dict and id to the tweet."""
         if 'traptor' not in tweet_dict:
             tweet_dict['traptor'] = {}
+            tweet_dict['traptor']['id'] = self.traptor_id
 
         return tweet_dict
 
     def _add_iso_created_at(self, tweet_dict):
         """Add the created_at_iso to the tweet."""
-        new_dict = self._create_traptor_obj(tweet_dict)
+        if tweet_dict.get('created_at'):
+            tweet_dict['traptor']['created_at_iso'] = self._tweet_time_to_iso(tweet_dict['created_at'])
         
-        if new_dict.get('created_at'):
-            new_dict['traptor']['created_at_iso'] = self._tweet_time_to_iso(new_dict['created_at'])
-        
-        return new_dict
+        return tweet_dict
     
     def _message_is_tweet(self, message):
         """Check if the message is a tweet. If yes, return True. If not, return False."""
@@ -393,12 +459,14 @@ class Traptor(object):
         enriched_data = {}
         
         if self._message_is_tweet(tweet):
+            # Add the initial traptor fields
+            tweet = self._create_traptor_obj(tweet)
+            
             # Add the created_at_iso field
-            data = self._add_iso_created_at(tweet)
+            tweet = self._add_iso_created_at(tweet)
+            
             # Add the rule information
-            enriched_data = self._find_rule_matches(data)
-        else:
-            pass
+            enriched_data = self._find_rule_matches(tweet)
         
         if enriched_data:
             return enriched_data
