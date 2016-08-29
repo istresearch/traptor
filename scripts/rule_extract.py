@@ -152,15 +152,8 @@ class SQLRules(object):
 
 class RulesToRedis(object):
     """ Class to connect to redis and send traptor rules. """
-    def __init__(self,
-                 host=redis_settings['HOST'],
-                 port=redis_settings['PORT'],
-                 db=redis_settings['DB']
-                 ):
-
-        self.host = host
-        self.port = port
-        self.db = db
+    def __init__(self, redis_conn):
+        self.redis_conn = redis_conn
 
     def rule_max(self, traptor_type):
         """ Send the rule_max based on what traptor_type is passed in. """
@@ -175,11 +168,6 @@ class RulesToRedis(object):
                              traptor_type))
 
         return self._rule_max
-
-    def connect(self):
-        """ Connect to a Redis database. """
-        self.redis_conn = redis.StrictRedis(host=self.host, port=self.port,
-                                            db=self.db)
 
     def send_rules(self, traptor_type, rules):
         """ Send rules out to Redis with the appropriate key, value format. """
@@ -210,26 +198,34 @@ def sqldb(settings, traptor_type):
     rules = sql.parse_ctd_rules(traptor_type)
 
     # Send to Redis
-    rc = RulesToRedis()
-    rc.connect()
+    conn = redis.StrictRedis(host=redis_settings['HOST'],
+                             port=redis_settings['PORT'],
+                             db=redis_settings['DB']
+                             )
+    rc = RulesToRedis(conn)
     rc.send_rules(traptor_type, rules)
 
 
 @click.command()
 @click.argument('traptor_type')
 @click.argument('filename')
-def jsonfile(traptor_type, filename):
+@click.option('--conn', default=None)
+def jsonfile(traptor_type, filename, conn):
     """ Reads JSON rules from file, send to Redis """
     with open(filename) as f:
         rules = [json.loads(line) for line in f]
 
     # Send to Redis
-    rc = RulesToRedis()
-    rc.connect()
+    if not conn:
+        conn = redis.StrictRedis(host=redis_settings['HOST'],
+                                 port=redis_settings['PORT'],
+                                 db=redis_settings['DB']
+                                 )
+    rc = RulesToRedis(conn)
     rc.send_rules(traptor_type, rules)
 
 
 if __name__ == '__main__':
-    cli.add_command(get_sql_rules)
-    cli.add_command(get_json_rules)
+    cli.add_command(sqldb)
+    cli.add_command(jsonfile)
     cli()

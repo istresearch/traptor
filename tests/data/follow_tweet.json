@@ -1,0 +1,89 @@
+{
+  "favorited": false,
+  "contributors": null,
+  "truncated": false,
+  "text": "I'm very happy to say the next single from 1989 will be 'New Romantics'.",
+  "is_quote_status": false,
+  "in_reply_to_status_id": null,
+  "user": {
+    "follow_request_sent": false,
+    "has_extended_profile": false,
+    "profile_use_background_image": false,
+    "time_zone": "Dublin",
+    "id": 17919972,
+    "description": "Born in 1989.",
+    "verified": true,
+    "entities": {
+      "url": {
+        "urls": [
+          {
+            "url": "https://t.co/blhi4NNEJr",
+            "indices": [
+              0,
+              23
+            ],
+            "expanded_url": "http://smarturl.it/1989TourLIVE",
+            "display_url": "smarturl.it/1989TourLIVE"
+          }
+        ]
+      },
+      "description": {
+        "urls": []
+      }
+    },
+    "profile_image_url_https": "https://pbs.twimg.com/profile_images/505200807503867904/osJXmYRl_normal.jpeg",
+    "profile_sidebar_fill_color": "DDEEF6",
+    "is_translator": false,
+    "geo_enabled": false,
+    "profile_text_color": "333333",
+    "followers_count": 71643131,
+    "protected": false,
+    "id_str": "17919972",
+    "default_profile_image": false,
+    "listed_count": 122360,
+    "lang": "en",
+    "utc_offset": 0,
+    "statuses_count": 4106,
+    "profile_background_color": "C0DEED",
+    "friends_count": 245,
+    "profile_link_color": "0084B4",
+    "profile_image_url": "http://pbs.twimg.com/profile_images/505200807503867904/osJXmYRl_normal.jpeg",
+    "notifications": false,
+    "profile_background_image_url_https": "https://pbs.twimg.com/profile_background_images/687293757/6d2ec27f32fa8cc2fcb7e6a9eada9945.jpeg",
+    "profile_banner_url": "https://pbs.twimg.com/profile_banners/17919972/1409286315",
+    "profile_background_image_url": "http://pbs.twimg.com/profile_background_images/687293757/6d2ec27f32fa8cc2fcb7e6a9eada9945.jpeg",
+    "name": "Taylor Swift",
+    "is_translation_enabled": false,
+    "profile_background_tile": false,
+    "favourites_count": 2109,
+    "screen_name": "taylorswift13",
+    "url": "https://t.co/blhi4NNEJr",
+    "created_at": "Sat Dec 06 10:10:54 +0000 2008",
+    "contributors_enabled": false,
+    "location": "",
+    "profile_sidebar_border_color": "FFFFFF",
+    "default_profile": false,
+    "following": false
+  },
+  "geo": null,
+  "id": 700890866920067072,
+  "favorite_count": 146590,
+  "lang": "en",
+  "entities": {
+    "symbols": [],
+    "user_mentions": [],
+    "hashtags": [],
+    "urls": []
+  },
+  "created_at": "Sat Feb 20 03:52:59 +0000 2016",
+  "retweeted": false,
+  "coordinates": null,
+  "in_reply_to_user_id_str": null,
+  "source": "<a href=\"http://twitter.com/download/iphone\" rel=\"nofollow\">Twitter for iPhone</a>",
+  "in_reply_to_status_id_str": null,
+  "in_reply_to_screen_name": null,
+  "id_str": "700890866920067072",
+  "place": null,
+  "retweet_count": 69616,
+  "in_reply_to_user_id": null
+}

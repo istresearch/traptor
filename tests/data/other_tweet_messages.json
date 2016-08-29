@@ -1,0 +1,51 @@
+{
+  "delete":{
+    "status":{
+      "id":1234,
+      "id_str":"1234",
+      "user_id":3,
+      "user_id_str":"3"
+    }
+  },
+  "warning":{
+    "code":"FALLING_BEHIND",
+    "message":"Your connection is falling behind and messages are being queued for delivery to you. Your queue is now over 60% full. You will be disconnected when the queue is full.",
+    "percent_full": 60
+  },
+  "scrub_geo":{
+    "user_id":14090452,
+    "user_id_str":"14090452",
+    "up_to_status_id":23260136625,
+    "up_to_status_id_str":"23260136625"
+  },
+  "limit":{
+    "track":1234
+  },
+  "status_withheld":{
+      "id":1234567890,
+      "user_id":123456,
+      "withheld_in_countries":["DE", "AR"]
+  },
+  "user_withheld":{
+    "id":123456,
+    "withheld_in_countries":["DE","AR"]
+  },
+  "disconnect":{
+    "code": 4,
+    "stream_name":"",
+    "reason":""
+  },
+  "warning":{
+    "code":"FALLING_BEHIND",
+    "message":"Your connection is falling behind and messages are being queued for delivery to you. Your queue is now over 60% full. You will be disconnected when the queue is full.",
+    "percent_full": 60
+  },
+    "created_at": "Tue Aug 06 02:23:21 +0000 2013",
+    "source": {
+         "some_source": "blah blah"
+    },
+    "target": {
+      "some_target": "blah blah"
+    },
+    "event": "user_update"
+}
