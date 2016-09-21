@@ -14,7 +14,7 @@ from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
-HOST_FOR_TESTING = 'localhost'
+HOST_FOR_TESTING = 'scdev'
 
 
 @pytest.fixture()
@@ -324,3 +324,8 @@ class TestTraptor(object):
             print(message)
             enriched_data = traptor._enrich_tweet(message)
             assert enriched_data == message
+
+    def test_ensure_traptor_stays_alive_until_rules_are_found(self, traptor):
+        traptor._setup()
+
+        traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]

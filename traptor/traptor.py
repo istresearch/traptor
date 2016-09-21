@@ -467,6 +467,8 @@ class Traptor(object):
 
             # Add the rule information
             enriched_data = self._find_rule_matches(tweet)
+        else:
+            self.logger.warning(tweet)
 
         if enriched_data:
             return enriched_data
@@ -515,6 +517,7 @@ class Traptor(object):
 
     def _send_heartbeat_message(self):
         """Add an expiring key to Redis as a heartbeat on a timed basis."""
+        self.logger.info("Setting up the heartbeat.")
         hb_interval = 5
 
         # while Traptor is running, add a heartbeat message every 5 seconds
@@ -542,10 +545,13 @@ class Traptor(object):
                     enriched_data = self._enrich_tweet(tweet)
 
                     if self.kafka_enabled:
-                        self.kafka_producer.send_messages(self.kafka_topic,
-                                                          json.dumps(enriched_data))
+                        try:
+                            self.kafka_producer.send_messages(self.kafka_topic,
+                                                              json.dumps(enriched_data))
+                        except Exception as e:
+                            self.logger.error("Unable to add tweet to Kafka: {}".format(json.dumps(enriched_data)))
                     elif not self.kafka_enabled:
-                        print json.dumps(enriched_data, indent=2)
+                        self.logger.debug(json.dumps(enriched_data, indent=2))
 
             if self.restart_flag:
                 self.logger.info("Reset flag is true; restarting myself.")
@@ -574,9 +580,20 @@ class Traptor(object):
         heartbeat.setDaemon(True)
         heartbeat.start()
 
+        self.logger.info("Heartbeat started. Now to check for the rules")
+
         while True:
             # Grab a list of {tag:, value:} rules
             self.redis_rules = [rule for rule in self._get_redis_rules()]
+
+            # If there are no rules assigned to this Traptor, simma down and wait a bitty (1 minute)
+            redis_rule_count = len(self.redis_rules)
+
+            while redis_rule_count == 0:
+                time.sleep(60)
+                self.redis_rules = [rule for rule in self._get_redis_rules()]
+                redis_rule_count = len(self.redis_rules)
+
             self.logger.debug("Redis rules: {}".format(self.redis_rules))
 
             # Concatenate all of the rule['value'] fields
@@ -659,7 +676,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
     logger = LogFactory.get_instance(name='traptor_main', level='INFO')
     # Run the traptor instance and start collecting data
     try:
-        logger.info('Starting traptor_instance.run()')
+        logger.debug('Starting traptor_instance.run()')
         traptor_instance.run()
     except Exception as e:
         if sentry:
