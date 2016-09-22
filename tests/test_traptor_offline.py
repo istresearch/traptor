@@ -14,7 +14,7 @@ from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
-HOST_FOR_TESTING = 'scdev'
+HOST_FOR_TESTING = 'localhost'
 
 
 @pytest.fixture()
@@ -329,3 +329,4 @@ class TestTraptor(object):
         traptor._setup()
 
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
+
