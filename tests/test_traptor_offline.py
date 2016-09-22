@@ -329,4 +329,4 @@ class TestTraptor(object):
         traptor._setup()
 
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
-
+        pass
