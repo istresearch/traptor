@@ -37,6 +37,7 @@ class Traptor(object):
                  kafka_hosts='localhost:9092',
                  kafka_topic='traptor',
                  kafka_enabled=True,
+                 rule_check_interval=60,
                  log_level='INFO',
                  test=False,
                  traptor_notify_channel='traptor-notify'
@@ -71,9 +72,10 @@ class Traptor(object):
         self.traptor_notify_channel = traptor_notify_channel
         self.pubsub_conn = pubsub_conn
         self.heartbeat_conn = heartbeat_conn
+        self.rule_check_interval = rule_check_interval
 
     def __repr__(self):
-        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {})'.format(
+        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {})'.format(
             self.apikeys,
             self.traptor_type,
             self.traptor_id,
@@ -85,7 +87,8 @@ class Traptor(object):
             self.test,
             self.traptor_notify_channel,
             self.pubsub_conn,
-            self.heartbeat_conn
+            self.heartbeat_conn,
+            self.rule_check_interval
         )
 
     def _setup_birdy(self):
@@ -557,6 +560,17 @@ class Traptor(object):
                 self.logger.info("Reset flag is true; restarting myself.")
                 break
 
+    def _wait_for_rules(self):
+        """Wait for the Redis rules to appear"""
+        # Get the list of rules from Redis
+        self.redis_rules = [rule for rule in self._get_redis_rules()]
+
+        # If there are no rules assigned to this Traptor, simma down and wait a minute
+        while len(self.redis_rules) == 0:
+            self.logger.debug("No Redis rules assigned. Sleeping for 60 seconds.")
+            time.sleep(self.rule_check_interval)
+            self.redis_rules = [rule for rule in self._get_redis_rules()]
+
     def run(self):
         """ Run method for running a traptor instance.
 
@@ -580,21 +594,11 @@ class Traptor(object):
         heartbeat.setDaemon(True)
         heartbeat.start()
 
-        self.logger.info("Heartbeat started. Now to check for the rules")
+        self.logger.debug("Heartbeat started. Now to check for the rules")
 
+        # Do all the things
         while True:
-            # Grab a list of {tag:, value:} rules
-            self.redis_rules = [rule for rule in self._get_redis_rules()]
-
-            # If there are no rules assigned to this Traptor, simma down and wait a bitty (1 minute)
-            redis_rule_count = len(self.redis_rules)
-
-            while redis_rule_count == 0:
-                time.sleep(60)
-                self.redis_rules = [rule for rule in self._get_redis_rules()]
-                redis_rule_count = len(self.redis_rules)
-
-            self.logger.debug("Redis rules: {}".format(self.redis_rules))
+            self._wait_for_rules()
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
@@ -665,6 +669,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
                                pubsub_conn=pubsub_conn,
                                heartbeat_conn=heartbeat_conn,
                                kafka_enabled=kafka_enabled,
+                               rule_check_interval=RULE_CHECK_INTERVAL,
                                log_level=log_level,
                                test=False
                                )
@@ -688,7 +693,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
 if __name__ == '__main__':
     from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                           TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
-                          REDIS_PUBSUB_CHANNEL, SENTRY_SECRET)
+                          REDIS_PUBSUB_CHANNEL, SENTRY_SECRET, RULE_CHECK_INTERVAL)
     from raven import Client
 
     sys.exit(main())
