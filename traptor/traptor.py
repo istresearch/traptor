@@ -32,6 +32,7 @@ class Traptor(object):
                  pubsub_conn,
                  heartbeat_conn,
                  traptor_notify_channel='traptor-notify',
+                 rule_check_interval=60,
                  traptor_type='track',
                  traptor_id=0,
                  apikeys=None,
@@ -49,7 +50,8 @@ class Traptor(object):
         :param str redis_conn: redis connection to use.
         :param str pubsub_conn: redis pubsub connection to use
         :param str heartbeat_conn: redis connection to use for the heartbeat messages
-        :param str traptor_notify_channel: name of the Traptor PubSub channel to subscribe to
+        :param str traptor_notify_channel: name of the traptor PubSub channel to subscribe to
+        :param str rule_check_interval: number of seconds between checks of Redis for rules assigned to this traptor
         :param str traptor_type: follow, track, or geo.
         :param int traptor_id: numerical ID of traptor instance.
         :param dict apikeys: dictionary of API keys for traptor instnace.  See
@@ -61,14 +63,13 @@ class Traptor(object):
         :param str log_dir: directory for the traptor logs for the traptor logger instance.
         :param str log_file_name: log file name for the traptor logger instance.
         :param bool test: True for traptor test instance.
-
-
-
         """
+
         self.redis_conn = redis_conn
         self.pubsub_conn = pubsub_conn
         self.heartbeat_conn = heartbeat_conn
         self.traptor_notify_channel = traptor_notify_channel
+        self.rule_check_interval = rule_check_interval
         self.traptor_type = traptor_type
         self.traptor_id = traptor_id
         self.apikeys = apikeys
@@ -80,14 +81,13 @@ class Traptor(object):
         self.log_file_name = log_file_name
         self.test = test
 
-
-
     def __repr__(self):
-        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {})'.format(
+        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {}, {})'.format(
             self.redis_conn,
             self.pubsub_conn,
             self.heartbeat_conn,
             self.traptor_notify_channel,
+            self.rule_check_interval,
             self.traptor_type,
             self.traptor_id,
             self.apikeys,
@@ -483,6 +483,8 @@ class Traptor(object):
 
             # Add the rule information
             enriched_data = self._find_rule_matches(tweet)
+        else:
+            self.logger.warning(tweet)
 
         if enriched_data:
             return enriched_data
@@ -560,14 +562,28 @@ class Traptor(object):
                     enriched_data = self._enrich_tweet(tweet)
 
                     if self.kafka_enabled:
-                        self.kafka_producer.send_messages(self.kafka_topic,
-                                                          json.dumps(enriched_data))
+                        try:
+                            self.kafka_producer.send_messages(self.kafka_topic,
+                                                              json.dumps(enriched_data))
+                        except Exception as e:
+                            self.logger.error("Unable to add tweet to Kafka: {}".format(json.dumps(enriched_data)))
                     elif not self.kafka_enabled:
-                        print(json.dumps(enriched_data, indent=2))
+                        self.logger.debug(json.dumps(enriched_data, indent=2))
 
             if self.restart_flag:
                 self.logger.info("Reset flag is true; restarting myself.")
                 break
+
+    def _wait_for_rules(self):
+        """Wait for the Redis rules to appear"""
+        # Get the list of rules from Redis
+        self.redis_rules = [rule for rule in self._get_redis_rules()]
+
+        # If there are no rules assigned to this Traptor, simma down and wait a minute
+        while len(self.redis_rules) == 0:
+            self.logger.debug("No Redis rules assigned. Sleeping for 60 seconds.")
+            time.sleep(self.rule_check_interval)
+            self.redis_rules = [rule for rule in self._get_redis_rules()]
 
     def run(self):
         """ Run method for running a traptor instance.
@@ -592,10 +608,11 @@ class Traptor(object):
         heartbeat.setDaemon(True)
         heartbeat.start()
 
+        self.logger.debug("Heartbeat started. Now to check for the rules")
+
+        # Do all the things
         while True:
-            # Grab a list of {tag:, value:} rules
-            self.redis_rules = [rule for rule in self._get_redis_rules()]
-            self.logger.debug("Redis rules: {}".format(self.redis_rules))
+            self._wait_for_rules()
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
@@ -668,6 +685,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
                                pubsub_conn=pubsub_conn,
                                heartbeat_conn=heartbeat_conn,
                                traptor_notify_channel=REDIS_PUBSUB_CHANNEL,
+                               rule_check_interval=RULE_CHECK_INTERVAL,
                                traptor_type=traptor_type,
                                traptor_id=traptor_id,
                                apikeys=APIKEYS[key],
@@ -693,7 +711,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
 
     # Run the traptor instance
     try:
-        logger.info('Starting traptor_instance.run()')
+        logger.debug('Starting traptor_instance.run()')
         traptor_instance.run()
     except Exception as e:
         if sentry:
@@ -706,7 +724,7 @@ if __name__ == '__main__':
     from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                           TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
                           REDIS_PUBSUB_CHANNEL, SENTRY_SECRET, LOG_LEVEL,
-                          LOG_DIR, LOG_FILE_NAME)
+                          LOG_DIR, LOG_FILE_NAME, RULE_CHECK_INTERVAL)
     from raven import Client
 
     sys.exit(main())

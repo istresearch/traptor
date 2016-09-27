@@ -6,7 +6,7 @@ Settings for traptor
 # Traptor defaults
 TRAPTOR_TYPE = ''                               # Type of traptor; options: follow, track, locations
 TRAPTOR_ID = 0                                  # Unique id of this traptor
-RULE_CHECK_INTERVAL = 2                         # Number of second to check for Rules in Redis (while Traptor sits idle)
+RULE_CHECK_INTERVAL = 60                        # Number of second to check for Rules in Redis (while Traptor sits idle)
 
 
 # Sentry URL
@@ -27,8 +27,9 @@ REDIS_PORT = 6379                               # Redis port
 REDIS_DB = 0                                    # Redis database where traptor will look for its rules
 REDIS_PUBSUB_CHANNEL = "traptor-notify"         # Redis pubsub channel for restart notifications
 
+
 # Twitter API Keys
-# Your API information.  Fill this out in localsettings.py!
+# Fill this out in localsettings.py!
 APIKEYS = (
            {
             'CONSUMER_KEY': "",

@@ -78,6 +78,7 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
                                kafka_topic='traptor_test',
                                kafka_enabled=False,
                                log_level='INFO',
+                               rule_check_interval=2,
                                test=True,
                                traptor_notify_channel=traptor_notify_channel
                                )
@@ -324,3 +325,16 @@ class TestTraptor(object):
             print(message)
             enriched_data = traptor._enrich_tweet(message)
             assert enriched_data == message
+
+    def test_ensure_traptor_stays_alive_until_rules_are_found(self, traptor):
+        traptor._setup()
+        traptor.rule_check_interval = 2
+        traptor.logger.debug = MagicMock()
+
+        empty_response = {}
+        good_response = {"Rule": "Fun"}
+
+        traptor._get_redis_rules = MagicMock(side_effect=[empty_response, empty_response, good_response])
+        traptor._wait_for_rules()
+
+        assert traptor.logger.debug.call_count == 2
