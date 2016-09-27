@@ -4,7 +4,6 @@ requests-oauthlib>=0.3.2
 redis>=2.10.3
 kafka-python>=0.9.5
 python-dateutil
-click
 scutils>=0.0.6
 pymysql
 nose
