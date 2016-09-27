@@ -43,3 +43,6 @@ var/
 dump.rdb
 .coverage*
 htmlcov/*
+
+# Editor files
+.idea/*

@@ -2,24 +2,32 @@
 Settings for traptor
 ====================
 '''
-SENTRY_SECRET = ""
-LOG_LEVEL = 'INFO'
 
-KAFKA_HOSTS = "localhost:9092"
-REDIS_HOST = "localhost"
-REDIS_PORT = 6379
-REDIS_DB = 0
+# Traptor defaults
+TRAPTOR_TYPE = ''                               # Type of traptor; options: follow, track, locations
+TRAPTOR_ID = 0                                  # Unique id of this traptor
+RULE_CHECK_INTERVAL = 2                         # Number of second to check for Rules in Redis (while Traptor sits idle)
 
-'''
-In order for a Traptor to restart itself, it looks for a message in
-Redis in the format of <traptor-type>:<traptor-id>. Once it sees a
-message for itself it restarts, thus refreshing it's rules.
-'''
-REDIS_PUBSUB_CHANNEL = "traptor-notify"
 
-# Kafka topic to write all twitter data
-KAFKA_TOPIC = "traptor"
+# Sentry URL
+SENTRY_SECRET = ""                              # URL for Sentry if using it for application alerting
 
+# Logging settings
+LOG_LEVEL = 'INFO'                              # Default log level
+LOG_DIR = '/var/log/traptor'                    # Directory to store traptor logs
+LOG_FILE_NAME = 'traptor.log'                   # Name of the log file `traptor.log`
+
+# Kafka
+KAFKA_HOSTS = "localhost:9092"                  # Kafka host(s)
+KAFKA_TOPIC = "traptor"                         # Kafka topic to write all twitter data
+
+# Redis
+REDIS_HOST = "localhost"                        # Redis host
+REDIS_PORT = 6379                               # Redis port
+REDIS_DB = 0                                    # Redis database where traptor will look for its rules
+REDIS_PUBSUB_CHANNEL = "traptor-notify"         # Redis pubsub channel for restart notifications
+
+# Twitter API Keys
 # Your API information.  Fill this out in localsettings.py!
 APIKEYS = (
            {
@@ -29,16 +37,6 @@ APIKEYS = (
             'ACCESS_TOKEN_SECRET': ""
             }
 )
-
-'''
-Each 'traptor_type' has a unqiue 'traptor_id'.  This ID is how traptor knows
-where to look for a ruleset in Redis.  For example, traptor-follow:0:5 is
-a traptor-follow instance, with traptor_id = 0, and the rule_id = 5.
-'''
-
-# Options for TRAPTOR_TYPE:  follow, track, locations
-TRAPTOR_TYPE = ''
-TRAPTOR_ID = 0
 
 # Local Overrides
 # ~~~~~~~~~~~~~~~

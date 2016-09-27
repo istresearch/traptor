@@ -31,61 +31,73 @@ class Traptor(object):
                  redis_conn,
                  pubsub_conn,
                  heartbeat_conn,
-                 traptor_type,
-                 apikeys,
+                 traptor_notify_channel='traptor-notify',
+                 traptor_type='track',
                  traptor_id=0,
+                 apikeys=None,
+                 kafka_enabled=True,
                  kafka_hosts='localhost:9092',
                  kafka_topic='traptor',
-                 kafka_enabled=True,
                  log_level='INFO',
-                 test=False,
-                 traptor_notify_channel='traptor-notify'
+                 log_dir='/var/log/traptor',
+                 log_file_name='traptor.log',
+                 test=False
                  ):
         """
         Traptor base class.
 
-        :param dict apikeys: dictionary of API keys for traptor instnace.  See
-                             settings.py for details.
-        :param str traptor_type: follow, track, or geo.
-        :param int traptor_id: numerical ID of traptor instance.
-        :param str kafka_hosts: kafka hosts to connect to.
-        :param str kafka_topic: name of the kafka topic to write to.
         :param str redis_conn: redis connection to use.
-        :param bool kafka_enabled: write to kafka or just log to something else.
-        :param str log_level: log level of the traptor logger instance.
-        :param bool test: True for traptor test instance.
-        :param str traptor_notify_channel: name of the Traptor PubSub channel to subscribe to
         :param str pubsub_conn: redis pubsub connection to use
         :param str heartbeat_conn: redis connection to use for the heartbeat messages
+        :param str traptor_notify_channel: name of the Traptor PubSub channel to subscribe to
+        :param str traptor_type: follow, track, or geo.
+        :param int traptor_id: numerical ID of traptor instance.
+        :param dict apikeys: dictionary of API keys for traptor instnace.  See
+                             settings.py for details.
+        :param bool kafka_enabled: write to kafka or just log to something else.
+        :param str kafka_hosts: kafka hosts to connect to.
+        :param str kafka_topic: name of the kafka topic to write to.
+        :param str log_level: log level of the traptor logger instance.
+        :param str log_dir: directory for the traptor logs for the traptor logger instance.
+        :param str log_file_name: log file name for the traptor logger instance.
+        :param bool test: True for traptor test instance.
+
+
 
         """
-        self.apikeys = apikeys
-        self.traptor_type = traptor_type
-        self.traptor_id = traptor_id
-        self.kafka_hosts = kafka_hosts
-        self.kafka_topic = kafka_topic
         self.redis_conn = redis_conn
-        self.kafka_enabled = kafka_enabled
-        self.log_level = log_level
-        self.test = test
-        self.traptor_notify_channel = traptor_notify_channel
         self.pubsub_conn = pubsub_conn
         self.heartbeat_conn = heartbeat_conn
+        self.traptor_notify_channel = traptor_notify_channel
+        self.traptor_type = traptor_type
+        self.traptor_id = traptor_id
+        self.apikeys = apikeys
+        self.kafka_enabled = kafka_enabled
+        self.kafka_hosts = kafka_hosts
+        self.kafka_topic = kafka_topic
+        self.log_level = log_level
+        self.log_dir = log_dir
+        self.log_file_name = log_file_name
+        self.test = test
+
+
 
     def __repr__(self):
-        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {})'.format(
-            self.apikeys,
+        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {})'.format(
+            self.redis_conn,
+            self.pubsub_conn,
+            self.heartbeat_conn,
+            self.traptor_notify_channel,
             self.traptor_type,
             self.traptor_id,
+            self.apikeys,
+            self.kafka_enabled,
             self.kafka_hosts,
             self.kafka_topic,
-            self.redis_conn,
-            self.kafka_enabled,
             self.log_level,
-            self.test,
-            self.traptor_notify_channel,
-            self.pubsub_conn,
-            self.heartbeat_conn
+            self.log_dir,
+            self.log_file_name,
+            self.test
         )
 
     def _setup_birdy(self):
@@ -125,8 +137,12 @@ class Traptor(object):
         """
 
         # Set up logging
-        self.logger = LogFactory.get_instance(name='traptor',
-                                              level=self.log_level)
+        self.logger = LogFactory.get_instance(json=True,
+                                              stdout=False,
+                                              name="traptor",
+                                              level=self.log_level,
+                                              dir=self.log_dir,
+                                              file=self.log_file_name)
 
         # Set the restart_flag to False
         self.restart_flag = False
@@ -146,7 +162,7 @@ class Traptor(object):
         """
         if self.kafka_conn:
             try:
-                self.logger.debug('Creating kafka producer for "{}"...'.format(self.kafka_topic))
+                self.logger.info('Creating kafka producer for "{}"...'.format(self.kafka_topic))
                 self.kafka_producer = SimpleProducer(self.kafka_conn)
             except KafkaUnavailableError as e:
                 self.logger.critical(e)
@@ -171,7 +187,7 @@ class Traptor(object):
         if self.traptor_type == 'follow':
             # Try to set up a twitter stream using twitter id list
             try:
-                self.logger.info('Creating birdy "follow" stream')
+                self.logger.info('Creating birdy follow stream')
                 self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(follow=self.twitter_rules)
             except TwitterApiError as e:
                 self.logger.critical(e)
@@ -179,7 +195,7 @@ class Traptor(object):
         elif self.traptor_type == 'track':
             # Try to set up a twitter stream using twitter term list
             try:
-                self.logger.info('Creating birdy "track" stream')
+                self.logger.info('Creating birdy track stream')
                 self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(track=self.twitter_rules)
             except TwitterApiError as e:
                 self.logger.critical(e)
@@ -187,7 +203,7 @@ class Traptor(object):
         elif self.traptor_type == 'locations':
             # Try to set up a twitter stream using twitter term list
             try:
-                self.logger.info('Creating birdy "locations" stream')
+                self.logger.info('Creating birdy locations stream')
                 self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(locations=self.twitter_rules)
             except TwitterApiError as e:
                 self.logger.critical(e)
@@ -515,6 +531,7 @@ class Traptor(object):
 
     def _send_heartbeat_message(self):
         """Add an expiring key to Redis as a heartbeat on a timed basis."""
+        self.logger.info("Starting the heartbeat.")
         hb_interval = 5
 
         # while Traptor is running, add a heartbeat message every 5 seconds
@@ -531,6 +548,7 @@ class Traptor(object):
         enabled it will write to the kafka topic defined when instantiating
         the Traptor class.
         """
+        self.logger.info("Starting tweet processing.")
         # Iterate through the twitter results
         for item in self.birdy_stream._stream_iter():
             if item:
@@ -545,7 +563,7 @@ class Traptor(object):
                         self.kafka_producer.send_messages(self.kafka_topic,
                                                           json.dumps(enriched_data))
                     elif not self.kafka_enabled:
-                        print json.dumps(enriched_data, indent=2)
+                        print(json.dumps(enriched_data, indent=2))
 
             if self.restart_flag:
                 self.logger.info("Reset flag is true; restarting myself.")
@@ -614,7 +632,10 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
         it will not write to kafka but stdout instread.
     """
 
+    # Kafka
     kafka_enabled = False if stdout else True
+
+    # Set the log level
     if debug:
         log_level = 'DEBUG'
     elif info:
@@ -622,42 +643,55 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
     else:
         log_level = 'CRITICAL'
 
+    # Set the Traptor info
     traptor_id = id if id else TRAPTOR_ID
     traptor_type = type if type else TRAPTOR_TYPE
 
+    # Redis connection
     redis_conn = StrictRedis(host=REDIS_HOST,
                              port=REDIS_PORT,
                              db=REDIS_DB,
                              decode_responses=True)
 
+    # Redis pubsub connection
     pubsub_conn = StrictRedis(host=REDIS_HOST,
                               port=REDIS_PORT,
                               db=REDIS_DB)
 
+    # Redis heartbeat connection
     heartbeat_conn = StrictRedis(host=REDIS_HOST,
                                  port=REDIS_PORT,
                                  db=REDIS_DB)
 
-    traptor_instance = Traptor(apikeys=APIKEYS[key],
-                               traptor_type=traptor_type,
-                               traptor_id=traptor_id,
-                               kafka_hosts=KAFKA_HOSTS,
-                               kafka_topic=KAFKA_TOPIC,
-                               redis_conn=redis_conn,
-                               traptor_notify_channel=REDIS_PUBSUB_CHANNEL,
+    # Create the traptor instance
+    traptor_instance = Traptor(redis_conn=redis_conn,
                                pubsub_conn=pubsub_conn,
                                heartbeat_conn=heartbeat_conn,
+                               traptor_notify_channel=REDIS_PUBSUB_CHANNEL,
+                               traptor_type=traptor_type,
+                               traptor_id=traptor_id,
+                               apikeys=APIKEYS[key],
                                kafka_enabled=kafka_enabled,
+                               kafka_hosts=KAFKA_HOSTS,
+                               kafka_topic=KAFKA_TOPIC,
                                log_level=log_level,
+                               log_dir=LOG_DIR,
+                               log_file_name=LOG_FILE_NAME,
                                test=False
                                )
 
-    # Don't connect to the Twitter API too fast
+    # Delay before connecting to the Twitter steaming API. This is a "just in case" kind of thing
     time.sleep(delay)
 
-    # Set up external logging
-    logger = LogFactory.get_instance(name='traptor_main', level='INFO')
-    # Run the traptor instance and start collecting data
+    # Logger for this main function. The traptor has it's own logger
+    logger = LogFactory.get_instance(json=True,
+                                     stdout=False,
+                                     name="traptor-main",
+                                     level=INFO,
+                                     dir=LOG_DIR,
+                                     file=LOG_FILE_NAME)
+
+    # Run the traptor instance
     try:
         logger.info('Starting traptor_instance.run()')
         traptor_instance.run()
@@ -671,7 +705,8 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
 if __name__ == '__main__':
     from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                           TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
-                          REDIS_PUBSUB_CHANNEL, SENTRY_SECRET)
+                          REDIS_PUBSUB_CHANNEL, SENTRY_SECRET, LOG_LEVEL,
+                          LOG_DIR, LOG_FILE_NAME)
     from raven import Client
 
     sys.exit(main())

@@ -1,0 +1,24 @@
+TRAPTOR_TYPE = 'track'
+TRAPTOR_ID = 0
+RULE_CHECK_INTERVAL = 2
+
+LOG_LEVEL = 'INFO'
+LOG_DIR = '/var/log/traptor'
+LOG_FILE_NAME = 'traptor.log'
+
+KAFKA_HOSTS = "kafka:9092"
+KAFKA_TOPIC = "traptor"
+
+REDIS_HOST = "redis"
+REDIS_PORT = 6379
+REDIS_DB = 5
+REDIS_PUBSUB_CHANNEL = "traptor-test"
+
+APIKEYS = (
+    {
+        'CONSUMER_KEY': "X3XubwiFvR0CNzzY46AE7c6s7",
+        'CONSUMER_SECRET': "Gg3cxWRclYwDKE0KJigA6VKHKjL8jI3WURQErMrORoAKfQQMSA",
+        'ACCESS_TOKEN': "4291171-WeF2pfNDq3CaQwjIedC6AwYplVHYoMg9IHU1MMtEAW",
+        'ACCESS_TOKEN_SECRET': "kWXLZbltZcz5if4lm3mk4y55U1vQIrHEFJEa42Qv7Kr9e"
+    },
+)
