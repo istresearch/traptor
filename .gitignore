@@ -8,11 +8,8 @@ docs/_build_html
 # OSX garbage
 .DS_STORE
 
-# Scrapy Cluster
-kafka-monitor/logs/*
-redis-monitor/logs/*
-crawler/logs/*
-crawler/main.log
+# Logs and local settings
+logs/*
 localsettings.py
 
 # Vagrant test VM
