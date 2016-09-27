@@ -43,3 +43,6 @@ var/
 dump.rdb
 .coverage*
 htmlcov/*
+
+# PyCharm Files
+.idea/*

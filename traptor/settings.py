@@ -20,6 +20,9 @@ REDIS_PUBSUB_CHANNEL = "traptor-notify"
 # Kafka topic to write all twitter data
 KAFKA_TOPIC = "traptor"
 
+# Time to wait between checks of Redis for rules assigned to this Traptor
+RULE_CHECK_INTERVAL = 60
+
 # Your API information.  Fill this out in localsettings.py!
 APIKEYS = (
            {

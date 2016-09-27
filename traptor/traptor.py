@@ -37,6 +37,7 @@ class Traptor(object):
                  kafka_hosts='localhost:9092',
                  kafka_topic='traptor',
                  kafka_enabled=True,
+                 rule_check_interval=60,
                  log_level='INFO',
                  test=False,
                  traptor_notify_channel='traptor-notify'
@@ -71,9 +72,10 @@ class Traptor(object):
         self.traptor_notify_channel = traptor_notify_channel
         self.pubsub_conn = pubsub_conn
         self.heartbeat_conn = heartbeat_conn
+        self.rule_check_interval = rule_check_interval
 
     def __repr__(self):
-        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {})'.format(
+        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {})'.format(
             self.apikeys,
             self.traptor_type,
             self.traptor_id,
@@ -85,7 +87,8 @@ class Traptor(object):
             self.test,
             self.traptor_notify_channel,
             self.pubsub_conn,
-            self.heartbeat_conn
+            self.heartbeat_conn,
+            self.rule_check_interval
         )
 
     def _setup_birdy(self):
@@ -467,6 +470,8 @@ class Traptor(object):
 
             # Add the rule information
             enriched_data = self._find_rule_matches(tweet)
+        else:
+            self.logger.warning(tweet)
 
         if enriched_data:
             return enriched_data
@@ -515,6 +520,7 @@ class Traptor(object):
 
     def _send_heartbeat_message(self):
         """Add an expiring key to Redis as a heartbeat on a timed basis."""
+        self.logger.info("Setting up the heartbeat.")
         hb_interval = 5
 
         # while Traptor is running, add a heartbeat message every 5 seconds
@@ -542,14 +548,28 @@ class Traptor(object):
                     enriched_data = self._enrich_tweet(tweet)
 
                     if self.kafka_enabled:
-                        self.kafka_producer.send_messages(self.kafka_topic,
-                                                          json.dumps(enriched_data))
+                        try:
+                            self.kafka_producer.send_messages(self.kafka_topic,
+                                                              json.dumps(enriched_data))
+                        except Exception as e:
+                            self.logger.error("Unable to add tweet to Kafka: {}".format(json.dumps(enriched_data)))
                     elif not self.kafka_enabled:
-                        print json.dumps(enriched_data, indent=2)
+                        self.logger.debug(json.dumps(enriched_data, indent=2))
 
             if self.restart_flag:
                 self.logger.info("Reset flag is true; restarting myself.")
                 break
+
+    def _wait_for_rules(self):
+        """Wait for the Redis rules to appear"""
+        # Get the list of rules from Redis
+        self.redis_rules = [rule for rule in self._get_redis_rules()]
+
+        # If there are no rules assigned to this Traptor, simma down and wait a minute
+        while len(self.redis_rules) == 0:
+            self.logger.debug("No Redis rules assigned. Sleeping for 60 seconds.")
+            time.sleep(self.rule_check_interval)
+            self.redis_rules = [rule for rule in self._get_redis_rules()]
 
     def run(self):
         """ Run method for running a traptor instance.
@@ -574,10 +594,11 @@ class Traptor(object):
         heartbeat.setDaemon(True)
         heartbeat.start()
 
+        self.logger.debug("Heartbeat started. Now to check for the rules")
+
+        # Do all the things
         while True:
-            # Grab a list of {tag:, value:} rules
-            self.redis_rules = [rule for rule in self._get_redis_rules()]
-            self.logger.debug("Redis rules: {}".format(self.redis_rules))
+            self._wait_for_rules()
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
@@ -648,6 +669,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
                                pubsub_conn=pubsub_conn,
                                heartbeat_conn=heartbeat_conn,
                                kafka_enabled=kafka_enabled,
+                               rule_check_interval=RULE_CHECK_INTERVAL,
                                log_level=log_level,
                                test=False
                                )
@@ -659,7 +681,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
     logger = LogFactory.get_instance(name='traptor_main', level='INFO')
     # Run the traptor instance and start collecting data
     try:
-        logger.info('Starting traptor_instance.run()')
+        logger.debug('Starting traptor_instance.run()')
         traptor_instance.run()
     except Exception as e:
         if sentry:
@@ -671,7 +693,7 @@ def main(sentry, stdout, info, debug, delay, id, type, key):
 if __name__ == '__main__':
     from settings import (KAFKA_HOSTS, KAFKA_TOPIC, APIKEYS, TRAPTOR_ID,
                           TRAPTOR_TYPE, REDIS_HOST, REDIS_PORT, REDIS_DB,
-                          REDIS_PUBSUB_CHANNEL, SENTRY_SECRET)
+                          REDIS_PUBSUB_CHANNEL, SENTRY_SECRET, RULE_CHECK_INTERVAL)
     from raven import Client
 
     sys.exit(main())
