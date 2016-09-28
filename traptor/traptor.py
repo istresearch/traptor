@@ -119,6 +119,7 @@ class Traptor(object):
 
         # Set up a birdy twitter streaming client
         self.logger.info('Setting up birdy connection...')
+        self.logger.debug("API Keys: {}".format(self.apikeys))
         self.birdy_conn = MyBirdyClient(
                                         self.apikeys['CONSUMER_KEY'],
                                         self.apikeys['CONSUMER_SECRET'],
@@ -136,6 +137,7 @@ class Traptor(object):
             self.kafka_conn = KafkaClient(hosts=self.kafka_hosts)
         else:
             self.logger.info('Skipping kafka connection setup')
+            self.logger.debug('Kafka_enabled setting: {}'.format(self.kafka_enabled))
             self.kafka_conn = None
 
     def _setup(self):
@@ -144,10 +146,13 @@ class Traptor(object):
         default and custom settings.
         """
 
+        traptor_name = 'traptor-{}-{}'.format(os.getenv('TRAPTOR_TYPE', 'track'),
+                                              os.getenv('TRAPTOR_ID', 0))
+
         # Set up logging
         self.logger = LogFactory.get_instance(json=True,
                                               stdout=False,
-                                              name="traptor",
+                                              name=traptor_name,
                                               level=self.log_level,
                                               dir=self.log_dir,
                                               file=self.log_file_name)
@@ -329,7 +334,7 @@ class Traptor(object):
                             new_dict['traptor'][key] = value.encode("utf-8")
 
                         # Log that a rule was matched
-                        self.logger.info("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
+                        self.logger.debug("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
             except Exception as e:
                 self.logger.error("Exception while running the rule match: {}".format(e))
 
@@ -381,7 +386,7 @@ class Traptor(object):
                             new_dict['traptor'][key] = value.encode("utf-8")
 
                         # Log that a rule was matched
-                        self.logger.info("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
+                        self.logger.debug("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
             except Exception as e:
                 self.logger.error("Exception while running the rule match: {}".format(e))
 
@@ -438,6 +443,7 @@ class Traptor(object):
                                              self.traptor_id)
         match = ':'.join([redis_key, '*'])
         try:
+            self.logger.info("Getting rules from Redis.")
             for idx, hashname in enumerate(self.redis_conn.scan_iter(match=match)):
                 if idx < rule_max:
                     redis_rule = self.redis_conn.hgetall(hashname)
@@ -628,7 +634,7 @@ class Traptor(object):
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
             self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
 
-            if self.kafka_enabled:
+            if self.kafka_enabled == 'true':
                 self._create_kafka_producer(self.kafka_topic)
 
             if not self.test:
@@ -705,9 +711,12 @@ def main():
                                )
 
     # Logger for this main function. The traptor has it's own logger
+
+    traptor_name = 'traptor-{}-{}'.format(os.getenv('TRAPTOR_TYPE', 'track'),
+                                          os.getenv('TRAPTOR_ID', 0))
     logger = LogFactory.get_instance(json=True,
                                      stdout=False,
-                                     name="traptor-main",
+                                     name=traptor_name,
                                      level=log_level,
                                      dir=log_dir,
                                      file=log_file_name)
@@ -718,6 +727,7 @@ def main():
     # Run the traptor instance
     try:
         logger.info('Starting Traptor')
+        logger.debug("Traptor info: {}".format(traptor_instance.__repr__()))
         traptor_instance.run()
     except Exception as e:
         if os.getenv('USE_SENTRY') == 'true':
