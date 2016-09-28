@@ -598,6 +598,7 @@ class Traptor(object):
 
         # If there are no rules assigned to this Traptor, simma down and wait a minute
         while len(self.redis_rules) == 0:
+            self.logger.debug("No Redis rules assigned. Sleeping for 60 seconds.")
             time.sleep(self.rule_check_interval)
             self.redis_rules = [rule for rule in self._get_redis_rules()]
 
