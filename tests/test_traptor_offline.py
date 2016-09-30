@@ -4,8 +4,6 @@
 
 import os
 import json
-import time
-from datetime import datetime
 from redis import StrictRedis, ConnectionError
 import pytest
 from mock import MagicMock
@@ -71,16 +69,20 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
     traptor_instance = Traptor(redis_conn=redis_rules,
                                pubsub_conn=pubsub_conn,
                                heartbeat_conn=heartbeat_conn,
+                               traptor_notify_channel=traptor_notify_channel,
+                               rule_check_interval=2,
                                traptor_type=request.param,
-                               apikeys=APIKEYS,
                                traptor_id=0,
+                               apikeys=APIKEYS,
+                               kafka_enabled=False,
                                kafka_hosts='localhost:9092',
                                kafka_topic='traptor_test',
-                               kafka_enabled=False,
+                               use_sentry='False',
+                               sentry_url=None,
                                log_level='INFO',
-                               rule_check_interval=2,
-                               test=True,
-                               traptor_notify_channel=traptor_notify_channel
+                               log_dir='logs',
+                               log_file_name='traptor.log',
+                               test=True
                                )
 
     return traptor_instance
