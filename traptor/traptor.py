@@ -291,13 +291,23 @@ class Traptor(object):
             url_list = []
             if 'urls' in tweet_dict['entities']:
                 for url in tweet_dict['entities']['urls']:
-                    url_list.append(url['expanded_url'])
-                    url_list.append(url['display_url'])
+                    expanded_url = url.get('expanded_url', None)
+                    display_url = url.get('display_url', None)
+
+                    if expanded_url is not None:
+                        url_list.append(expanded_url)
+                    if display_url is not None:
+                        url_list.append(display_url)
 
             if 'media' in tweet_dict['entities']:
                 for item in tweet_dict['entities']['media']:
-                    url_list.append(item['expanded_url'])
-                    url_list.append(item['display_url'])
+                    expanded_url = item.get('expanded_url', None)
+                    display_url = item.get('display_url', None)
+
+                    if expanded_url is not None:
+                        url_list.append(expanded_url)
+                    if display_url is not None:
+                        url_list.append(display_url)
 
             if len(url_list) > 0:
                 url_list = set(url_list)
