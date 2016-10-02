@@ -11,6 +11,7 @@ docs/_build_html
 # Logs and local settings
 logs/*
 localsettings.py
+traptor.env
 
 # Vagrant test VM
 .vagrant
