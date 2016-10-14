@@ -44,3 +44,10 @@ htmlcov/*
 
 # Editor files
 .idea/*
+logstash/traptor-logstash.dev.conf
+
+traptor_follow_0.dev.env
+
+traptor_track_0.dev.env
+
+docker-compose.dev.yml
