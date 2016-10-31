@@ -18,3 +18,17 @@ deploy:
   on:
     tags: true
     repo: istresearch/traptor
+
+after_success:
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+    docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+    docker build -t istresearch/traptor:latest .
+    docker push istresearch/traptor:latest
+    docker logout
+    fi
+  - if [ "$TRAVIS_BRANCH" == "develop" ]; then
+    docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+    docker build -t istresearch/traptor:develop .
+    docker push istresearch/traptor:develop
+    docker logout
+    fi
