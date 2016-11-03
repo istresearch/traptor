@@ -4,29 +4,26 @@ services:
 
   traptor:
     build: .
-    container_name: traptor
     volumes:
       - .:/code
       - ./logs:/var/log/traptor
     env_file:
       - ./traptor.env
     depends_on:
-      - logstash
-      - zookeeper
-      - kafka
+      # - logstash
+      # - zookeeper
+      # - kafka
       - redis
-      - elasticsearch
-      - kibana
+      # - elasticsearch
+      # - kibana
     restart: always
 
   redis:
-    container_name: traptor_redis
     image: redis:latest
     ports:
       - "6379:6379"
 
   kafka:
-    container_name: traptor_kafka
     image: wurstmeister/kafka
     ports:
       - "9092:9092"
@@ -40,17 +37,14 @@ services:
       - zookeeper
 
   zookeeper:
-    container_name: traptor_zookeeper
     image: wurstmeister/zookeeper
     ports:
       - "2181:2181"
 
   elasticsearch:
-    container_name: traptor_elasticsearch
-    image: elasticsearch
+    image: elasticsearch:latest
 
   logstash:
-    container_name: traptor_logstash
     image: logstash:latest
     command: logstash -f /etc/logstash/conf.d/logstash.conf
     volumes:
@@ -59,7 +53,6 @@ services:
       - ./logs:/var/log/traptor
 
   kibana:
-    container_name: traptor_kibana
     image: kibana:latest
     ports:
       - "5601:5601"
