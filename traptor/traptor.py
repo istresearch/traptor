@@ -263,7 +263,7 @@ class Traptor(object):
 
         # If the traptor is any other type, keep it going
         new_dict = tweet_dict
-        self.logger.debug('Finding tweet rule matches')
+        self.logger.info('Finding tweet rule matches')
 
         # If the Traptor is a geo traptor, return the one rule we've already set up
         if self.traptor_type == 'locations':
@@ -365,6 +365,14 @@ class Traptor(object):
 
             # Tweets created by the user AND
             # Tweets which are retweeted by the user
+
+            # Handle the new extended tweet format
+            if 'extended_tweet' in tweet_dict:
+                tweet_dict = tweet_dict['extended_tweet']
+
+            self.logger.debug('tweet_dict for rule match', extra={'tweet_dict': tweet_dict})
+
+
             query = query + str(tweet_dict['user']['id'])
 
             # Replies to any Tweet created by the user.
