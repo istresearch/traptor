@@ -500,6 +500,7 @@ class Traptor(object):
         if 'id_str' in message:
             return True
         else:
+            self.logger.warning('This object is not a tweet message')
             return False
 
     def _enrich_tweet(self, tweet):
