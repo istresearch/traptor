@@ -369,7 +369,7 @@ class Traptor(object):
             self.logger.debug('tweet_dict for rule match', extra={'tweet_dict': tweet_dict})
 
 
-            query = query + str(tweet_dict['user']['id'])
+            query = query + str(tweet_dict['user']['id_str'])
 
             # Replies to any Tweet created by the user.
             if tweet_dict['in_reply_to_user_id'] is not None and tweet_dict['in_reply_to_user_id'] != '':
@@ -406,7 +406,7 @@ class Traptor(object):
 
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
-            new_dict['traptor']['id'] = self.traptor_id
+            new_dict['traptor']['id'] = int(self.traptor_id)
             new_dict['traptor']['rule_tag'] = 'Not found'
             new_dict['traptor']['rule_value'] = 'Not found'
             # Log that a rule was matched
@@ -480,7 +480,7 @@ class Traptor(object):
         """Add the traptor dict and id to the tweet."""
         if 'traptor' not in tweet_dict:
             tweet_dict['traptor'] = {}
-            tweet_dict['traptor']['id'] = self.traptor_id
+            tweet_dict['traptor']['id_str'] = int(self.traptor_id)
 
         return tweet_dict
 
