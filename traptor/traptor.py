@@ -366,10 +366,6 @@ class Traptor(object):
             # Tweets created by the user AND
             # Tweets which are retweeted by the user
 
-            # Handle the new extended tweet format
-            if 'extended_tweet' in tweet_dict:
-                tweet_dict = tweet_dict['extended_tweet']
-
             self.logger.debug('tweet_dict for rule match', extra={'tweet_dict': tweet_dict})
 
 
