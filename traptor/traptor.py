@@ -263,7 +263,7 @@ class Traptor(object):
 
         # If the traptor is any other type, keep it going
         new_dict = tweet_dict
-        self.logger.debug('Finding tweet rule matches')
+        self.logger.info('Finding tweet rule matches')
 
         # If the Traptor is a geo traptor, return the one rule we've already set up
         if self.traptor_type == 'locations':
@@ -365,7 +365,14 @@ class Traptor(object):
 
             # Tweets created by the user AND
             # Tweets which are retweeted by the user
-            query = query + str(tweet_dict['user']['id'])
+
+            try:
+                self.logger.debug('tweet_dict for rule match',
+                                  extra={'tweet_dict': json.dumps(tweet_dict).encode("utf-8")})
+            except:
+                self.logger.error('Error dumping out the tweet_dict data')
+
+            query = query + str(tweet_dict['user']['id_str'])
 
             # Replies to any Tweet created by the user.
             if tweet_dict['in_reply_to_user_id'] is not None and tweet_dict['in_reply_to_user_id'] != '':
@@ -402,7 +409,7 @@ class Traptor(object):
 
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
-            new_dict['traptor']['id'] = self.traptor_id
+            new_dict['traptor']['id'] = int(self.traptor_id)
             new_dict['traptor']['rule_tag'] = 'Not found'
             new_dict['traptor']['rule_value'] = 'Not found'
             # Log that a rule was matched
@@ -476,7 +483,7 @@ class Traptor(object):
         """Add the traptor dict and id to the tweet."""
         if 'traptor' not in tweet_dict:
             tweet_dict['traptor'] = {}
-            tweet_dict['traptor']['id'] = self.traptor_id
+            tweet_dict['traptor']['id_str'] = int(self.traptor_id)
 
         return tweet_dict
 
@@ -492,6 +499,7 @@ class Traptor(object):
         if 'id_str' in message:
             return True
         else:
+            self.logger.warning('This object is not a tweet message')
             return False
 
     def _enrich_tweet(self, tweet):

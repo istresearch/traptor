@@ -79,7 +79,7 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
                                kafka_topic='traptor_test',
                                use_sentry='False',
                                sentry_url=None,
-                               log_level='INFO',
+                               log_level='DEBUG',
                                log_dir='logs',
                                log_file_name='traptor.log',
                                test=True
@@ -130,6 +130,14 @@ def heartbeat_conn():
     """Create a connection for the heartbeat."""
     hb_conn = MagicMock()
     return hb_conn
+
+
+@pytest.fixture(params=['classic.json', 'classic_hidden.json', 'extended_hidden.json'])
+def extended_tweets(request):
+    with open('tests/data/extended_tweets/{}'.format(request.param)) as f:
+        loaded_tweet = json.load(f)
+
+    return loaded_tweet
 
 
 class TestRuleExtract():
@@ -239,14 +247,17 @@ class TestTraptor(object):
         if traptor.traptor_type == 'locations':
             traptor.locations_rule = traptor._get_locations_traptor_rule()
 
+        # The birdy_stream will just look like whatever tweet has been loaded
         traptor.birdy_stream = MagicMock(return_value=tweets)
         traptor.birdy_stream.stream = traptor.birdy_stream
 
         tweet = traptor.birdy_stream.stream()
+
+        # Do the rule matching against the redis rules
         enriched_data = traptor._enrich_tweet(tweet)
 
+        # This is actually testing the rule matching
         if traptor.traptor_type == 'track':
-
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == 'happy'
@@ -278,6 +289,54 @@ class TestTraptor(object):
             assert enriched_data['traptor']['status'] == 'active'
             assert enriched_data['traptor']['description'] == 'Tweets from some continent'
             assert enriched_data['traptor']['appid'] == 'test-appid'
+
+        """ Now test the with the new extended_tweet format """
+
+        # # The birdy_stream will just look like whatever tweet has been loaded
+        # traptor.birdy_stream = MagicMock(return_value=extended_tweets)
+        # traptor.birdy_stream.stream = traptor.birdy_stream
+
+        # # Test that we can set the tweet to the .stream() method
+        # tweet = traptor.birdy_stream.stream()
+
+        # # Do the rule matching against the redis rules
+        # enriched_data = traptor._enrich_tweet(tweet)
+
+        # if traptor.traptor_type == 'follow':
+        #     assert enriched_data['traptor'] == x
+
+
+    @pytest.mark.extended
+    # @pytest.mark.parametrize('traptor', ['follow'])
+    def test_main_loop_extended(self, traptor, extended_tweets):
+        """Ensure we can loop through the streaming Twitter data."""
+        traptor._setup()
+
+        # The birdy_stream will just look like whatever tweet has been loaded
+        traptor.birdy_stream = MagicMock(return_value=extended_tweets)
+        traptor.birdy_stream.stream = traptor.birdy_stream
+
+        tweet = traptor.birdy_stream.stream()
+
+        if traptor.traptor_type == 'follow':
+            with open('tests/data/extended_tweets/follow_rules.json') as f:
+                traptor.redis_rules = [json.load(f)]
+            traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+
+            # Do the rule matching against the redis rules
+            enriched_data = traptor._enrich_tweet(tweet)
+
+            assert enriched_data['traptor']['value'] == '735369652956766200'
+
+        if traptor.traptor_type == 'track':
+            with open('tests/data/extended_tweets/track_rules.json') as f:
+                traptor.redis_rules = [json.load(f)]
+            traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+
+            # Do the rule matching against the redis rules
+            enriched_data = traptor._enrich_tweet(tweet)
+
+            assert enriched_data['traptor']['value'] == 'tweet'
 
     def test_ensure_traptor_is_in_tweet_on_no_match(self, traptor, no_match_tweet):
         """Ensure that the traptor section is added to a tweet when no rule matches."""
