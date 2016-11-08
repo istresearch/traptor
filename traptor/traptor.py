@@ -366,8 +366,11 @@ class Traptor(object):
             # Tweets created by the user AND
             # Tweets which are retweeted by the user
 
-            self.logger.debug('tweet_dict for rule match', extra={'tweet_dict': tweet_dict})
-
+            try:
+                self.logger.debug('tweet_dict for rule match',
+                                  extra={'tweet_dict': json.dumps(tweet_dict).encode("utf-8")})
+            except:
+                self.logger.error('Error dumping out the tweet_dict data')
 
             query = query + str(tweet_dict['user']['id_str'])
 
