@@ -22,13 +22,13 @@ deploy:
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ] || [ $TRAVIS_BRANCH == "develop" ]; then
     docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-    docker build --build-arg BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -t istresearch/traptor:$TRAVIS_BRANCH .
-    docker push istresearch/traptor:$TRAVIS_BRANCH
-    docker logout
+    docker build --build-arg BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -t istresearch/traptor:$TRAVIS_BRANCH .;
+    docker push istresearch/traptor:$TRAVIS_BRANCH;
+    docker logout;
     fi
   - if [ "$TRAVIS_TAG" ]; then
     docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-    docker build --build-arg BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -t istresearch/traptor:$TRAVIS_TAG .
-    docker push istresearch/traptor:$TRAVIS_TAG
-    docker logout
+    docker build --build-arg BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -t istresearch/traptor:$TRAVIS_TAG .;
+    docker push istresearch/traptor:$TRAVIS_TAG;
+    docker logout;
     fi
