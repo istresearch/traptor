@@ -20,15 +20,15 @@ deploy:
     repo: istresearch/traptor
 
 after_success:
-  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+  - if [ "$TRAVIS_BRANCH" == "master" ] || [ $TRAVIS_BRANCH == "develop" ]; then
     docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-    docker build -t istresearch/traptor:latest .
-    docker push istresearch/traptor:latest
+    docker build --build-arg BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -t istresearch/traptor:$TRAVIS_BRANCH .
+    docker push istresearch/traptor:$TRAVIS_BRANCH
     docker logout
     fi
-  - if [ "$TRAVIS_BRANCH" == "develop" ]; then
+  - if [ "$TRAVIS_TAG" ]; then
     docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-    docker build -t istresearch/traptor:develop .
-    docker push istresearch/traptor:develop
+    docker build --build-arg BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -t istresearch/traptor:$TRAVIS_TAG .
+    docker push istresearch/traptor:$TRAVIS_TAG
     docker logout
     fi
