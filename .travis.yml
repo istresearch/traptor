@@ -4,6 +4,7 @@ python:
 - '2.7'
 services:
 - redis-server
+- docker
 install: pip install -r requirements.txt
 script: python -m pytest -v
 notifications:
