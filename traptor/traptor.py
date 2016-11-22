@@ -10,9 +10,10 @@ import dateutil.parser as parser
 import traceback
 
 from redis import StrictRedis, ConnectionError
-from kafka import KafkaProducer
-from kafka.common import KafkaUnavailableError
+from kafka import SimpleProducer, KafkaClient
+from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
 from birdy.twitter import StreamClient, TwitterApiError
+import dd_monitoring
 
 import threading
 
@@ -585,16 +586,19 @@ class Traptor(object):
                 try:
                     tweet = json.loads(item)
                 except:
-                    pass
+                    dd_monitoring.increment('tweet_process_failure')
                 else:
+                    dd_monitoring.increment('tweet_process_success')
                     enriched_data = self._enrich_tweet(tweet)
 
                     if self.kafka_enabled == 'true':
                         try:
                             self.kafka_conn.send(self.kafka_topic, enriched_data)
                             self.logger.info("Tweet sent to kafka: {}".format(tweet.get('id_str', None)))
+                            dd_monitoring.increment('tweet_to_kafka_success')
                         except Exception:
                             self.logger.error("Unable to add tweet to Kafka: {}".format(traceback.format_exc()))
+                            dd_monitoring.increment('tweet_to_kafka_failure')
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
 
