@@ -10,8 +10,8 @@ import dateutil.parser as parser
 import traceback
 
 from redis import StrictRedis, ConnectionError
-from kafka import SimpleProducer, KafkaClient
-from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
+from kafka import KafkaProducer
+from kafka.common import KafkaUnavailableError
 from birdy.twitter import StreamClient, TwitterApiError
 
 import threading
@@ -138,7 +138,23 @@ class Traptor(object):
         """
         if self.kafka_enabled == 'true':
             self.logger.info('Setting up kafka connection...')
-            self.kafka_conn = KafkaClient(hosts=self.kafka_hosts)
+            try:
+                self.kafka_conn = KafkaProducer(bootstrap_servers=self.kafka_hosts,
+                                                value_serializer=lambda m: json.dumps(m),
+                                                api_version=(0, 9),
+                                                reconnect_backoff_ms=4000,
+                                                retries=3,
+                                                linger_ms=25,
+                                                buffer_memory=4 * 1024 * 1024)
+            except KafkaUnavailableError as e:
+                self.logger.critical(e)
+                sys.exit(3)
+
+            try:
+                self.logger.debug('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
+                self.kafka_conn.ensure_topic_exists(self.kafka_topic)
+            except:
+                raise
         else:
             self.logger.info('Skipping kafka connection setup')
             self.logger.debug('Kafka_enabled setting: {}'.format(self.kafka_enabled))
@@ -171,27 +187,6 @@ class Traptor(object):
         # Create the locations_rule dict if this is a locations traptor
         self.locations_rule = {}
 
-    def _create_kafka_producer(self, kafka_topic):
-        """ Create a kafka producer.
-            If it cannot find one it will exit with error code 3.
-
-            Creates ``self.kafka_producer``.
-        """
-        if self.kafka_conn:
-            try:
-                self.logger.info('Creating kafka producer for "{}"...'.format(self.kafka_topic))
-                self.kafka_producer = SimpleProducer(self.kafka_conn)
-            except KafkaUnavailableError as e:
-                self.logger.critical(e)
-                sys.exit(3)
-            try:
-                self.logger.debug('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
-                self.kafka_conn.ensure_topic_exists(self.kafka_topic)
-            except:
-                raise
-        else:
-            self.kafka_producer = None
-
     def _create_birdy_stream(self):
         """ Create a birdy twitter stream.
             If there is a TwitterApiError it will exit with status code 3.
@@ -205,7 +200,8 @@ class Traptor(object):
             # Try to set up a twitter stream using twitter id list
             try:
                 self.logger.info('Creating birdy follow stream')
-                self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(follow=self.twitter_rules)
+                self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(follow=self.twitter_rules,
+                                                                                stall_warnings='true')
             except TwitterApiError as e:
                 self.logger.critical(e)
                 sys.exit(3)
@@ -213,7 +209,8 @@ class Traptor(object):
             # Try to set up a twitter stream using twitter term list
             try:
                 self.logger.info('Creating birdy track stream')
-                self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(track=self.twitter_rules)
+                self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(track=self.twitter_rules,
+                                                                                stall_warnings='true')
             except TwitterApiError as e:
                 self.logger.critical(e)
                 sys.exit(3)
@@ -221,7 +218,8 @@ class Traptor(object):
             # Try to set up a twitter stream using twitter term list
             try:
                 self.logger.info('Creating birdy locations stream')
-                self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(locations=self.twitter_rules)
+                self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(locations=self.twitter_rules,
+                                                                                stall_warnings='true')
             except TwitterApiError as e:
                 self.logger.critical(e)
                 sys.exit(3)
@@ -599,8 +597,7 @@ class Traptor(object):
 
                     if self.kafka_enabled == 'true':
                         try:
-                            self.kafka_producer.send_messages(self.kafka_topic,
-                                                              json.dumps(enriched_data))
+                            self.kafka_conn.send(self.kafka_topic, enriched_data)
                             self.logger.info("Tweet sent to kafka: {}".format(tweet.get('id_str', None)))
                         except Exception:
                             self.logger.error("Unable to add tweet to Kafka: {}".format(traceback.format_exc()))
@@ -657,9 +654,6 @@ class Traptor(object):
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
             self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
-
-            if self.kafka_enabled == 'true':
-                self._create_kafka_producer(self.kafka_topic)
 
             if not self.test:
                 self._create_birdy_stream()
