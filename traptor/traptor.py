@@ -601,7 +601,7 @@ class Traptor(object):
                         try:
                             self.kafka_producer.send_messages(self.kafka_topic,
                                                               json.dumps(enriched_data))
-                            self.logger.info("Tweet sent to kafka: {}".format(tweet['id_str']))
+                            self.logger.info("Tweet sent to kafka: {}".format(tweet.get('id_str', None)))
                         except Exception:
                             self.logger.error("Unable to add tweet to Kafka: {}".format(traceback.format_exc()))
                     else:
