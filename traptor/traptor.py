@@ -149,12 +149,6 @@ class Traptor(object):
             except KafkaUnavailableError as e:
                 self.logger.critical(e)
                 sys.exit(3)
-
-            try:
-                self.logger.debug('Ensuring the "{}" kafka topic exists'.format(self.kafka_topic))
-                self.kafka_conn.ensure_topic_exists(self.kafka_topic)
-            except:
-                raise
         else:
             self.logger.info('Skipping kafka connection setup')
             self.logger.debug('Kafka_enabled setting: {}'.format(self.kafka_enabled))
