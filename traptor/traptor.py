@@ -17,6 +17,9 @@ import threading
 
 from scutils.log_factory import LogFactory
 
+import logging
+
+logging.basicConfig(level='INFO')
 
 # Override the default JSONobject
 class MyBirdyClient(StreamClient):
