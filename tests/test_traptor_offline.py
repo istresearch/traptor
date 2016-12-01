@@ -12,7 +12,7 @@ from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
-HOST_FOR_TESTING = 'localhost'
+HOST_FOR_TESTING = os.getenv('REDIS_HOST', 'localhost')
 
 
 @pytest.fixture()
