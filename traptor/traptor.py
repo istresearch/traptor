@@ -7,6 +7,7 @@ import time
 import re
 from datetime import datetime
 import dateutil.parser as parser
+import traceback
 
 from redis import StrictRedis, ConnectionError
 from kafka import SimpleProducer, KafkaClient
@@ -601,8 +602,8 @@ class Traptor(object):
                             self.kafka_producer.send_messages(self.kafka_topic,
                                                               json.dumps(enriched_data))
                             self.logger.info("Tweet sent to kafka: {}".format(tweet['id_str']))
-                        except Exception as e:
-                            self.logger.error("Unable to add tweet to Kafka: {}".format(json.dumps(enriched_data)))
+                        except Exception:
+                            self.logger.error("Unable to add tweet to Kafka: {}".format(traceback.format_exc()))
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
 
