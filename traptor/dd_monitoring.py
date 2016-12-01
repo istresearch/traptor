@@ -11,10 +11,10 @@ initialize(**options)
 
 from datadog import statsd
 DATADOG_METRICS = {
-    'tweet_process_success': 'traptor.src.tweet_process.success.count',
-    'tweet_process_failure': 'traptor.src.tweet_process.failure.count',
-    'tweet_to_kafka_success': 'traptor.src.tweet_to_kafka.success.count',
-    'tweet_to_kafka_failure': 'traptor.src.tweet_to_kafka.failure.count',
+    'tweet_process_success': 'traptor.src.tweet_process.success',
+    'tweet_process_failure': 'traptor.src.tweet_process.failure',
+    'tweet_to_kafka_success': 'traptor.src.tweet_to_kafka.success',
+    'tweet_to_kafka_failure': 'traptor.src.tweet_to_kafka.failure',
 }
 
 def increment(metric_name):
