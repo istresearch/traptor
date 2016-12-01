@@ -182,12 +182,6 @@ class TestTraptor(object):
         assert traptor.kafka_conn is None
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
 
-    def test_create_kafka_producer(self, traptor):
-        """Ensure we aren't connecting to a Kafka topic that doesn't exist."""
-        traptor._setup()
-        traptor._create_kafka_producer('testtopic')
-        assert traptor.kafka_producer == None
-
     def test_check_redis_pubsub_for_restart(self, traptor):
         """Test pubsub message causes the restart_flag to be set to True."""
         traptor._setup()
