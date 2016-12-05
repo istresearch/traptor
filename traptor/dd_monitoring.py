@@ -5,8 +5,8 @@
 import os
 from datadog import initialize
 
-traptor_type = os.environ['TRAPTOR_TYPE']
-traptor_id = os.environ['TRAPTOR_ID']
+traptor_type = os.getenv('TRAPTOR_TYPE', 'track')
+traptor_id = os.getenv('TRAPTOR_ID', '0')
 
 DEFAULT_TAGS = [
     'traptor_type:{}'.format(traptor_type),
@@ -14,7 +14,7 @@ DEFAULT_TAGS = [
 ]
 
 options = {
-    'statsd_host': os.environ['STATSD_HOST_IP'],
+    'statsd_host': os.getenv('STATSD_HOST_IP', '127.0.0.1')
 }
 initialize(**options)
 
