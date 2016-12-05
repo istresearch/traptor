@@ -10,8 +10,8 @@ import dateutil.parser as parser
 import traceback
 
 from redis import StrictRedis, ConnectionError
-from kafka import SimpleProducer, KafkaClient
-from kafka.common import (NotLeaderForPartitionError, KafkaUnavailableError)
+from kafka import KafkaProducer
+from kafka.common import KafkaUnavailableError
 from birdy.twitter import StreamClient, TwitterApiError
 import dd_monitoring
 
