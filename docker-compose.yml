@@ -46,12 +46,12 @@ services:
       - "2181:2181"
 
   elasticsearch:
-    image: elasticsearch:2.3.1
+    image: elasticsearch:latest
     ports:
       - "9200:9200"
 
   logstash:
-    image: logstash:2.3.1
+    image: logstash:latest
     command: logstash -f /etc/logstash/conf.d/logstash.conf
     volumes:
       - ./logstash/traptor-logstash.conf:/etc/logstash/conf.d/logstash.conf
@@ -59,7 +59,7 @@ services:
       - ./logs:/var/log/traptor
 
   kibana:
-    image: kibana:4.5.4
+    image: kibana:latest
     ports:
       - "5601:5601"
     environment:
