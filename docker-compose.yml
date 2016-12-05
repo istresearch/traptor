@@ -47,6 +47,8 @@ services:
 
   elasticsearch:
     image: elasticsearch:latest
+    ports:
+      - "9200:9200"
 
   logstash:
     image: logstash:latest
