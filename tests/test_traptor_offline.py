@@ -1,4 +1,4 @@
-"""Traptor tests."""
+"""Traptor unit tests."""
 # To run with autotest and coverage and print all output to console run:
 #   py.test -s --cov=traptor --looponfail tests/
 

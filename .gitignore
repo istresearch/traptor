@@ -12,6 +12,9 @@ docs/_build_html
 logs/*
 localsettings.py
 traptor.env
+docker-compose.test.yml
+logstash/traptor-logstash.test.conf
+dockerfiles/*
 
 # Vagrant test VM
 .vagrant

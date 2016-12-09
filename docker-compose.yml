@@ -10,12 +10,12 @@ services:
     env_file:
       - ./traptor.env
     depends_on:
-      # - logstash
-      # - zookeeper
-      # - kafka
       - redis
-      # - elasticsearch
-      # - kibana
+#      - kafka
+#      - elasticsearch
+#      - kopf
+#      - logstash
+#      - kibana
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -23,7 +23,7 @@ services:
     restart: always
 
   redis:
-    image: redis:latest
+    image: redis:2.8.17
     ports:
       - "6379:6379"
 
@@ -46,12 +46,22 @@ services:
       - "2181:2181"
 
   elasticsearch:
-    image: elasticsearch:latest
+    image: elasticsearch:2.4.1
     ports:
       - "9200:9200"
 
+  kopf:
+    image: lmenezes/elasticsearch-kopf
+    ports:
+      - 8080:80
+    environment:
+      - KOPF_SERVER_NAME=dockerhost
+      - KOPF_ES_SERVERS=elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
   logstash:
-    image: logstash:latest
+    image: logstash:2.4.0-1
     command: logstash -f /etc/logstash/conf.d/logstash.conf
     volumes:
       - ./logstash/traptor-logstash.conf:/etc/logstash/conf.d/logstash.conf
@@ -59,8 +69,10 @@ services:
       - ./logs:/var/log/traptor
 
   kibana:
-    image: kibana:latest
+    image: kibana:4.6.2
     ports:
       - "5601:5601"
     environment:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
