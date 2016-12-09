@@ -14,7 +14,7 @@ To run this test do the following:
 * Ensure that the Redis database you're using in this file matches the docker-compose.yml file (should be 2)
 * Install the requirements: `pip install -r requirements.txt`
 * Start Traptor and Redis: `docker-compose up --build -d`
-* Tail the logs: `tail -f logs/traptor.log
+* Tail the logs: `tail -f logs/traptor.log`
 * Run the integration test file: `python tests/traptor_integration_tests.py`
 
 If everything is working you should see Traptor get it's rules from Redis and begin processing tweets.
