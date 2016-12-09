@@ -124,7 +124,6 @@ class Traptor(object):
 
         # Set up a birdy twitter streaming client
         self.logger.info('Setting up birdy connection')
-        self.logger.debug("API Keys: {}".format(self.apikeys))
         self.birdy_conn = MyBirdyClient(
                                         self.apikeys['CONSUMER_KEY'],
                                         self.apikeys['CONSUMER_SECRET'],
