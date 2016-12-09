@@ -10,12 +10,14 @@ Requirements:
 To run this test do the following:
 
 * Create and activate a virtual environment (venv or Anaconda)
-* Rename traptor.env.example to traptor.env and fill in all fields. Some defaults are provided.
+* Rename `traptor.env.sample` to `traptor.env` and fill in all fields. Some defaults are provided.
 * Ensure that the Redis database you're using in this file matches the docker-compose.yml file (should be 2)
 * Install the requirements: `pip install -r requirements.txt`
+* Shut down any running containers: `docker-compose down`
 * Start Traptor and Redis: `docker-compose up --build -d`
 * Tail the logs: `tail -f logs/traptor.log`
 * Run the integration test file: `python tests/traptor_integration_tests.py`
+* Stare at log files until you're having fun
 
 If everything is working you should see Traptor get it's rules from Redis and begin processing tweets.
 
