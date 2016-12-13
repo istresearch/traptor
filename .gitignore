@@ -8,12 +8,13 @@ docs/_build_html
 # OSX garbage
 .DS_STORE
 
-# Scrapy Cluster
-kafka-monitor/logs/*
-redis-monitor/logs/*
-crawler/logs/*
-crawler/main.log
+# Logs and local settings
+logs/*
 localsettings.py
+traptor.env
+docker-compose.test.yml
+logstash/traptor-logstash.test.conf
+dockerfiles/*
 
 # Vagrant test VM
 .vagrant
@@ -43,3 +44,13 @@ var/
 dump.rdb
 .coverage*
 htmlcov/*
+
+# Editor files
+.idea/*
+logstash/traptor-logstash.dev.conf
+
+traptor_follow_0.dev.env
+
+traptor_track_0.dev.env
+
+docker-compose.dev.yml

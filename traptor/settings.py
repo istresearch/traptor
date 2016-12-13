@@ -2,43 +2,42 @@
 Settings for traptor
 ====================
 '''
-SENTRY_SECRET = ""
-LOG_LEVEL = 'INFO'
 
-KAFKA_HOSTS = "localhost:9092"
-REDIS_HOST = "localhost"
-REDIS_PORT = 6379
-REDIS_DB = 0
+# Traptor defaults
+TRAPTOR_TYPE = 'track'                          # Type of traptor; options: follow, track, locations
+TRAPTOR_ID = 0                                  # Unique id of this traptor
+RULE_CHECK_INTERVAL = 60                        # Number of second to check for Rules in Redis (while Traptor sits idle)
 
-'''
-In order for a Traptor to restart itself, it looks for a message in
-Redis in the format of <traptor-type>:<traptor-id>. Once it sees a
-message for itself it restarts, thus refreshing it's rules.
-'''
-REDIS_PUBSUB_CHANNEL = "traptor-notify"
 
-# Kafka topic to write all twitter data
-KAFKA_TOPIC = "traptor"
+# Sentry URL
+USE_SENTRY = 'False'                            # Use Sentry for alerting; options: True, False (in single quotes)
+SENTRY_URL = ""                              # URL for Sentry if using it for application alerting
 
-# Your API information.  Fill this out in localsettings.py!
-APIKEYS = (
-           {
-            'CONSUMER_KEY': "",
-            'CONSUMER_SECRET': "",
-            'ACCESS_TOKEN': "",
-            'ACCESS_TOKEN_SECRET': ""
-            }
-)
+# Logging settings
+LOG_LEVEL = 'INFO'                              # Default log level
+LOG_DIR = '/var/log/traptor'                    # Directory to store traptor logs
+LOG_FILE_NAME = 'traptor.log'                   # Name of the log file `traptor.log`
 
-'''
-Each 'traptor_type' has a unqiue 'traptor_id'.  This ID is how traptor knows
-where to look for a ruleset in Redis.  For example, traptor-follow:0:5 is
-a traptor-follow instance, with traptor_id = 0, and the rule_id = 5.
-'''
+# Kafka
+KAFKA_ENABLED = 'True'
+KAFKA_HOSTS = "localhost:9092"                  # Kafka host(s)
+KAFKA_TOPIC = "traptor"                         # Kafka topic to write all twitter data
 
-# Options for TRAPTOR_TYPE:  follow, track, locations
-TRAPTOR_TYPE = ''
-TRAPTOR_ID = 0
+# Redis
+REDIS_HOST = "localhost"                        # Redis host
+REDIS_PORT = 6379                               # Redis port
+REDIS_DB = 0                                    # Redis database where traptor will look for its rules
+REDIS_PUBSUB_CHANNEL = "traptor-notify"         # Redis pubsub channel for restart notifications
+
+
+# Twitter API Keys
+# Fill this out in localsettings.py!
+APIKEYS = {
+    'CONSUMER_KEY': "",
+    'CONSUMER_SECRET': "",
+    'ACCESS_TOKEN': "",
+    'ACCESS_TOKEN_SECRET': ""
+}
 
 # Local Overrides
 # ~~~~~~~~~~~~~~~

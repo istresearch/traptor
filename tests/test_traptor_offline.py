@@ -1,11 +1,9 @@
-"""Traptor tests."""
+"""Traptor unit tests."""
 # To run with autotest and coverage and print all output to console run:
 #   py.test -s --cov=traptor --looponfail tests/
 
 import os
 import json
-import time
-from datetime import datetime
 from redis import StrictRedis, ConnectionError
 import pytest
 from mock import MagicMock
@@ -14,7 +12,7 @@ from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 
-HOST_FOR_TESTING = 'localhost'
+HOST_FOR_TESTING = os.getenv('REDIS_HOST', 'localhost')
 
 
 @pytest.fixture()
@@ -71,15 +69,20 @@ def traptor(request, redis_rules, pubsub_conn, heartbeat_conn, traptor_notify_ch
     traptor_instance = Traptor(redis_conn=redis_rules,
                                pubsub_conn=pubsub_conn,
                                heartbeat_conn=heartbeat_conn,
+                               traptor_notify_channel=traptor_notify_channel,
+                               rule_check_interval=2,
                                traptor_type=request.param,
-                               apikeys=APIKEYS,
                                traptor_id=0,
+                               apikeys=APIKEYS,
+                               kafka_enabled=False,
                                kafka_hosts='localhost:9092',
                                kafka_topic='traptor_test',
-                               kafka_enabled=False,
-                               log_level='INFO',
-                               test=True,
-                               traptor_notify_channel=traptor_notify_channel
+                               use_sentry='False',
+                               sentry_url=None,
+                               log_level='DEBUG',
+                               log_dir='logs',
+                               log_file_name='traptor.log',
+                               test=True
                                )
 
     return traptor_instance
@@ -92,7 +95,7 @@ def tweets(request, traptor):
         loaded_tweet = json.load(f)
 
     return loaded_tweet
-    
+
 @pytest.fixture
 def no_match_tweet(request, traptor):
     """Create a list of non-tweet messages."""
@@ -127,6 +130,14 @@ def heartbeat_conn():
     """Create a connection for the heartbeat."""
     hb_conn = MagicMock()
     return hb_conn
+
+
+@pytest.fixture(params=['classic.json', 'classic_hidden.json', 'extended_hidden.json'])
+def extended_tweets(request):
+    with open('tests/data/extended_tweets/{}'.format(request.param)) as f:
+        loaded_tweet = json.load(f)
+
+    return loaded_tweet
 
 
 class TestRuleExtract():
@@ -171,19 +182,29 @@ class TestTraptor(object):
         assert traptor.kafka_conn is None
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
 
-    def test_create_kafka_producer(self, traptor):
-        """Ensure we aren't connecting to a Kafka topic that doesn't exist."""
-        traptor._setup()
-        traptor._create_kafka_producer('testtopic')
-        assert traptor.kafka_producer == None
-
-    def test_check_redis_pubsub_for_restart(self, traptor, pubsub_conn):
+    def test_check_redis_pubsub_for_restart(self, traptor):
         """Test pubsub message causes the restart_flag to be set to True."""
         traptor._setup()
-        traptor.pubsub_conn = pubsub_conn
-        traptor.restart_flag = True
-        # Run the _check_redis_pubsub_for_restart function
-        traptor._check_redis_pubsub_for_restart()
+        # mock response
+        old_logger = traptor.logger.debug
+        data = {'data': traptor.traptor_type + ':0'}
+        retobj = MagicMock()
+        retobj.get_message = MagicMock(return_value=data)
+        traptor.pubsub_conn = MagicMock()
+        traptor.pubsub_conn.pubsub = MagicMock(return_value=retobj)
+        self.counter = 0
+        def fake(*args, **kwargs):
+            self.counter += 1
+            if self.counter <= 2:
+                return None
+            else:
+                raise Exception('called')
+        traptor.logger.debug = MagicMock(side_effect=fake)
+        with pytest.raises(Exception) as ex:
+            traptor._check_redis_pubsub_for_restart()
+        assert ex.value.message == 'called'
+        assert traptor.restart_flag == True
+        traptor.logger.debug = old_logger
         assert True
 
     def test_redis_rules(self, redis_rules, traptor):
@@ -216,18 +237,21 @@ class TestTraptor(object):
         traptor._setup()
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
         traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
-        
+
         if traptor.traptor_type == 'locations':
             traptor.locations_rule = traptor._get_locations_traptor_rule()
-        
+
+        # The birdy_stream will just look like whatever tweet has been loaded
         traptor.birdy_stream = MagicMock(return_value=tweets)
         traptor.birdy_stream.stream = traptor.birdy_stream
 
         tweet = traptor.birdy_stream.stream()
+
+        # Do the rule matching against the redis rules
         enriched_data = traptor._enrich_tweet(tweet)
 
+        # This is actually testing the rule matching
         if traptor.traptor_type == 'track':
-
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
             assert enriched_data['traptor']['rule_tag'] == 'test'
             assert enriched_data['traptor']['rule_value'] == 'happy'
@@ -260,6 +284,54 @@ class TestTraptor(object):
             assert enriched_data['traptor']['description'] == 'Tweets from some continent'
             assert enriched_data['traptor']['appid'] == 'test-appid'
 
+        """ Now test the with the new extended_tweet format """
+
+        # # The birdy_stream will just look like whatever tweet has been loaded
+        # traptor.birdy_stream = MagicMock(return_value=extended_tweets)
+        # traptor.birdy_stream.stream = traptor.birdy_stream
+
+        # # Test that we can set the tweet to the .stream() method
+        # tweet = traptor.birdy_stream.stream()
+
+        # # Do the rule matching against the redis rules
+        # enriched_data = traptor._enrich_tweet(tweet)
+
+        # if traptor.traptor_type == 'follow':
+        #     assert enriched_data['traptor'] == x
+
+
+    @pytest.mark.extended
+    # @pytest.mark.parametrize('traptor', ['follow'])
+    def test_main_loop_extended(self, traptor, extended_tweets):
+        """Ensure we can loop through the streaming Twitter data."""
+        traptor._setup()
+
+        # The birdy_stream will just look like whatever tweet has been loaded
+        traptor.birdy_stream = MagicMock(return_value=extended_tweets)
+        traptor.birdy_stream.stream = traptor.birdy_stream
+
+        tweet = traptor.birdy_stream.stream()
+
+        if traptor.traptor_type == 'follow':
+            with open('tests/data/extended_tweets/follow_rules.json') as f:
+                traptor.redis_rules = [json.load(f)]
+            traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+
+            # Do the rule matching against the redis rules
+            enriched_data = traptor._enrich_tweet(tweet)
+
+            assert enriched_data['traptor']['value'] == '735369652956766200'
+
+        if traptor.traptor_type == 'track':
+            with open('tests/data/extended_tweets/track_rules.json') as f:
+                traptor.redis_rules = [json.load(f)]
+            traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+
+            # Do the rule matching against the redis rules
+            enriched_data = traptor._enrich_tweet(tweet)
+
+            assert enriched_data['traptor']['value'] == 'tweet'
+
     def test_ensure_traptor_is_in_tweet_on_no_match(self, traptor, no_match_tweet):
         """Ensure that the traptor section is added to a tweet when no rule matches."""
         traptor._setup()
@@ -273,11 +345,11 @@ class TestTraptor(object):
 
         if traptor.traptor_type in ['track', 'follow', 'locations']:
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
-            
-        if traptor.traptor_type in ['track', 'follow']:    
+
+        if traptor.traptor_type in ['track', 'follow']:
             assert enriched_data['traptor']['rule_tag'] == 'Not found'
             assert enriched_data['traptor']['rule_value'] == 'Not found'
-        
+
     def test_ensure_heartbeat_message_is_produced(self, traptor):
         """Ensure Traptor can produce heartbeat messages."""
         traptor._setup()
@@ -303,8 +375,21 @@ class TestTraptor(object):
     def test_ensure_traptor_only_enriches_tweets(self, traptor, non_tweet_stream_messages):
         """Ensure Traptor only performs rule matching on tweets."""
         traptor._setup()
-        
+
         for message in non_tweet_stream_messages:
             print(message)
             enriched_data = traptor._enrich_tweet(message)
             assert enriched_data == message
+
+    def test_ensure_traptor_stays_alive_until_rules_are_found(self, traptor):
+        traptor._setup()
+        traptor.rule_check_interval = 2
+        traptor.logger.debug = MagicMock()
+
+        empty_response = {}
+        good_response = {"Rule": "Fun"}
+
+        traptor._get_redis_rules = MagicMock(side_effect=[empty_response, empty_response, good_response])
+        traptor._wait_for_rules()
+
+        assert traptor.logger.debug.call_count == 2

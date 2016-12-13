@@ -27,7 +27,8 @@ install_requires = [
     'mock',
     'scutils>=0.0.6',
     'flatdict',
-    'raven'
+    'raven',
+    'datadog'
 ]
 
 lint_requires = [

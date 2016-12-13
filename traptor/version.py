@@ -1,2 +1,4 @@
-__version__ = '1.2.5'
-VERSION = tuple(int(x) for x in __version__.split('.'))
+__version__ = '1.2.6.dev'
+
+if __name__ == '__main__':
+    print(__version__)
