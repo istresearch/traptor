@@ -161,14 +161,18 @@ class Traptor(object):
 
     def _gen_kafka_success(self):
         def kafka_success(tweet, response):
-            self.logger.info("Tweet sent to kafka: {}".format(tweet.get('id_str', None)))
+            self.logger.info("Tweet sent to kafka", extra={
+                'tweet_id': tweet.get('id_str', None)
+            })
             dd_monitoring.increment('tweet_to_kafka_success')
         return kafka_success
 
     def _gen_kafka_failure(self):
         def kafka_failure(e):
-            self.logger.error("KAFKA FAILURE: {}".format(e))
-            self.logger.error("Unable to add tweet to Kafka: {}".format(traceback.format_exc()))
+            self.logger.error("Caught Kafka exception when sending a tweet to Kafka", extra={
+                'error_type': 'KafkaError',
+                'ex': traceback.format_exc()
+            })
             dd_monitoring.increment('tweet_to_kafka_failure')
         return kafka_failure
 
@@ -665,27 +669,16 @@ class Traptor(object):
 
                     if self.kafka_enabled == 'true':
                         try:
-<<<<<<< HEAD
-                            self.logger.info("Attempting to send tweet {} to kafka".format(tweet.get('id_str', None)))
+                            self.logger.info("Attempting to send tweet to kafka", extra={
+                                'tweet_id': tweet.get('id_str', None)
+                            })
                             future = self.kafka_conn.send(self.kafka_topic, enriched_data)
                             future.add_callback(self.kafka_success_callback, tweet)
                             future.add_errback(self.kafka_failure_callback)
                         except Exception:
-                            self.logger.error("Uncaught exception sending tweet to Kafka: {}".format(traceback.format_exc()))
-=======
-                            self.kafka_conn.send(self.kafka_topic, enriched_data)
-
-                            self.logger.info("Tweet sent to kafka", extra={
-                                'tweet_id': tweet.get('id_str', None)
-                            })
-
-                            dd_monitoring.increment('tweet_to_kafka_success')
-                        except Exception:
                             self.logger.error("Caught exception adding Twitter message to Kafka", extra={
                                 'ex': traceback.format_exc()
                             })
-
->>>>>>> develop
                             dd_monitoring.increment('tweet_to_kafka_failure')
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
