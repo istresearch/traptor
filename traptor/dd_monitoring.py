@@ -4,10 +4,20 @@
 ###############################################################################
 import os
 from datadog import initialize
+
+traptor_type = os.getenv('TRAPTOR_TYPE', 'track')
+traptor_id = os.getenv('TRAPTOR_ID', '0')
+
+DEFAULT_TAGS = [
+    'traptor_type:{}'.format(traptor_type),
+    'traptor_id:{}'.format(traptor_id),
+]
+
 options = {
     'statsd_host': os.getenv('STATSD_HOST_IP', '127.0.0.1')
 }
 initialize(**options)
+
 
 from datadog import statsd
 DATADOG_METRICS = {
@@ -18,7 +28,7 @@ DATADOG_METRICS = {
 }
 
 def increment(metric_name):
-    return statsd.increment(DATADOG_METRICS[metric_name])
+    return statsd.increment(DATADOG_METRICS[metric_name], tags=DEFAULT_TAGS)
 
 def gauge(metric_name, value):
-    return statsd.gauge(DATADOG_METRICS[metric_name], value)
+    return statsd.gauge(DATADOG_METRICS[metric_name], value, tags=DEFAULT_TAGS)
