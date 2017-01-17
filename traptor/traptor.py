@@ -588,7 +588,7 @@ class Traptor(object):
 
     def _enrich_tweet(self, tweet):
         """Enrich the tweet with additional fields and rule matching."""
-        enriched_data = {}
+        enriched_data = dict()
 
         if self._message_is_tweet(tweet):
             # Add the initial traptor fields
@@ -603,7 +603,7 @@ class Traptor(object):
             # Increment counter
             dd_monitoring.increment('limit_message_received')
             # Send DD the limit message value
-            limit_count = tweet.get("limit", {}).get(self.traptor_type, None)
+            limit_count = tweet.get("limit", {}).get("".format(self.traptor_type), None)
             dd_monitoring.gauge('limit_message_count', limit_count)
         else:
             self.logger.info("Twitter message is not a tweet", extra={
