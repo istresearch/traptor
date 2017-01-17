@@ -153,6 +153,7 @@ class Traptor(object):
                     'error_type': 'KafkaUnavailableError',
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred')
                 sys.exit(3)
         else:
             self.logger.info('Skipping kafka connection setup')
@@ -225,6 +226,7 @@ class Traptor(object):
                     'error_type': 'TwitterAPIError',
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred')
                 sys.exit(3)
         elif self.traptor_type == 'track':
             # Try to set up a twitter stream using twitter term list
@@ -237,6 +239,7 @@ class Traptor(object):
                     'error_type': 'TwitterAPIError',
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred')
                 sys.exit(3)
         elif self.traptor_type == 'locations':
             # Try to set up a twitter stream using twitter term list
@@ -249,6 +252,7 @@ class Traptor(object):
                     'error_type': 'TwitterAPIError',
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred')
                 sys.exit(3)
         else:
             self.logger.critical('Caught error creating birdy stream for Traptor type that does not exist', extra ={
@@ -387,6 +391,7 @@ class Traptor(object):
                 self.logger.error("Caught exception while performing rule matching for track", extra={
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred')
 
         # If this is a follow Traptor, only check the user/id field of the tweet
         if self.traptor_type == 'follow':
@@ -450,6 +455,7 @@ class Traptor(object):
                 self.logger.error("Caught exception while performing rule matching for follow", extra={
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred')
 
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
@@ -516,6 +522,7 @@ class Traptor(object):
                 'error_type': 'ConnectionError',
                 'ex': traceback.format_exc()
             })
+            dd_monitoring.increment('traptor_error_occurred')
             sys.exit(3)  # Special error code to track known failures
 
     @staticmethod
@@ -567,6 +574,18 @@ class Traptor(object):
         else:
             return False
 
+    def _message_is_limit_message(self, message):
+        """
+        Check if the message is a limit message.
+
+        :param message: message to check
+        :return: True if yes, False if no
+        """
+        if 'limit' in message:
+            return True
+        else:
+            return False
+
     def _enrich_tweet(self, tweet):
         """Enrich the tweet with additional fields and rule matching."""
         enriched_data = {}
@@ -580,6 +599,12 @@ class Traptor(object):
 
             # Add the rule information
             enriched_data = self._find_rule_matches(tweet)
+        elif self._message_is_limit_message(tweet):
+            # Increment counter
+            dd_monitoring.increment('limit_message_received')
+            # Send DD the limit message value
+            limit_count = tweet.get("limit", {}).get(self.traptor_type, None)
+            dd_monitoring.gauge('limit_message_count', limit_count)
         else:
             self.logger.info("Twitter message is not a tweet", extra={
                 'twitter_message': tweet
@@ -630,6 +655,7 @@ class Traptor(object):
                 'error_type': 'ConnectionError',
                 'ex': traceback.format_exc()
             })
+            dd_monitoring.increment('traptor_error_occurred')
             raise
 
     def _send_heartbeat_message(self):
@@ -833,6 +859,7 @@ def main():
         logger.error("Caught exception when starting Traptor", extra={
             'ex': traceback.format_exc()
         })
+        dd_monitoring.increment('traptor_error_occurred')
 
 
 if __name__ == '__main__':

@@ -25,6 +25,10 @@ DATADOG_METRICS = {
     'tweet_process_failure': 'traptor.src.tweet_process.failure',
     'tweet_to_kafka_success': 'traptor.src.tweet_to_kafka.success',
     'tweet_to_kafka_failure': 'traptor.src.tweet_to_kafka.failure',
+    'limit_message_received': 'traptor.src.limit.messages.count',
+    'limit_message_count': 'traptor.src.limit.current_limited',
+    'traptor_error_occurred': 'traptor.src.error.count',
+    'traptor_test': 'traptor.test'
 }
 
 def increment(metric_name):
