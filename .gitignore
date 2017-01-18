@@ -54,3 +54,9 @@ traptor_follow_0.dev.env
 traptor_track_0.dev.env
 
 docker-compose.dev.yml
+
+build_full_environment.sh
+
+docker-compose.build.yml
+
+vm_setup.sh

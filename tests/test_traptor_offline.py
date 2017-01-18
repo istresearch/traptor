@@ -108,10 +108,12 @@ def no_match_tweet(request, traptor):
 @pytest.fixture
 def non_tweet_stream_messages(request, traptor):
     """Create a list of non-tweet stream messages."""
+    stream_messages = list()
+
     for message_file in os.listdir("tests/data/"):
         if message_file.endswith("_message.json"):
             with open("tests/data/" + message_file) as f:
-                stream_messages = json.load(f)
+                stream_messages.append(json.load(f))
 
     return stream_messages
 
@@ -377,7 +379,6 @@ class TestTraptor(object):
         traptor._setup()
 
         for message in non_tweet_stream_messages:
-            print(message)
             enriched_data = traptor._enrich_tweet(message)
             assert enriched_data == message
 
