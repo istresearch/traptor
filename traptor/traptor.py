@@ -603,7 +603,7 @@ class Traptor(object):
             # Increment counter
             dd_monitoring.increment('limit_message_received')
             # Send DD the limit message value
-            limit_count = tweet.get("limit", {}).get("".format(self.traptor_type), None)
+            limit_count = tweet['limit'][self.traptor_type]
             dd_monitoring.gauge('limit_message_count', limit_count)
         else:
             self.logger.info("Twitter message is not a tweet", extra={
