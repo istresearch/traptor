@@ -21,18 +21,26 @@ initialize(**options)
 
 from datadog import statsd
 DATADOG_METRICS = {
+    'heartbeat_message_sent_success' :'traptor.src.heartbeat.success.count',
+    'heartbeat_message_sent_failure': 'traptor.src.heartbeat.failure.count',
+    'restart_message_received': 'traptor.src.restart_message.success.count',
+    'kafka_error': 'traptor.src.kafka.error',
+    'redis_error': 'traptor.src.redis.error',
+    'traptor_error_occurred': 'traptor.src.error.count',
+    'twitter_error_occurred': 'traptor.src.twitter.error.count',
     'tweet_process_success': 'traptor.src.tweet_process.success',
     'tweet_process_failure': 'traptor.src.tweet_process.failure',
     'tweet_to_kafka_success': 'traptor.src.tweet_to_kafka.success',
     'tweet_to_kafka_failure': 'traptor.src.tweet_to_kafka.failure',
     'limit_message_received': 'traptor.src.limit.messages.count',
     'limit_message_count': 'traptor.src.limit.current_limited',
-    'traptor_error_occurred': 'traptor.src.error.count',
-    'traptor_test': 'traptor.test'
 }
 
-def increment(metric_name):
-    return statsd.increment(DATADOG_METRICS[metric_name], tags=DEFAULT_TAGS)
+def increment(metric_name, tags=None):
+    if tags is None:
+        tags = []
 
-def gauge(metric_name, value):
-    return statsd.gauge(DATADOG_METRICS[metric_name], value, tags=DEFAULT_TAGS)
+    return statsd.increment(DATADOG_METRICS[metric_name], tags=DEFAULT_TAGS + tags)
+
+def gauge(metric_name, value, tags=None):
+    return statsd.gauge(DATADOG_METRICS[metric_name], value, tags=DEFAULT_TAGS + tags)
