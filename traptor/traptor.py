@@ -670,7 +670,8 @@ class Traptor(object):
             enriched_data = self._find_rule_matches(tweet)
 
             # Update the matched rule stats
-            self._increment_rule_counter(enriched_data)
+            if self.traptor_type != 'locations':
+                self._increment_rule_counter(enriched_data)
 
         elif self._message_is_limit_message(tweet):
             # Increment counter
@@ -839,7 +840,8 @@ class Traptor(object):
             self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
 
             # Make the rule counters
-            self._make_rule_counters()
+            if self.traptor_type != 'locations':
+                self._make_rule_counters()
 
             if not self.test:
                 self._create_birdy_stream()

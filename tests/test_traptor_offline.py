@@ -12,6 +12,8 @@ import mockredis
 from traptor.traptor import Traptor, MyBirdyClient
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
+from scutils.stats_collector import RollingTimeWindow
+import scutils
 
 
 @pytest.fixture()
@@ -340,17 +342,36 @@ class TestTraptor(object):
             assert enriched_data['traptor']['rule_tag'] == 'not_found'
             assert enriched_data['traptor']['rule_value'] == 'not_found'
 
-    def test_ensure_rule_counters_correctly_created(self, traptor):
+    def test_ensure_rule_counters_correctly_created(self, redis_rules, traptor):
         """Ensure _create_rule_counter correctly creates rule counters."""
-        pass
+        traptor._setup()
+        traptor.redis_conn = redis_rules
 
-    def test_ensure_internal_rule_counters_are_correctly_made_for_rules(self, traptor):
+        actual_counter = traptor._create_rule_counter('python')
+
+        assert isinstance(actual_counter, RollingTimeWindow)
+
+    def test_ensure_internal_rule_counters_are_correctly_made_for_rules(self, redis_rules, traptor):
         """Ensure _make_rule_counters makes the correct number of rule counters for the internal rules."""
-        pass
+        traptor._setup()
+        traptor.redis_conn = redis_rules
 
-    def test_rule_counters_are_correctly_incremented(self, traptor):
-        """Ensure _increment_rule_counter increments the correct rule counters correctly."""
-        pass
+        traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
+        traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+
+        if traptor.traptor_type != 'locations':
+            traptor._make_rule_counters()
+
+            assert len(traptor.rule_counters) == 1
+
+        if traptor.traptor_type == 'track':
+            assert traptor.rule_counters['happy'] is not None
+
+        if traptor.traptor_type == 'follow':
+            assert traptor.rule_counters['17919972'] is not None
+
+        if traptor.traptor_type == 'locations':
+            assert len(traptor.rule_counters) == 0
 
     # Main Loop
 
@@ -424,7 +445,6 @@ class TestTraptor(object):
         #     assert enriched_data['traptor'] == x
 
     @pytest.mark.extended
-    # @pytest.mark.parametrize('traptor', ['follow'])
     def test_main_loop_extended(self, redis_rules, traptor, extended_tweets):
         """Ensure we can loop through the streaming Twitter data."""
         traptor._setup()
