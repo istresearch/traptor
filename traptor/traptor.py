@@ -95,6 +95,8 @@ class Traptor(object):
         self.kafka_success_callback = self._gen_kafka_success()
         self.kafka_failure_callback = self._gen_kafka_failure()
 
+        self.rule_counters = dict()
+
     def __repr__(self):
         return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {}, {}, {}, {})'.format(
             self.redis_conn,

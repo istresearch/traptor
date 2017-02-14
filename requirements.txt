@@ -13,3 +13,4 @@ pytest-cov==2.2.1
 pytest-xdist==1.14
 raven==5.13.0
 datadog==0.14.0
+mockredispy==2.9.3
