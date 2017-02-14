@@ -521,8 +521,8 @@ class Traptor(object):
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
             new_dict['traptor']['id'] = int(self.traptor_id)
-            new_dict['traptor']['rule_tag'] = 'not_found'
-            new_dict['traptor']['rule_value'] = 'not_found'
+            new_dict['traptor']['rule_tag'] = 'Not Found'
+            new_dict['traptor']['rule_value'] = 'Not Found'
             # Log that a rule was matched
             self.logger.warning("No rule matched for tweet", extra={
                 'tweet_id': tweet_dict['id_str']

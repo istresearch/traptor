@@ -339,8 +339,8 @@ class TestTraptor(object):
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
 
         if traptor.traptor_type in ['track', 'follow']:
-            assert enriched_data['traptor']['rule_tag'] == 'not_found'
-            assert enriched_data['traptor']['rule_value'] == 'not_found'
+            assert enriched_data['traptor']['rule_tag'] == 'Not Found'
+            assert enriched_data['traptor']['rule_value'] == 'Not Found'
 
     def test_ensure_rule_counters_correctly_created(self, redis_rules, traptor):
         """Ensure _create_rule_counter correctly creates rule counters."""
