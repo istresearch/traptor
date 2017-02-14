@@ -18,6 +18,7 @@ import dd_monitoring
 import threading
 
 from scutils.log_factory import LogFactory
+from scutils.stats_collector import StatsCollector
 
 import logging
 
@@ -281,6 +282,53 @@ class Traptor(object):
         self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
         return rules_str
 
+    def _create_rule_counter(self, rule_value):
+        """
+        Create a rule counter
+
+        :param rule_value: value of the rule to create a counter for
+        :return: stats_collector: StatsCollector rolling time window
+        """
+        collection_window = int(os.getenv('STATS_COLLECTION_WINDOW', 900))
+        stats_key = 'stats:{}:{}:{}'.format(self.traptor_type, self.traptor_id, rule_value)
+        stats_collector = StatsCollector.get_rolling_time_window(redis_conn=self.redis_conn,
+                                                                 key=stats_key,
+                                                                 window=collection_window)
+
+        return stats_collector
+
+    def _make_rule_counters(self):
+        """
+        Make the rule counters to collect stats on the rule matches.
+
+        :return: dict: rule_counters
+        """
+        self.logger.info("Making the rule counters")
+
+        rule_counters = dict()
+
+        for rule in self.twitter_rules.split(','):
+            rule_counters[rule] = self._create_rule_counter(rule_value=rule)
+
+        self.rule_counters = rule_counters
+
+    def _increment_rule_counter(self, tweet):
+        """
+        Increment a rule counter.
+
+        :param rule_value: the value of the rule to increment the counter for
+        """
+        rule_value = tweet.get('traptor', {}).get('rule_value', None)
+
+        # If the counter doesn't yet exist, create it
+        if self.rule_counters.get(rule_value, None) is None:
+            self.rule_counters[rule_value] = self._create_rule_counter(rule_value=rule_value)
+
+        # If a rule value exists, increment the counter
+        if rule_value is not None:
+            value_to_increment = tweet.get('traptor').get('rule_value')
+            self.rule_counters[value_to_increment].increment()
+
     def _get_locations_traptor_rule(self):
         """
         Get the locations rule.
@@ -471,8 +519,8 @@ class Traptor(object):
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
             new_dict['traptor']['id'] = int(self.traptor_id)
-            new_dict['traptor']['rule_tag'] = 'Not found'
-            new_dict['traptor']['rule_value'] = 'Not found'
+            new_dict['traptor']['rule_tag'] = 'not_found'
+            new_dict['traptor']['rule_value'] = 'not_found'
             # Log that a rule was matched
             self.logger.warning("No rule matched for tweet", extra={
                 'tweet_id': tweet_dict['id_str']
@@ -601,7 +649,12 @@ class Traptor(object):
             return False
 
     def _enrich_tweet(self, tweet):
-        """Enrich the tweet with additional fields and rule matching."""
+        """
+        Enrich the tweet with additional fields, rule matching and stats collection.
+
+        :return dict enriched_data: tweet dict with additional enrichments
+        :return dict tweet: non-tweet message with no additional enrichments
+        """
         enriched_data = dict()
 
         if self._message_is_tweet(tweet):
@@ -613,6 +666,10 @@ class Traptor(object):
 
             # Add the rule information
             enriched_data = self._find_rule_matches(tweet)
+
+            # Update the matched rule stats
+            self._increment_rule_counter(enriched_data)
+
         elif self._message_is_limit_message(tweet):
             # Increment counter
             dd_monitoring.increment('limit_message_received')
@@ -778,6 +835,9 @@ class Traptor(object):
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
             self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
+
+            # Make the rule counters
+            self._make_rule_counters()
 
             if not self.test:
                 self._create_birdy_stream()
