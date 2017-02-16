@@ -381,10 +381,8 @@ class TestTraptor(object):
     def test_main_loop(self, redis_rules, traptor, tweets):
         """Ensure we can loop through the streaming Twitter data."""
         traptor._setup()
-<<<<<<< HEAD
-=======
+
         traptor.redis_conn = redis_rules
->>>>>>> develop
 
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
         traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
@@ -435,24 +433,6 @@ class TestTraptor(object):
             assert enriched_data['traptor']['description'] == 'Tweets from some continent'
             assert enriched_data['traptor']['appid'] == 'test-appid'
 
-<<<<<<< HEAD
-=======
-        """ Now test the with the new extended_tweet format """
-
-        # # The birdy_stream will just look like whatever tweet has been loaded
-        # traptor.birdy_stream = MagicMock(return_value=extended_tweets)
-        # traptor.birdy_stream.stream = traptor.birdy_stream
-
-        # # Test that we can set the tweet to the .stream() method
-        # tweet = traptor.birdy_stream.stream()
-
-        # # Do the rule matching against the redis rules
-        # enriched_data = traptor._enrich_tweet(tweet)
-
-        # if traptor.traptor_type == 'follow':
-        #     assert enriched_data['traptor'] == x
->>>>>>> develop
-
     @pytest.mark.extended
     def test_main_loop_extended(self, redis_rules, traptor, extended_tweets):
         """Ensure we can loop through the streaming Twitter data."""
@@ -483,69 +463,4 @@ class TestTraptor(object):
             # Do the rule matching against the redis rules
             enriched_data = traptor._enrich_tweet(tweet)
 
-<<<<<<< HEAD
             assert enriched_data['traptor']['rule_value'] == 'tweet'
-
-    def test_ensure_traptor_is_in_tweet_on_no_match(self, traptor, no_match_tweet):
-        """Ensure that the traptor section is added to a tweet when no rule matches."""
-        traptor._setup()
-        traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
-        traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
-        traptor.birdy_stream = MagicMock(return_value=no_match_tweet)
-        traptor.birdy_stream.stream = traptor.birdy_stream
-
-        tweet = traptor.birdy_stream.stream()
-        enriched_data = traptor._enrich_tweet(tweet)
-
-        if traptor.traptor_type in ['track', 'follow', 'locations']:
-            assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
-
-        if traptor.traptor_type in ['track', 'follow']:
-            assert enriched_data['traptor']['rule_tag'] == 'Not found'
-            assert enriched_data['traptor']['rule_value'] == 'Not found'
-
-    def test_ensure_heartbeat_message_is_produced(self, traptor):
-        """Ensure Traptor can produce heartbeat messages."""
-        traptor._setup()
-
-        traptor.heartbeat_conn = MagicMock()
-        traptor._add_heartbeat_message_to_redis = MagicMock(return_value=1)
-
-        result = traptor._add_heartbeat_message_to_redis(traptor.heartbeat_conn,
-                                                         'track',
-                                                         '0')
-        assert result == 1
-
-    def test_ensure_heartbeat_raises_error_if_encountered(self, traptor):
-        """Ensure Traptor handles Redis connection issues when producing a heartbeat."""
-        with pytest.raises(ConnectionError):
-            traptor._setup()
-
-            traptor.heartbeat_conn = MagicMock()
-            traptor.heartbeat_conn.setex.side_effect = ConnectionError
-
-            traptor._add_heartbeat_message_to_redis(traptor.heartbeat_conn)
-
-    def test_ensure_traptor_only_enriches_tweets(self, traptor, non_tweet_stream_messages):
-        """Ensure Traptor only performs rule matching on tweets."""
-        traptor._setup()
-
-        for message in non_tweet_stream_messages:
-            enriched_data = traptor._enrich_tweet(message)
-            assert enriched_data == message
-
-    def test_ensure_traptor_stays_alive_until_rules_are_found(self, traptor):
-        traptor._setup()
-        traptor.rule_check_interval = 2
-        traptor.logger.debug = MagicMock()
-
-        empty_response = {}
-        good_response = {"Rule": "Fun"}
-
-        traptor._get_redis_rules = MagicMock(side_effect=[empty_response, empty_response, good_response])
-        traptor._wait_for_rules()
-
-        assert traptor.logger.debug.call_count == 2
-=======
-            assert enriched_data['traptor']['value'] == 'tweet'
->>>>>>> develop
