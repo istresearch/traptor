@@ -1,0 +1,35 @@
+[run]
+omit = 
+  # Birdy stuff
+  traptor/birdy/*
+
+  # Settings, init and other files
+  traptor/__init__.py
+  traptor/localsettings.py
+  traptor/settings.py
+  setup.py
+
+  # Docker files
+  docker-compose.yml
+  Dockerfile
+
+  # Version information
+  traptor/version.py
+
+  # Scripts and pip packaging files
+  traptor/pull_sample_tweets.py
+  scripts/__init__.py
+  scripts/settings.py
+  fabfile.py
+
+  # Tests
+  tests/*
+
+  # Coverage and other reports
+  README
+  LICENSE
+  htmlcov/*
+
+[html]
+directory = htmlcov
+title = Traptor Coverage Report

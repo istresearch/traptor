@@ -4,7 +4,7 @@ import json
 import sys
 import os
 import time
-import re
+import random
 from datetime import datetime
 import dateutil.parser as parser
 import traceback
@@ -18,6 +18,7 @@ import dd_monitoring
 import threading
 
 from scutils.log_factory import LogFactory
+from scutils.stats_collector import StatsCollector
 
 import logging
 
@@ -28,7 +29,6 @@ class MyBirdyClient(StreamClient):
     @staticmethod
     def get_json_object_hook(data):
         return data
-
 
 class Traptor(object):
 
@@ -92,6 +92,11 @@ class Traptor(object):
         self.log_file_name = log_file_name
         self.test = test
 
+        self.kafka_success_callback = self._gen_kafka_success()
+        self.kafka_failure_callback = self._gen_kafka_failure()
+
+        self.rule_counters = dict()
+
     def __repr__(self):
         return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {}, {}, {}, {})'.format(
             self.redis_conn,
@@ -151,11 +156,31 @@ class Traptor(object):
                     'error_type': 'KafkaUnavailableError',
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('kafka_error',
+                                        tags=['error_type:kafka_unavailable'])
                 sys.exit(3)
         else:
             self.logger.info('Skipping kafka connection setup')
             self.logger.debug('Kafka_enabled setting: {}'.format(self.kafka_enabled))
             self.kafka_conn = None
+
+    def _gen_kafka_success(self):
+        def kafka_success(tweet, response):
+            self.logger.info("Tweet sent to kafka", extra={
+                'tweet_id': tweet.get('id_str', None)
+            })
+            dd_monitoring.increment('tweet_to_kafka_success')
+        return kafka_success
+
+    def _gen_kafka_failure(self):
+        def kafka_failure(e):
+            self.logger.error("Caught Kafka exception when sending a tweet to Kafka", extra={
+                'error_type': 'KafkaError',
+                'ex': traceback.format_exc()
+            })
+            dd_monitoring.increment('tweet_to_kafka_error',
+                                    tags=['error_type:kafka'])
+        return kafka_failure
 
     def _setup(self):
         """
@@ -206,6 +231,8 @@ class Traptor(object):
                     'error_type': 'TwitterAPIError',
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('twitter_error_occurred',
+                                        tags=['error_type:twitter_api_error'])
                 sys.exit(3)
         elif self.traptor_type == 'track':
             # Try to set up a twitter stream using twitter term list
@@ -218,6 +245,8 @@ class Traptor(object):
                     'error_type': 'TwitterAPIError',
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('twitter_error_occurred',
+                                        tags=['error_type:twitter_api_error'])
                 sys.exit(3)
         elif self.traptor_type == 'locations':
             # Try to set up a twitter stream using twitter term list
@@ -230,12 +259,16 @@ class Traptor(object):
                     'error_type': 'TwitterAPIError',
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('twitter_error_occurred',
+                                        tags=['error_type:twitter_api_error'])
                 sys.exit(3)
         else:
             self.logger.critical('Caught error creating birdy stream for Traptor type that does not exist', extra ={
                 'error_type': 'NotImplementedError',
                 'ex': traceback.format_exc()
             })
+            dd_monitoring.increment('traptor_error_occurred',
+                                    tags=['error_type:not_implemented_error'])
             sys.exit(3)
 
     def _make_twitter_rules(self, rules):
@@ -250,6 +283,55 @@ class Traptor(object):
         rules_str = ','.join([rule['value'] for rule in rules])
         self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
         return rules_str
+
+    def _create_rule_counter(self, rule_id):
+        """
+        Create a rule counter
+
+        :param rule_id: id of the rule to create a counter for
+        :return: stats_collector: StatsCollector rolling time window
+        """
+        # rule_id = int(rule_id)
+
+        collection_window = int(os.getenv('STATS_COLLECTION_WINDOW', 900))
+        stats_key = 'stats:{}:{}:{}'.format(self.traptor_type, self.traptor_id, rule_id)
+        stats_collector = StatsCollector.get_rolling_time_window(redis_conn=self.redis_conn,
+                                                                 key=stats_key,
+                                                                 window=collection_window)
+
+        return stats_collector
+
+    def _make_rule_counters(self):
+        """
+        Make the rule counters to collect stats on the rule matches.
+
+        :return: dict: rule_counters
+        """
+        self.logger.info("Making the rule counters")
+
+        rule_counters = dict()
+
+        for rule in self.redis_rules:
+            rule_id = rule['rule_id']
+            rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
+
+        self.rule_counters = rule_counters
+
+    def _increment_rule_counter(self, tweet):
+        """
+        Increment a rule counter.
+
+        :param rule_value: the value of the rule to increment the counter for
+        """
+        rule_id = tweet.get('traptor', {}).get('rule_id', None)
+
+        # If the counter doesn't yet exist, create it
+        if self.rule_counters.get(rule_id, None) is None:
+            self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
+
+        # If a rule value exists, increment the counter
+        if rule_id is not None:
+            self.rule_counters[rule_id].increment()
 
     def _get_locations_traptor_rule(self):
         """
@@ -345,7 +427,10 @@ class Traptor(object):
             # Lowercase the entire thing
             query = query.lower()
 
+            random.shuffle(self.redis_rules)
+
             try:
+                # Shuffle the rules every once in a while
                 for rule in self.redis_rules:
                     # Get the rule to search for and lowercase it
                     search_str = rule['value'].encode("utf-8").lower()
@@ -368,6 +453,8 @@ class Traptor(object):
                 self.logger.error("Caught exception while performing rule matching for track", extra={
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred',
+                                        tags=['error_type:rule_matching_failure'])
 
         # If this is a follow Traptor, only check the user/id field of the tweet
         if self.traptor_type == 'follow':
@@ -394,6 +481,8 @@ class Traptor(object):
                 self.logger.error("Unable to dump the tweet dict to json", extra={
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred',
+                                        tags=['error_type:json_dumps'])
 
             query = query + str(tweet_dict['user']['id_str'])
 
@@ -407,6 +496,8 @@ class Traptor(object):
 
             # Lowercase the entire thing
             query = query.lower()
+
+            random.shuffle(self.redis_rules)
 
             try:
                 for rule in self.redis_rules:
@@ -431,12 +522,14 @@ class Traptor(object):
                 self.logger.error("Caught exception while performing rule matching for follow", extra={
                     'ex': traceback.format_exc()
                 })
+                dd_monitoring.increment('traptor_error_occurred',
+                                        tags=['error_type:rule_matching_failure'])
 
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
             new_dict['traptor']['id'] = int(self.traptor_id)
-            new_dict['traptor']['rule_tag'] = 'Not found'
-            new_dict['traptor']['rule_value'] = 'Not found'
+            new_dict['traptor']['rule_tag'] = 'Not Found'
+            new_dict['traptor']['rule_value'] = 'Not Found'
             # Log that a rule was matched
             self.logger.warning("No rule matched for tweet", extra={
                 'tweet_id': tweet_dict['id_str']
@@ -478,6 +571,8 @@ class Traptor(object):
             rule_max = 1
         else:
             self.logger.error('traptor_type of {} is not supported'.format(self.traptor_type))
+            dd_monitoring.increment('traptor_error_occurred',
+                                    tags=['error_type:not_implemented_error'])
             raise(NotImplementedError)
 
         # for rule in xrange(rule_max):
@@ -497,6 +592,8 @@ class Traptor(object):
                 'error_type': 'ConnectionError',
                 'ex': traceback.format_exc()
             })
+            dd_monitoring.increment('redis_error',
+                                    tags=['error_type:connection_error'])
             sys.exit(3)  # Special error code to track known failures
 
     @staticmethod
@@ -548,9 +645,26 @@ class Traptor(object):
         else:
             return False
 
+    def _message_is_limit_message(self, message):
+        """
+        Check if the message is a limit message.
+
+        :param message: message to check
+        :return: True if yes, False if no
+        """
+        if 'limit' in message:
+            return True
+        else:
+            return False
+
     def _enrich_tweet(self, tweet):
-        """Enrich the tweet with additional fields and rule matching."""
-        enriched_data = {}
+        """
+        Enrich the tweet with additional fields, rule matching and stats collection.
+
+        :return dict enriched_data: tweet dict with additional enrichments
+        :return dict tweet: non-tweet message with no additional enrichments
+        """
+        enriched_data = dict()
 
         if self._message_is_tweet(tweet):
             # Add the initial traptor fields
@@ -561,10 +675,23 @@ class Traptor(object):
 
             # Add the rule information
             enriched_data = self._find_rule_matches(tweet)
+
+            # Update the matched rule stats
+            if self.traptor_type != 'locations':
+                self._increment_rule_counter(enriched_data)
+
+        elif self._message_is_limit_message(tweet):
+            # Increment counter
+            dd_monitoring.increment('limit_message_received')
+            # Send DD the limit message value
+            limit_count = tweet.get('limit').get(self.traptor_type, None)
+            dd_monitoring.gauge('limit_message_count', limit_count, [])
         else:
             self.logger.info("Twitter message is not a tweet", extra={
                 'twitter_message': tweet
             })
+
+        dd_monitoring.increment('tweet_process_success')
 
         if enriched_data:
             return enriched_data
@@ -594,6 +721,7 @@ class Traptor(object):
                     # Log the action and restart
                     self.restart_flag = True
                     self.logger.debug("Redis PubSub message found. Setting restart flag to True.")
+                    dd_monitoring.increment('restart_message_received')
 
     def _add_heartbeat_message_to_redis(self,
                                         heartbeat_conn):
@@ -605,12 +733,15 @@ class Traptor(object):
                                        now)
         message = "alive"
         try:
+            dd_monitoring.increment('heartbeat_message_sent_success')
             return heartbeat_conn.setex(key_to_add, time_to_live, message)
         except ConnectionError as e:
             self.logger.error("Caught exception while adding the heartbeat message to Redis", extra={
                 'error_type': 'ConnectionError',
                 'ex': traceback.format_exc()
             })
+            dd_monitoring.increment('heartbeat_message_sent_failure',
+                                    tags=['error_type:redis_connection_error'])
             raise
 
     def _send_heartbeat_message(self):
@@ -639,30 +770,28 @@ class Traptor(object):
                 try:
                     tweet = json.loads(item)
                 except:
-                    dd_monitoring.increment('tweet_process_failure')
                     self.logger.error("Caught exception while json loading the Twitter message", extra={
                         'ex': traceback.format_exc()
                     })
+                    dd_monitoring.increment('traptor_error_occurred',
+                                            tags=['error_type:json_loads_error'])
                 else:
-                    dd_monitoring.increment('tweet_process_success')
-
                     enriched_data = self._enrich_tweet(tweet)
 
                     if self.kafka_enabled == 'true':
                         try:
-                            self.kafka_conn.send(self.kafka_topic, enriched_data)
-
-                            self.logger.info("Tweet sent to kafka", extra={
+                            self.logger.info("Attempting to send tweet to kafka", extra={
                                 'tweet_id': tweet.get('id_str', None)
                             })
-
-                            dd_monitoring.increment('tweet_to_kafka_success')
+                            future = self.kafka_conn.send(self.kafka_topic, enriched_data)
+                            future.add_callback(self.kafka_success_callback, tweet)
+                            future.add_errback(self.kafka_failure_callback)
                         except Exception:
                             self.logger.error("Caught exception adding Twitter message to Kafka", extra={
                                 'ex': traceback.format_exc()
                             })
-
-                            dd_monitoring.increment('tweet_to_kafka_failure')
+                            dd_monitoring.increment('tweet_to_kafka_failure',
+                                                    tags=['error_type:kafka'])
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
 
@@ -716,6 +845,10 @@ class Traptor(object):
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
             self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
+
+            # Make the rule counters
+            if self.traptor_type != 'locations':
+                self._make_rule_counters()
 
             if not self.test:
                 self._create_birdy_stream()
@@ -813,9 +946,13 @@ def main():
         if os.getenv('USE_SENTRY') == 'true':
             client = Client(os.getenv('SENTRY_URL'))
             client.captureException()
+
         logger.error("Caught exception when starting Traptor", extra={
             'ex': traceback.format_exc()
         })
+
+        dd_monitoring.increment('traptor_error_occurred',
+                                tags=['error_type:traptor_start'])
 
 
 if __name__ == '__main__':
