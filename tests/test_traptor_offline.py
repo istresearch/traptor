@@ -177,20 +177,20 @@ class TestRuleExtract():
         """Test retrieving the tracking rules."""
         assert {'tag': 'test', 'value': 'happy', 'status': 'active', 'description': 'Tweets for a hashtag',
                 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'track'} == redis_rules.hgetall('traptor-track:0:0')
+                'rule_type': 'track', 'rule_id': '12347'} == redis_rules.hgetall('traptor-track:0:0')
 
     def test_follow(self, redis_rules):
         """Test retrieving the follow rules."""
         assert {'tag': 'test', 'value': '17919972', 'status': 'active', 'description': 'Tweets from some user',
                 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'follow'} == redis_rules.hgetall('traptor-follow:0:0')
+                'rule_type': 'follow', 'rule_id': '12345'} == redis_rules.hgetall('traptor-follow:0:0')
 
     def test_locations(self, redis_rules):
         """Test retrieving the location rules."""
         assert {'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8', 'status': 'active',
                 'description': 'Tweets from some continent', 'appid': 'test-appid',
                 'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'locations'} == redis_rules.hgetall('traptor-locations:0:0')
+                'rule_type': 'locations', 'rule_id': '12346'} == redis_rules.hgetall('traptor-locations:0:0')
 
 
 class TestTraptor(object):
@@ -248,15 +248,18 @@ class TestTraptor(object):
         if traptor.traptor_type == 'track':
             assert traptor.redis_rules == [{'tag': 'test', 'value': 'happy', 'status': 'active',
                                             'description': 'Tweets for a hashtag', 'appid': 'test-appid',
-                                            'date_added': '2016-05-10 16:58:34', 'rule_type': 'track'}]
+                                            'date_added': '2016-05-10 16:58:34', 'rule_type': 'track',
+                                            'rule_id': '12347'}]
         if traptor.traptor_type == 'follow':
             assert traptor.redis_rules == [{'tag': 'test', 'value': '17919972', 'status': 'active',
                                             'description': 'Tweets from some user', 'appid': 'test-appid',
-                                            'date_added': '2016-05-10 16:58:34', 'rule_type': 'follow'}]
+                                            'date_added': '2016-05-10 16:58:34', 'rule_type': 'follow',
+                                            'rule_id': '12345'}]
         if traptor.traptor_type == 'locations':
             assert traptor.redis_rules == [{'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8', 'status': 'active',
                                             'description': 'Tweets from some continent', 'appid': 'test-appid',
-                                            'date_added': '2016-05-10 16:58:34', 'rule_type': 'locations'}]
+                                            'date_added': '2016-05-10 16:58:34', 'rule_type': 'locations',
+                                            'rule_id': '12346'}]
 
     def test_twitter_rules(self, redis_rules, traptor):
         """Ensure Traptor can create Twitter rules from the Redis rules."""
@@ -365,10 +368,10 @@ class TestTraptor(object):
             assert len(traptor.rule_counters) == 1
 
         if traptor.traptor_type == 'track':
-            assert traptor.rule_counters['happy'] is not None
+            assert traptor.rule_counters['12347'] is not None
 
         if traptor.traptor_type == 'follow':
-            assert traptor.rule_counters['17919972'] is not None
+            assert traptor.rule_counters['12345'] is not None
 
         if traptor.traptor_type == 'locations':
             assert len(traptor.rule_counters) == 0
@@ -461,9 +464,6 @@ class TestTraptor(object):
                 traptor.redis_rules = [json.load(f)]
             traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
 
-            # Make the rule counters
-            traptor._make_rule_counters()
-
             # Do the rule matching against the redis rules
             enriched_data = traptor._enrich_tweet(tweet)
 
@@ -473,9 +473,6 @@ class TestTraptor(object):
             with open('tests/data/extended_tweets/track_rules.json') as f:
                 traptor.redis_rules = [json.load(f)]
             traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
-
-            # Make the rule counters
-            traptor._make_rule_counters()
 
             # Do the rule matching against the redis rules
             enriched_data = traptor._enrich_tweet(tweet)

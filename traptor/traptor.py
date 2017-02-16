@@ -284,15 +284,17 @@ class Traptor(object):
         self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
         return rules_str
 
-    def _create_rule_counter(self, rule_value):
+    def _create_rule_counter(self, rule_id):
         """
         Create a rule counter
 
-        :param rule_value: value of the rule to create a counter for
+        :param rule_id: id of the rule to create a counter for
         :return: stats_collector: StatsCollector rolling time window
         """
+        # rule_id = int(rule_id)
+
         collection_window = int(os.getenv('STATS_COLLECTION_WINDOW', 900))
-        stats_key = 'stats:{}:{}:{}'.format(self.traptor_type, self.traptor_id, rule_value)
+        stats_key = 'stats:{}:{}:{}'.format(self.traptor_type, self.traptor_id, rule_id)
         stats_collector = StatsCollector.get_rolling_time_window(redis_conn=self.redis_conn,
                                                                  key=stats_key,
                                                                  window=collection_window)
@@ -309,8 +311,9 @@ class Traptor(object):
 
         rule_counters = dict()
 
-        for rule in self.twitter_rules.split(','):
-            rule_counters[rule] = self._create_rule_counter(rule_value=rule)
+        for rule in self.redis_rules:
+            rule_id = rule['rule_id']
+            rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
 
         self.rule_counters = rule_counters
 
@@ -320,16 +323,15 @@ class Traptor(object):
 
         :param rule_value: the value of the rule to increment the counter for
         """
-        rule_value = tweet.get('traptor', {}).get('rule_value', None)
+        rule_id = tweet.get('traptor', {}).get('rule_id', None)
 
         # If the counter doesn't yet exist, create it
-        if self.rule_counters.get(rule_value, None) is None:
-            self.rule_counters[rule_value] = self._create_rule_counter(rule_value=rule_value)
+        if self.rule_counters.get(rule_id, None) is None:
+            self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
 
         # If a rule value exists, increment the counter
-        if rule_value is not None:
-            value_to_increment = tweet.get('traptor').get('rule_value')
-            self.rule_counters[value_to_increment].increment()
+        if rule_id is not None:
+            self.rule_counters[rule_id].increment()
 
     def _get_locations_traptor_rule(self):
         """
