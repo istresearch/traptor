@@ -381,6 +381,7 @@ class TestTraptor(object):
     def test_main_loop(self, redis_rules, traptor, tweets):
         """Ensure we can loop through the streaming Twitter data."""
         traptor._setup()
+
         traptor.redis_conn = redis_rules
 
         traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
@@ -432,21 +433,6 @@ class TestTraptor(object):
             assert enriched_data['traptor']['description'] == 'Tweets from some continent'
             assert enriched_data['traptor']['appid'] == 'test-appid'
 
-        """ Now test the with the new extended_tweet format """
-
-        # # The birdy_stream will just look like whatever tweet has been loaded
-        # traptor.birdy_stream = MagicMock(return_value=extended_tweets)
-        # traptor.birdy_stream.stream = traptor.birdy_stream
-
-        # # Test that we can set the tweet to the .stream() method
-        # tweet = traptor.birdy_stream.stream()
-
-        # # Do the rule matching against the redis rules
-        # enriched_data = traptor._enrich_tweet(tweet)
-
-        # if traptor.traptor_type == 'follow':
-        #     assert enriched_data['traptor'] == x
-
     @pytest.mark.extended
     def test_main_loop_extended(self, redis_rules, traptor, extended_tweets):
         """Ensure we can loop through the streaming Twitter data."""
@@ -467,7 +453,7 @@ class TestTraptor(object):
             # Do the rule matching against the redis rules
             enriched_data = traptor._enrich_tweet(tweet)
 
-            assert enriched_data['traptor']['value'] == '735369652956766200'
+            assert enriched_data['traptor']['rule_value'] == '735369652956766200'
 
         if traptor.traptor_type == 'track':
             with open('tests/data/extended_tweets/track_rules.json') as f:
@@ -477,4 +463,4 @@ class TestTraptor(object):
             # Do the rule matching against the redis rules
             enriched_data = traptor._enrich_tweet(tweet)
 
-            assert enriched_data['traptor']['value'] == 'tweet'
+            assert enriched_data['traptor']['rule_value'] == 'tweet'

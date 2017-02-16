@@ -4,7 +4,7 @@ import json
 import sys
 import os
 import time
-import re
+import random
 from datetime import datetime
 import dateutil.parser as parser
 import traceback
@@ -427,7 +427,10 @@ class Traptor(object):
             # Lowercase the entire thing
             query = query.lower()
 
+            random.shuffle(self.redis_rules)
+
             try:
+                # Shuffle the rules every once in a while
                 for rule in self.redis_rules:
                     # Get the rule to search for and lowercase it
                     search_str = rule['value'].encode("utf-8").lower()
@@ -493,6 +496,8 @@ class Traptor(object):
 
             # Lowercase the entire thing
             query = query.lower()
+
+            random.shuffle(self.redis_rules)
 
             try:
                 for rule in self.redis_rules:
