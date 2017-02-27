@@ -46,7 +46,8 @@ services:
       - "2181:2181"
 
   elasticsearch:
-    image: elasticsearch:2.4.1
+    image: elasticsearch:5.0
+    command: elasticsearch -E network.host=0.0.0.0 -E discovery.zen.minimum_master_nodes=1
     ports:
       - "9200:9200"
 
@@ -69,7 +70,7 @@ services:
       - ./logs:/var/log/traptor
 
   kibana:
-    image: kibana:4.6.2
+    image: kibana:5.0
     ports:
       - "5601:5601"
     environment:
