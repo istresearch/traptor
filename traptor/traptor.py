@@ -178,7 +178,7 @@ class Traptor(object):
                 'error_type': 'KafkaError',
                 'ex': traceback.format_exc()
             })
-            dd_monitoring.increment('tweet_to_kafka_error',
+            dd_monitoring.increment('tweet_to_kafka_failure',
                                     tags=['error_type:kafka'])
         return kafka_failure
 
