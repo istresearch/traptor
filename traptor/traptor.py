@@ -420,7 +420,7 @@ class Traptor(object):
                 query = query + " " + tweet_dict['user']['screen_name'].encode('utf-8')
 
             # Retweeted parts
-            if tweet_dict['retweeted_status']:
+            if tweet_dict.get('retweeted_status', None) is not None:
                 # Status
                 query = query + " " + tweet_dict['retweeted_status']['text'].encode("utf-8")
 
