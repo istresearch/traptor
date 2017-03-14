@@ -452,10 +452,14 @@ class Traptor(object):
 
                 # Names
                 if 'in_reply_to_screen_name' in tweet_dict['retweeted_status']:
-                    query = query + " " + tweet_dict['retweeted_status']['in_reply_to_screen_name'].encode('utf-8')
+                    in_reply_to_screen_name = tweet_dict.get('retweeted_status', {}).get('in_reply_to_screen_name', None)
+                    if in_reply_to_screen_name is not None:
+                        query = query + " " + tweet_dict['retweeted_status']['in_reply_to_screen_name'].encode('utf-8')
 
                 if 'screen_name' in tweet_dict['retweeted_status']['user']:
-                    query = query + " " + tweet_dict['retweeted_status']['user']['screen_name'].encode('utf-8')
+                    screen_name = tweet_dict.get('retweeted_status', {}).get('user', {}).get('screen_name', None)
+                    if screen_name is not None:
+                        query = query + " " + tweet_dict['retweeted_status']['user']['screen_name'].encode('utf-8')
 
             # De-dup urls and add to the giant query
             if len(url_list) > 0:
