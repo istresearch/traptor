@@ -410,11 +410,6 @@ class Traptor(object):
                     if display_url is not None:
                         url_list.append(display_url)
 
-            if len(url_list) > 0:
-                url_list = set(url_list)
-                for url in url_list:
-                    query = query + " " + url.encode("utf-8")
-
             # Hashtags
             if 'hashtags' in tweet_dict['entities']:
                 for tag in tweet_dict['entities']['hashtags']:
@@ -423,6 +418,50 @@ class Traptor(object):
             # Screen name
             if 'screen_name' in tweet_dict['user']:
                 query = query + " " + tweet_dict['user']['screen_name'].encode('utf-8')
+
+            # Retweeted parts
+            if tweet_dict['retweeted_status']:
+                # Status
+                query = query + " " + tweet_dict['retweeted_status']['text'].encode("utf-8")
+
+                # URLs and Media
+                if 'urls' in tweet_dict['retweeted_status']['entities']:
+                    for url in tweet_dict['retweeted_status']['entities']['urls']:
+                        expanded_url = url.get('expanded_url', None)
+                        display_url = url.get('display_url', None)
+
+                        if expanded_url is not None:
+                            url_list.append(expanded_url)
+                        if display_url is not None:
+                            url_list.append(display_url)
+
+                if 'media' in tweet_dict['retweeted_status']['entities']:
+                    for item in tweet_dict['retweeted_status']['entities']['media']:
+                        expanded_url = item.get('expanded_url', None)
+                        display_url = item.get('display_url', None)
+
+                        if expanded_url is not None:
+                            url_list.append(expanded_url)
+                        if display_url is not None:
+                            url_list.append(display_url)
+
+                # Hashtags
+                if 'hashtags' in tweet_dict['retweeted_status']['entities']:
+                    for tag in tweet_dict['retweeted_status']['entities']['hashtags']:
+                        query = query + " " + tag['text'].encode("utf-8")
+
+                # Names
+                if 'in_reply_to_screen_name' in tweet_dict['retweeted_status']:
+                    query = query + " " + tweet_dict['retweeted_status']['in_reply_to_screen_name'].encode('utf-8')
+
+                if 'screen_name' in tweet_dict['retweeted_status']['user']:
+                    query = query + " " + tweet_dict['retweeted_status']['user']['screen_name'].encode('utf-8')
+
+            # De-dup urls and add to the giant query
+            if len(url_list) > 0:
+                url_list = set(url_list)
+                for url in url_list:
+                    query = query + " " + url.encode("utf-8")
 
             # Lowercase the entire thing
             query = query.lower()
