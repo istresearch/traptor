@@ -424,6 +424,9 @@ class Traptor(object):
                 # Status
                 query = query + " " + tweet_dict['retweeted_status']['text'].encode("utf-8")
 
+                if tweet_dict['retweeted_status'].get('quoted_status', {}).get('extended_tweet', {}).get('full_text', None) is not None:
+                    query = query + " " + tweet_dict['retweeted_status']['quoted_status']['extended_tweet']['full_text'].encode("utf-8")
+
                 # URLs and Media
                 if 'urls' in tweet_dict['retweeted_status']['entities']:
                     for url in tweet_dict['retweeted_status']['entities']['urls']:
@@ -460,6 +463,12 @@ class Traptor(object):
                     screen_name = tweet_dict.get('retweeted_status', {}).get('user', {}).get('screen_name', None)
                     if screen_name is not None:
                         query = query + " " + tweet_dict['retweeted_status']['user']['screen_name'].encode('utf-8')
+
+            # Quoted Status parts
+            if tweet_dict.get('quoted_status', None) is not None:
+                # Extended tweet
+                if tweet_dict.get('quoted_status').get('extended_tweet', {}).get('full_text', None) is not None:
+                    query = query + " " + tweet_dict['quoted_status']['extended_tweet']['full_text'].encode('utf-8')
 
             # De-dup urls and add to the giant query
             if len(url_list) > 0:
@@ -527,11 +536,23 @@ class Traptor(object):
                 dd_monitoring.increment('traptor_error_occurred',
                                         tags=['error_type:json_dumps'])
 
+            # From this user
             query = query + str(tweet_dict['user']['id_str'])
 
             # Replies to any Tweet created by the user.
             if tweet_dict['in_reply_to_user_id'] is not None and tweet_dict['in_reply_to_user_id'] != '':
                 query = query + str(tweet_dict['in_reply_to_user_id'])
+
+            # User mentions
+            if 'user_mentions' in tweet_dict['entities']:
+                for tag in tweet_dict['entities']['user_mentions']:
+                    query = query + " " + tag['id_str'].encode("utf-8")
+
+
+            # Retweeted parts
+            if tweet_dict.get('retweeted_status', None) is not None:
+                if tweet_dict['retweeted_status'].get('user', {}).get('id_str', None) is not None:
+                    query = query + str(tweet_dict['retweeted_status']['user']['id_str'])
 
             # Retweets of any Tweet created by the user; AND
             # Manual replies, created without pressing a reply button (e.g. “@twitterapi I agree”).
