@@ -503,7 +503,7 @@ class Traptor(object):
                             else:
                                 part_finder.append(False)
 
-                    if True in part_finder:
+                    if all(part_finder):
                         # These two lines kept for backwards compatibility
                         new_dict['traptor']['rule_tag'] = rule['tag']
                         new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
@@ -524,7 +524,8 @@ class Traptor(object):
                         for key, value in rule.iteritems():
                             new_dict['traptor'][key] = value.encode("utf-8")
 
-                            # Log that a rule was matched
+                        # Log that a rule was matched
+                        self.logger.debug("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
             except:
                 self.logger.error("Caught exception while performing rule matching for track", extra={
                     'ex': traceback.format_exc()
