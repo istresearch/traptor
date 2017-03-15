@@ -491,10 +491,19 @@ class Traptor(object):
                     # Get the rule to search for and lowercase it
                     search_str = rule['value'].encode("utf-8").lower()
 
-                    self.logger.debug("Search string used for the rule match: {}".format(search_str))
-                    self.logger.debug("Query for the rule match: {}".format(query))
+                    # Split the rule value and see if it's a multi-parter
+                    part_finder = list()
+                    search_str_multi = search_str.split(" ")
 
-                    if search_str in query:
+                    # If there is more than one part to the rule, check for each part in the query
+                    if len(search_str_multi) > 1:
+                        for part in search_str_multi:
+                            if part in query:
+                                part_finder.append(True)
+                            else:
+                                part_finder.append(False)
+
+                    if True in part_finder:
                         # These two lines kept for backwards compatibility
                         new_dict['traptor']['rule_tag'] = rule['tag']
                         new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
@@ -505,6 +514,17 @@ class Traptor(object):
 
                         # Log that a rule was matched
                         self.logger.debug("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
+
+                    elif search_str in query:
+                        # These two lines kept for backwards compatibility
+                        new_dict['traptor']['rule_tag'] = rule['tag']
+                        new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
+
+                        # Pass all key/value pairs from matched rule through to Traptor
+                        for key, value in rule.iteritems():
+                            new_dict['traptor'][key] = value.encode("utf-8")
+
+                            # Log that a rule was matched
             except:
                 self.logger.error("Caught exception while performing rule matching for track", extra={
                     'ex': traceback.format_exc()
