@@ -503,7 +503,7 @@ class Traptor(object):
                             else:
                                 part_finder.append(False)
 
-                    if all(part_finder):
+                    if len(search_str_multi) > 1 and all(part_finder):
                         # These two lines kept for backwards compatibility
                         new_dict['traptor']['rule_tag'] = rule['tag']
                         new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
