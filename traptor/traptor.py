@@ -466,6 +466,10 @@ class Traptor(object):
 
             # Quoted Status parts
             if tweet_dict.get('quoted_status', None) is not None:
+                # Standard tweet
+                if tweet_dict.get('quoted_status').get('text', None) is not None:
+                    query = query + " " + tweet_dict['quoted_status']['text'].encode('utf-8')
+
                 # Extended tweet
                 if tweet_dict.get('quoted_status').get('extended_tweet', {}).get('full_text', None) is not None:
                     query = query + " " + tweet_dict['quoted_status']['extended_tweet']['full_text'].encode('utf-8')
