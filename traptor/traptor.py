@@ -410,11 +410,6 @@ class Traptor(object):
                     if display_url is not None:
                         url_list.append(display_url)
 
-            if len(url_list) > 0:
-                url_list = set(url_list)
-                for url in url_list:
-                    query = query + " " + url.encode("utf-8")
-
             # Hashtags
             if 'hashtags' in tweet_dict['entities']:
                 for tag in tweet_dict['entities']['hashtags']:
@@ -423,6 +418,67 @@ class Traptor(object):
             # Screen name
             if 'screen_name' in tweet_dict['user']:
                 query = query + " " + tweet_dict['user']['screen_name'].encode('utf-8')
+
+            # Retweeted parts
+            if tweet_dict.get('retweeted_status', None) is not None:
+                # Status
+                query = query + " " + tweet_dict['retweeted_status']['text'].encode("utf-8")
+
+                if tweet_dict['retweeted_status'].get('quoted_status', {}).get('extended_tweet', {}).get('full_text', None) is not None:
+                    query = query + " " + tweet_dict['retweeted_status']['quoted_status']['extended_tweet']['full_text'].encode("utf-8")
+
+                # URLs and Media
+                if 'urls' in tweet_dict['retweeted_status']['entities']:
+                    for url in tweet_dict['retweeted_status']['entities']['urls']:
+                        expanded_url = url.get('expanded_url', None)
+                        display_url = url.get('display_url', None)
+
+                        if expanded_url is not None:
+                            url_list.append(expanded_url)
+                        if display_url is not None:
+                            url_list.append(display_url)
+
+                if 'media' in tweet_dict['retweeted_status']['entities']:
+                    for item in tweet_dict['retweeted_status']['entities']['media']:
+                        expanded_url = item.get('expanded_url', None)
+                        display_url = item.get('display_url', None)
+
+                        if expanded_url is not None:
+                            url_list.append(expanded_url)
+                        if display_url is not None:
+                            url_list.append(display_url)
+
+                # Hashtags
+                if 'hashtags' in tweet_dict['retweeted_status']['entities']:
+                    for tag in tweet_dict['retweeted_status']['entities']['hashtags']:
+                        query = query + " " + tag['text'].encode("utf-8")
+
+                # Names
+                if 'in_reply_to_screen_name' in tweet_dict['retweeted_status']:
+                    in_reply_to_screen_name = tweet_dict.get('retweeted_status', {}).get('in_reply_to_screen_name', None)
+                    if in_reply_to_screen_name is not None:
+                        query = query + " " + tweet_dict['retweeted_status']['in_reply_to_screen_name'].encode('utf-8')
+
+                if 'screen_name' in tweet_dict['retweeted_status']['user']:
+                    screen_name = tweet_dict.get('retweeted_status', {}).get('user', {}).get('screen_name', None)
+                    if screen_name is not None:
+                        query = query + " " + tweet_dict['retweeted_status']['user']['screen_name'].encode('utf-8')
+
+            # Quoted Status parts
+            if tweet_dict.get('quoted_status', None) is not None:
+                # Standard tweet
+                if tweet_dict.get('quoted_status').get('text', None) is not None:
+                    query = query + " " + tweet_dict['quoted_status']['text'].encode('utf-8')
+
+                # Extended tweet
+                if tweet_dict.get('quoted_status').get('extended_tweet', {}).get('full_text', None) is not None:
+                    query = query + " " + tweet_dict['quoted_status']['extended_tweet']['full_text'].encode('utf-8')
+
+            # De-dup urls and add to the giant query
+            if len(url_list) > 0:
+                url_list = set(url_list)
+                for url in url_list:
+                    query = query + " " + url.encode("utf-8")
 
             # Lowercase the entire thing
             query = query.lower()
@@ -435,10 +491,31 @@ class Traptor(object):
                     # Get the rule to search for and lowercase it
                     search_str = rule['value'].encode("utf-8").lower()
 
-                    self.logger.debug("Search string used for the rule match: {}".format(search_str))
-                    self.logger.debug("Query for the rule match: {}".format(query))
+                    # Split the rule value and see if it's a multi-parter
+                    part_finder = list()
+                    search_str_multi = search_str.split(" ")
 
-                    if search_str in query:
+                    # If there is more than one part to the rule, check for each part in the query
+                    if len(search_str_multi) > 1:
+                        for part in search_str_multi:
+                            if part in query:
+                                part_finder.append(True)
+                            else:
+                                part_finder.append(False)
+
+                    if len(search_str_multi) > 1 and all(part_finder):
+                        # These two lines kept for backwards compatibility
+                        new_dict['traptor']['rule_tag'] = rule['tag']
+                        new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
+
+                        # Pass all key/value pairs from matched rule through to Traptor
+                        for key, value in rule.iteritems():
+                            new_dict['traptor'][key] = value.encode("utf-8")
+
+                        # Log that a rule was matched
+                        self.logger.debug("Rule matched for tweet id: {}".format(tweet_dict['id_str']))
+
+                    elif search_str in query:
                         # These two lines kept for backwards compatibility
                         new_dict['traptor']['rule_tag'] = rule['tag']
                         new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
@@ -484,11 +561,23 @@ class Traptor(object):
                 dd_monitoring.increment('traptor_error_occurred',
                                         tags=['error_type:json_dumps'])
 
+            # From this user
             query = query + str(tweet_dict['user']['id_str'])
 
             # Replies to any Tweet created by the user.
             if tweet_dict['in_reply_to_user_id'] is not None and tweet_dict['in_reply_to_user_id'] != '':
                 query = query + str(tweet_dict['in_reply_to_user_id'])
+
+            # User mentions
+            if 'user_mentions' in tweet_dict['entities']:
+                for tag in tweet_dict['entities']['user_mentions']:
+                    query = query + " " + tag['id_str'].encode("utf-8")
+
+
+            # Retweeted parts
+            if tweet_dict.get('retweeted_status', None) is not None:
+                if tweet_dict['retweeted_status'].get('user', {}).get('id_str', None) is not None:
+                    query = query + str(tweet_dict['retweeted_status']['user']['id_str'])
 
             # Retweets of any Tweet created by the user; AND
             # Manual replies, created without pressing a reply button (e.g. “@twitterapi I agree”).
