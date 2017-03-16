@@ -320,9 +320,10 @@ class TestTraptor(object):
         """Ensure Traptor only performs rule matching on tweets."""
         traptor._setup()
 
-        for message in non_tweet_stream_messages:
-            enriched_data = traptor._enrich_tweet(message)
-            assert enriched_data == message
+        if traptor.traptor_type in ['track']:
+            for message in non_tweet_stream_messages:
+                enriched_data = traptor._enrich_tweet(message)
+                assert enriched_data == message
 
     def test_ensure_traptor_is_in_tweet_on_no_match(self, redis_rules, traptor, no_match_tweet):
         """Ensure that the traptor section is added to a tweet when no rule matches."""

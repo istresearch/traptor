@@ -348,6 +348,8 @@ class Traptor(object):
         :param limit_count: the integer value from the limit message
         """
         current_time = str(datetime.now())
+        limit_count = float(limit_count)
+
         self.redis_conn.zadd(self.limit_counter, limit_count, current_time)
 
         # If this is the first time we're adding something to the counter, set the expiration time
@@ -763,7 +765,7 @@ class Traptor(object):
         :param message: message to check
         :return: True if yes, False if no
         """
-        if 'limit' in message:
+        if message.get('limit', None) is not None:
             return True
         else:
             return False
@@ -777,7 +779,15 @@ class Traptor(object):
         """
         enriched_data = dict()
 
-        if self._message_is_tweet(tweet):
+        if self._message_is_limit_message(tweet):
+            # Increment counter
+            dd_monitoring.increment('limit_message_received')
+            # Send DD the limit message value
+            limit_count = tweet.get('limit').get(self.traptor_type, None)
+            dd_monitoring.gauge('limit_message_count', limit_count, [])
+            # Store the limit count in Redis
+            self._increment_limit_counter(limit_count=limit_count)
+        elif self._message_is_tweet(tweet):
             # Add the initial traptor fields
             tweet = self._create_traptor_obj(tweet)
 
@@ -790,15 +800,6 @@ class Traptor(object):
             # Update the matched rule stats
             if self.traptor_type != 'locations':
                 self._increment_rule_counter(enriched_data)
-
-        elif self._message_is_limit_message(tweet):
-            # Increment counter
-            dd_monitoring.increment('limit_message_received')
-            # Send DD the limit message value
-            limit_count = tweet.get('limit').get(self.traptor_type, None)
-            dd_monitoring.gauge('limit_message_count', limit_count, [])
-            # Store the limit count in Redis
-            self._increment_limit_counter(limit_count=limit_count)
         else:
             self.logger.info("Twitter message is not a tweet", extra={
                 'twitter_message': tweet
