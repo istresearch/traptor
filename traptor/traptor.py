@@ -96,6 +96,7 @@ class Traptor(object):
         self.kafka_failure_callback = self._gen_kafka_failure()
 
         self.rule_counters = dict()
+        self.limit_counter = str()
 
     def __repr__(self):
         return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {}, {}, {}, {})'.format(
@@ -291,8 +292,6 @@ class Traptor(object):
         :param rule_id: id of the rule to create a counter for
         :return: stats_collector: StatsCollector rolling time window
         """
-        # rule_id = int(rule_id)
-
         collection_window = int(os.getenv('STATS_COLLECTION_WINDOW', 900))
         stats_key = 'stats:{}:{}:{}'.format(self.traptor_type, self.traptor_id, rule_id)
         stats_collector = StatsCollector.get_rolling_time_window(redis_conn=self.redis_conn,
@@ -332,6 +331,29 @@ class Traptor(object):
         # If a rule value exists, increment the counter
         if rule_id is not None:
             self.rule_counters[rule_id].increment()
+
+    def _make_limit_counter(self):
+        """
+        Make a limit counter to track the values of incoming limit messages.
+
+        :return: limit_counter
+        """
+        limit_counter = "limit:{}:{}".format(self.traptor_type, self.traptor_id)
+        self.limit_counter = limit_counter
+
+    def _increment_limit_counter(self, limit_count):
+        """
+        Increment the limit counter
+
+        :param limit_count: the integer value from the limit message
+        """
+        current_time = str(datetime.now())
+        self.redis_conn.zadd(self.limit_counter, limit_count, current_time)
+
+        # If this is the first time we're adding something to the counter, set the expiration time
+        limit_score_count = self.redis_conn.zrange(self.limit_counter, 0, -1, withscores=False)
+        if limit_score_count == 1:
+            self.redis_conn.expire(self.limit_counter, int(os.get('STATS_COLLECTION_WINDOW', 900)))
 
     def _get_locations_traptor_rule(self):
         """
@@ -775,6 +797,8 @@ class Traptor(object):
             # Send DD the limit message value
             limit_count = tweet.get('limit').get(self.traptor_type, None)
             dd_monitoring.gauge('limit_message_count', limit_count, [])
+            # Store the limit count in Redis
+            self._increment_limit_counter(limit_count=limit_count)
         else:
             self.logger.info("Twitter message is not a tweet", extra={
                 'twitter_message': tweet
