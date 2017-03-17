@@ -786,6 +786,7 @@ class Traptor(object):
             limit_count = tweet.get('limit').get(self.traptor_type, None)
             dd_monitoring.gauge('limit_message_count', limit_count, [])
             # Store the limit count in Redis
+            self._make_limit_counter()
             self._increment_limit_counter(limit_count=limit_count)
         elif self._message_is_tweet(tweet):
             # Add the initial traptor fields
