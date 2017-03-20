@@ -19,6 +19,7 @@ import threading
 
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
+from traptor_limit_counter import TraptorLimitCounter
 
 import logging
 
@@ -96,6 +97,7 @@ class Traptor(object):
         self.kafka_failure_callback = self._gen_kafka_failure()
 
         self.rule_counters = dict()
+        self.limit_counter = None
 
     def __repr__(self):
         return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {}, {}, {}, {})'.format(
@@ -291,8 +293,6 @@ class Traptor(object):
         :param rule_id: id of the rule to create a counter for
         :return: stats_collector: StatsCollector rolling time window
         """
-        # rule_id = int(rule_id)
-
         collection_window = int(os.getenv('STATS_COLLECTION_WINDOW', 900))
         stats_key = 'stats:{}:{}:{}'.format(self.traptor_type, self.traptor_id, rule_id)
         stats_collector = StatsCollector.get_rolling_time_window(redis_conn=self.redis_conn,
@@ -330,8 +330,27 @@ class Traptor(object):
             self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
 
         # If a rule value exists, increment the counter
-        if rule_id is not None:
+        if rule_id is not None and self.rule_counters[rule_id] is not None:
             self.rule_counters[rule_id].increment()
+
+    def _make_limit_message_counter(self):
+        """
+        Make a limit message counter to track the values of incoming limit messages.
+        """
+        limit_counter_key = "limit:{}:{}".format(self.traptor_type, self.traptor_id)
+        collection_window = int(os.getenv('LIMIT_COUNT_COLLECTION_WINDOW', 900))
+
+        self.limit_counter = TraptorLimitCounter(key=limit_counter_key, window=collection_window)
+        self.limit_counter.setup(redis_conn=self.redis_conn)
+
+    def _increment_limit_message_counter(self, limit_count):
+        """
+        Increment the limit message counter
+
+        :param limit_count: the integer value from the limit message
+        """
+        if self.limit_counter is not None:
+            self.limit_counter.increment(limit_count=limit_count)
 
     def _get_locations_traptor_rule(self):
         """
@@ -741,7 +760,7 @@ class Traptor(object):
         :param message: message to check
         :return: True if yes, False if no
         """
-        if 'limit' in message:
+        if message.get('limit', None) is not None:
             return True
         else:
             return False
@@ -755,7 +774,15 @@ class Traptor(object):
         """
         enriched_data = dict()
 
-        if self._message_is_tweet(tweet):
+        if self._message_is_limit_message(tweet):
+            # Increment counter
+            dd_monitoring.increment('limit_message_received')
+            # Send DD the limit message value
+            limit_count = tweet.get('limit').get(self.traptor_type, None)
+            dd_monitoring.gauge('limit_message_count', limit_count, [])
+            # Store the limit count in Redis
+            self._increment_limit_message_counter(limit_count=limit_count)
+        elif self._message_is_tweet(tweet):
             # Add the initial traptor fields
             tweet = self._create_traptor_obj(tweet)
 
@@ -768,13 +795,6 @@ class Traptor(object):
             # Update the matched rule stats
             if self.traptor_type != 'locations':
                 self._increment_rule_counter(enriched_data)
-
-        elif self._message_is_limit_message(tweet):
-            # Increment counter
-            dd_monitoring.increment('limit_message_received')
-            # Send DD the limit message value
-            limit_count = tweet.get('limit').get(self.traptor_type, None)
-            dd_monitoring.gauge('limit_message_count', limit_count, [])
         else:
             self.logger.info("Twitter message is not a tweet", extra={
                 'twitter_message': tweet
@@ -935,9 +955,10 @@ class Traptor(object):
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
             self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
 
-            # Make the rule counters
+            # Make the rule and limit message counters
             if self.traptor_type != 'locations':
                 self._make_rule_counters()
+                self._make_limit_message_counter()
 
             if not self.test:
                 self._create_birdy_stream()
