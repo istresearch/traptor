@@ -330,7 +330,7 @@ class Traptor(object):
             self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
 
         # If a rule value exists, increment the counter
-        if rule_id is not None:
+        if rule_id is not None and self.rule_counters[rule_id] is not None:
             self.rule_counters[rule_id].increment()
 
     def _make_limit_message_counter(self):
@@ -349,8 +349,8 @@ class Traptor(object):
 
         :param limit_count: the integer value from the limit message
         """
-        self.limit_counter.increment(limit_count=limit_count)
-
+        if self.limit_counter is not None:
+            self.limit_counter.increment(limit_count=limit_count)
 
     def _get_locations_traptor_rule(self):
         """
