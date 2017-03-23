@@ -10,6 +10,7 @@ from mock import MagicMock
 import mockredis
 
 from traptor.traptor import Traptor, MyBirdyClient
+from traptor.traptor_limit_counter import TraptorLimitCounter
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 from scutils.stats_collector import RollingTimeWindow
@@ -319,10 +320,12 @@ class TestTraptor(object):
     def test_ensure_traptor_only_enriches_tweets(self, traptor, non_tweet_stream_messages):
         """Ensure Traptor only performs rule matching on tweets."""
         traptor._setup()
+        traptor.limit_counter = MagicMock()
 
-        for message in non_tweet_stream_messages:
-            enriched_data = traptor._enrich_tweet(message)
-            assert enriched_data == message
+        if traptor.traptor_type in ['track']:
+            for message in non_tweet_stream_messages:
+                enriched_data = traptor._enrich_tweet(message)
+                assert enriched_data == message
 
     def test_ensure_traptor_is_in_tweet_on_no_match(self, redis_rules, traptor, no_match_tweet):
         """Ensure that the traptor section is added to a tweet when no rule matches."""
@@ -375,6 +378,20 @@ class TestTraptor(object):
 
         if traptor.traptor_type == 'locations':
             assert len(traptor.rule_counters) == 0
+
+    def test_ensure_limit_message_counter_is_correctly_created(self, redis_rules, traptor):
+        """Ensure _make_limit_message_counter makes the limit counter"""
+        traptor._setup()
+        traptor.redis_conn = redis_rules
+
+        if traptor.traptor_type != 'locations':
+            traptor._make_limit_message_counter()
+            assert traptor.limit_counter is not None
+            assert type(traptor.limit_counter) == TraptorLimitCounter
+
+            l_key = "limit:{}:{}".format(traptor.traptor_type, traptor.traptor_id)
+            assert traptor.limit_counter.get_key() == l_key
+
 
     # Main Loop
 
