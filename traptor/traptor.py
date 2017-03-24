@@ -141,7 +141,6 @@ class Traptor(object):
 
     @retry(wait=wait_exponential(multiplier=1, max=10),
            stop=stop_after_attempt(3),
-           reraise=True,
            retry=retry_if_exception_type(KafkaUnavailableError)
            )
     def _setup_kafka(self):
@@ -166,7 +165,7 @@ class Traptor(object):
                 })
                 dd_monitoring.increment('kafka_error',
                                         tags=['error_type:kafka_unavailable'])
-                # sys.exit(3)
+                sys.exit(3)
         else:
             self.logger.info('Skipping kafka connection setup')
             self.logger.debug('Kafka_enabled setting: {}'.format(self.kafka_enabled))
@@ -221,7 +220,6 @@ class Traptor(object):
 
     @retry(wait=wait_exponential(multiplier=1, max=10),
            stop=stop_after_attempt(3),
-           reraise=True,
            retry=retry_if_exception_type(TwitterApiError)
            )
     def _create_birdy_stream(self):
@@ -246,7 +244,7 @@ class Traptor(object):
                 })
                 dd_monitoring.increment('twitter_error_occurred',
                                         tags=['error_type:twitter_api_error'])
-                # sys.exit(3)
+                sys.exit(3)
         elif self.traptor_type == 'track':
             # Try to set up a twitter stream using twitter term list
             try:
@@ -260,7 +258,7 @@ class Traptor(object):
                 })
                 dd_monitoring.increment('twitter_error_occurred',
                                         tags=['error_type:twitter_api_error'])
-                # sys.exit(3)
+                sys.exit(3)
         elif self.traptor_type == 'locations':
             # Try to set up a twitter stream using twitter term list
             try:
@@ -274,7 +272,7 @@ class Traptor(object):
                 })
                 dd_monitoring.increment('twitter_error_occurred',
                                         tags=['error_type:twitter_api_error'])
-                # sys.exit(3)
+                sys.exit(3)
         else:
             self.logger.critical('Caught error creating birdy stream for Traptor type that does not exist', extra ={
                 'error_type': 'NotImplementedError',
@@ -282,7 +280,7 @@ class Traptor(object):
             })
             dd_monitoring.increment('traptor_error_occurred',
                                     tags=['error_type:not_implemented_error'])
-            # sys.exit(3)
+            sys.exit(3)
 
     def _make_twitter_rules(self, rules):
         """ Convert the rules from redis into a format compatible with the
@@ -928,7 +926,7 @@ class Traptor(object):
             future = self.kafka_conn.send(self.kafka_topic, enriched_data)
             future.add_callback(self.kafka_success_callback, tweet)
             future.add_errback(self.kafka_failure_callback)
-        except KafkaUnavailableError:
+        except Exception:
             self.logger.error("Caught exception adding Twitter message to Kafka", extra={
                 'ex': traceback.format_exc()
             })
