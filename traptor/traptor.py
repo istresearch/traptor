@@ -346,8 +346,16 @@ class Traptor(object):
             self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
 
         # If a rule value exists, increment the counter
-        if rule_id is not None and self.rule_counters[rule_id] is not None:
-            self.rule_counters[rule_id].increment()
+        try:
+            if rule_id is not None and self.rule_counters[rule_id] is not None:
+                self.rule_counters[rule_id].increment()
+        except redis.ConnectionError:
+            self.logger.error("Caught exception while incrementing a rule counter", extra={
+                'error_type': 'RedisConnectionError',
+                'ex': traceback.format_exc()
+            })
+            dd_monitoring.increment('redis_error',
+                                    tags=['error_type:connection_error'])
 
     def _make_limit_message_counter(self):
         """
@@ -370,8 +378,16 @@ class Traptor(object):
 
         :param limit_count: the integer value from the limit message
         """
-        if self.limit_counter is not None:
-            self.limit_counter.increment(limit_count=limit_count)
+        try:
+            if self.limit_counter is not None:
+                self.limit_counter.increment(limit_count=limit_count)
+        except redis.ConnectionError:
+            self.logger.error("Caught exception while incrementing a limit counter", extra={
+                'error_type': 'RedisConnectionError',
+                'ex': traceback.format_exc()
+            })
+            dd_monitoring.increment('redis_error',
+                                    tags=['error_type:connection_error'])
 
     def _get_locations_traptor_rule(self):
         """
@@ -912,7 +928,7 @@ class Traptor(object):
             future = self.kafka_conn.send(self.kafka_topic, enriched_data)
             future.add_callback(self.kafka_success_callback, tweet)
             future.add_errback(self.kafka_failure_callback)
-        except Exception:
+        except KafkaUnavailableError:
             self.logger.error("Caught exception adding Twitter message to Kafka", extra={
                 'ex': traceback.format_exc()
             })
