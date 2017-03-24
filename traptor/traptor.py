@@ -154,15 +154,12 @@ class Traptor(object):
                                         buffer_memory=4 * 1024 * 1024)
 
     def _setup_kafka(self):
-        """ Set up a Kafka connection.
-
-            Creates ``self.kafka_conn`` if it can reach the kafka brokers.
-        """
+        """ Set up a Kafka connection."""
         if self.kafka_enabled == 'true':
             self.logger.info('Setting up kafka connection')
             try:
                 self._create_kafka_producer()
-            except KafkaUnavailableError as e:
+            except:
                 self.logger.critical("Caught Kafka Unavailable Error", extra={
                     'error_type': 'KafkaUnavailableError',
                     'ex': traceback.format_exc()
