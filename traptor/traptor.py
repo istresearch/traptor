@@ -9,13 +9,14 @@ from datetime import datetime
 import dateutil.parser as parser
 import traceback
 
-from redis import StrictRedis, ConnectionError
+import redis
 from kafka import KafkaProducer
 from kafka.common import KafkaUnavailableError
 from birdy.twitter import StreamClient, TwitterApiError
 import dd_monitoring
 
 import threading
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
@@ -317,6 +318,11 @@ class Traptor(object):
 
         self.rule_counters = rule_counters
 
+    @retry(wait=wait_exponential(multiplier=1, max=10),
+           stop=stop_after_attempt(3),
+           reraise=True,
+           retry=retry_if_exception_type(redis.ConnectionError)
+           )
     def _increment_rule_counter(self, tweet):
         """
         Increment a rule counter.
@@ -343,6 +349,11 @@ class Traptor(object):
         self.limit_counter = TraptorLimitCounter(key=limit_counter_key, window=collection_window)
         self.limit_counter.setup(redis_conn=self.redis_conn)
 
+    @retry(wait=wait_exponential(multiplier=1, max=10),
+           stop=stop_after_attempt(3),
+           reraise=True,
+           retry=retry_if_exception_type(redis.ConnectionError)
+           )
     def _increment_limit_message_counter(self, limit_count):
         """
         Increment the limit message counter
@@ -645,6 +656,11 @@ class Traptor(object):
 
         return new_dict
 
+    @retry(wait=wait_exponential(multiplier=1, max=10),
+           stop=stop_after_attempt(3),
+           reraise=True,
+           retry=retry_if_exception_type(redis.ConnectionError)
+           )
     def _get_redis_rules(self):
         """ Yields a traptor rule from redis.  This function
             expects that the redis keys are set up like follows:
@@ -695,9 +711,9 @@ class Traptor(object):
                     yield redis_rule
                     self.logger.debug('Index: {0}, Redis_rule: {1}'.format(
                                       idx, redis_rule))
-        except ConnectionError as e:
+        except redis.ConnectionError as e:
             self.logger.critical("Caught exception while connecting to Redis", extra={
-                'error_type': 'ConnectionError',
+                'error_type': 'RedisConnectionError',
                 'ex': traceback.format_exc()
             })
             dd_monitoring.increment('redis_error',
@@ -832,6 +848,11 @@ class Traptor(object):
                     self.logger.debug("Redis PubSub message found. Setting restart flag to True.")
                     dd_monitoring.increment('restart_message_received')
 
+    @retry(wait=wait_exponential(multiplier=1, max=10),
+           stop=stop_after_attempt(3),
+           reraise=True,
+           retry=retry_if_exception_type(redis.ConnectionError)
+           )
     def _add_heartbeat_message_to_redis(self,
                                         heartbeat_conn):
         """Add a heartbeat message to Redis."""
@@ -844,9 +865,9 @@ class Traptor(object):
         try:
             dd_monitoring.increment('heartbeat_message_sent_success')
             return heartbeat_conn.setex(key_to_add, time_to_live, message)
-        except ConnectionError as e:
+        except redis.ConnectionError as e:
             self.logger.error("Caught exception while adding the heartbeat message to Redis", extra={
-                'error_type': 'ConnectionError',
+                'error_type': 'RedisConnectionError',
                 'ex': traceback.format_exc()
             })
             dd_monitoring.increment('heartbeat_message_sent_failure',
@@ -862,6 +883,33 @@ class Traptor(object):
         while True:
             self._add_heartbeat_message_to_redis(self.heartbeat_conn)
             time.sleep(hb_interval)
+
+    @retry(wait=wait_exponential(multiplier=1, max=10),
+           stop=stop_after_attempt(3),
+           reraise=True,
+           retry=retry_if_exception_type(KafkaUnavailableError)
+           )
+    def _send_enriched_data_to_kafka(self, tweet, enriched_data):
+        """"
+        Send the enriched data to Kafka
+
+        :param tweet: the original tweet
+        :param enriched_data: the enriched data to send
+        """
+        try:
+            self.logger.info("Attempting to send tweet to kafka", extra={
+                'tweet_id': tweet.get('id_str', None)
+            })
+            future = self.kafka_conn.send(self.kafka_topic, enriched_data)
+            future.add_callback(self.kafka_success_callback, tweet)
+            future.add_errback(self.kafka_failure_callback)
+        except Exception:
+            self.logger.error("Caught exception adding Twitter message to Kafka", extra={
+                'ex': traceback.format_exc()
+            })
+            dd_monitoring.increment('tweet_to_kafka_failure',
+                                    tags=['error_type:kafka'])
+
 
     def _main_loop(self):
         """
@@ -888,19 +936,7 @@ class Traptor(object):
                     enriched_data = self._enrich_tweet(tweet)
 
                     if self.kafka_enabled == 'true':
-                        try:
-                            self.logger.info("Attempting to send tweet to kafka", extra={
-                                'tweet_id': tweet.get('id_str', None)
-                            })
-                            future = self.kafka_conn.send(self.kafka_topic, enriched_data)
-                            future.add_callback(self.kafka_success_callback, tweet)
-                            future.add_errback(self.kafka_failure_callback)
-                        except Exception:
-                            self.logger.error("Caught exception adding Twitter message to Kafka", extra={
-                                'ex': traceback.format_exc()
-                            })
-                            dd_monitoring.increment('tweet_to_kafka_failure',
-                                                    tags=['error_type:kafka'])
+                        self._send_enriched_data_to_kafka(tweet, enriched_data)
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
 
@@ -984,18 +1020,18 @@ def main():
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     redis_db = int(os.getenv('REDIS_DB', 5))
 
-    redis_conn = StrictRedis(host=redis_host,
+    redis_conn = redis.StrictRedis(host=redis_host,
                              port=redis_port,
                              db=redis_db,
                              decode_responses=True)
 
     # Redis pubsub connection
-    pubsub_conn = StrictRedis(host=redis_host,
+    pubsub_conn = redis.StrictRedis(host=redis_host,
                               port=redis_port,
                               db=redis_db)
 
     # Redis heartbeat connection
-    heartbeat_conn = StrictRedis(host=redis_host,
+    heartbeat_conn = redis.StrictRedis(host=redis_host,
                                  port=redis_port,
                                  db=redis_db)
 

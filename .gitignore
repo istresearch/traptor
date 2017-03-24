@@ -55,3 +55,6 @@ htmlcov/*
 # Local testing files for Docker
 build_full_environment.sh
 docker-compose.build.yml
+
+# Local environment things
+.condaauto
