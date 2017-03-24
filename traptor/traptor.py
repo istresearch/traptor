@@ -24,7 +24,8 @@ from traptor_limit_counter import TraptorLimitCounter
 
 import logging
 
-logging.basicConfig(level='INFO')
+FORMAT = '%(asctime)-15s %(message)s'
+logging.basicConfig(level='INFO', format=FORMAT)
 
 # Override the default JSONobject
 class MyBirdyClient(StreamClient):
@@ -273,7 +274,7 @@ class Traptor(object):
         elif self.traptor_type == 'track':
             # Try to set up a twitter stream using twitter term list
             try:
-                self._create_twitter_follow_stream()
+                self._create_twitter_track_stream()
             except TwitterApiError as e:
                 self.logger.critical("Caught Twitter Api Error", extra={
                     'error_type': 'TwitterAPIError',
