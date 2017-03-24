@@ -14,7 +14,6 @@ from traptor.traptor_limit_counter import TraptorLimitCounter
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
 from scutils.stats_collector import RollingTimeWindow
-import scutils
 
 
 @pytest.fixture()
@@ -391,7 +390,6 @@ class TestTraptor(object):
 
             l_key = "limit:{}:{}".format(traptor.traptor_type, traptor.traptor_id)
             assert traptor.limit_counter.get_key() == l_key
-
 
     # Main Loop
 
