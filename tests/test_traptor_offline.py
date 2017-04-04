@@ -378,6 +378,38 @@ class TestTraptor(object):
         if traptor.traptor_type == 'locations':
             assert len(traptor.rule_counters) == 0
 
+    def test_ensure_internal_rule_counters_are_properly_deleted(self, redis_rules, traptor):
+        """Ensure _delete_rule_counters are properly deleted."""
+        traptor._setup()
+        traptor.redis_conn = redis_rules
+
+        traptor.logger.info = MagicMock()
+        traptor.logger.error = MagicMock()
+
+        traptor.redis_rules = [rule for rule in traptor._get_redis_rules()]
+        traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
+
+        if traptor.traptor_type != 'locations':
+            traptor._make_rule_counters()
+            assert len(traptor.rule_counters) == 1
+
+        if traptor.traptor_type == 'track':
+            assert traptor.rule_counters['12347'] is not None
+
+            traptor._delete_rule_counters()
+            assert traptor.logger.error.call_count == 0
+            assert traptor.logger.info.call_count == 3
+
+        if traptor.traptor_type == 'follow':
+            assert traptor.rule_counters['12345'] is not None
+
+            traptor._delete_rule_counters()
+            assert traptor.logger.error.call_count == 0
+            assert traptor.logger.info.call_count == 3
+
+        if traptor.traptor_type == 'locations':
+            assert len(traptor.rule_counters) == 0
+
     def test_ensure_limit_message_counter_is_correctly_created(self, redis_rules, traptor):
         """Ensure _make_limit_message_counter makes the limit counter"""
         traptor._setup()
