@@ -58,3 +58,6 @@ docker-compose.build.yml
 
 # Local environment things
 .condaauto
+
+# VS Code
+/.vscode
