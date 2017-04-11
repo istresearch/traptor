@@ -32,6 +32,7 @@ from time import sleep
 HOST_FOR_TESTING = os.getenv('REDIS_HOST', 'localhost')
 TRAPTOR_TYPE = os.getenv('TRAPTOR_TYPE', 'track')
 TRAPTOR_ID = int(os.getenv('TRAPTOR_ID', 0))
+RULE_ID = 12348
 
 # Create a connection to Redis
 
@@ -51,14 +52,18 @@ if redis_connection is not None:
     # Collect on tweets with the keyword `python`
     # Change the rule value if you want to collect on a different keyword or hashtag. Go nuts!
     test_track_rule = {
-      "tag": "Traptor.Test",
-      "type": "track",
-      "value": "python",
-      "description": "Test track rule for python"
+        "tag": "Traptor.Test", 
+        "value": "python", 
+        "status": "active", 
+        "description": "Test track rule for python", 
+        "appid": "test-appid", 
+        "date_added": "2017-04-02 16:58:34", 
+        "rule_type": "track", 
+        "rule_id": RULE_ID
     }
 
     try:
-        redis_key = "traptor-{}:{}:{}".format(TRAPTOR_TYPE, TRAPTOR_ID, 123)
+        redis_key = "traptor-{}:{}:{}".format(TRAPTOR_TYPE, TRAPTOR_ID, RULE_ID)
         redis_connection.hmset(redis_key, test_track_rule)
 
         print("Rule added")

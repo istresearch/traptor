@@ -377,6 +377,21 @@ class Traptor(object):
             dd_monitoring.increment('redis_error',
                                     tags=['error_type:connection_error'])
 
+    def _delete_rule_counters(self):
+        """
+        Delete the existing rule counters.
+        """
+        if len(self.rule_counters) > 0:
+            for counter in self.rule_counters:
+                try:
+                    self.rule_counters[counter].delete_key()
+                except:
+                    self.logger.error("Caught exception while deleting a rule counter", extra={
+                        'error_type': 'RedisConnectionError',
+                        'ex': traceback.format_exc()
+                    })
+            self.logger.info("Rule counters deleted successfully.")
+
     def _make_limit_message_counter(self):
         """
         Make a limit message counter to track the values of incoming limit messages.
@@ -1032,6 +1047,7 @@ class Traptor(object):
 
         # Do all the things
         while True:
+            self._delete_rule_counters()
             self._wait_for_rules()
 
             # Concatenate all of the rule['value'] fields
