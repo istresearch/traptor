@@ -16,7 +16,7 @@ from birdy.twitter import StreamClient, TwitterApiError
 import dd_monitoring
 
 import threading
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type, wait_chain, wait_fixed
 
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
@@ -223,7 +223,7 @@ class Traptor(object):
         # Create the locations_rule dict if this is a locations traptor
         self.locations_rule = {}
 
-    @retry(wait=wait_exponential(multiplier=1, max=10),
+    @retry(wait=wait_chain(*[wait_fixed(3)] + [wait_fixed(7)] + [wait_fixed(9)]),
            stop=stop_after_attempt(3),
            retry=retry_if_exception_type(TwitterApiError)
            )
@@ -233,7 +233,7 @@ class Traptor(object):
         self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(follow=self.twitter_rules,
                                                                         stall_warnings='true')
 
-    @retry(wait=wait_exponential(multiplier=1, max=10),
+    @retry(wait=wait_chain(*[wait_fixed(3)] + [wait_fixed(7)] + [wait_fixed(9)]),
            stop=stop_after_attempt(3),
            retry=retry_if_exception_type(TwitterApiError)
            )
@@ -243,7 +243,7 @@ class Traptor(object):
         self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(track=self.twitter_rules,
                                                                         stall_warnings='true')
 
-    @retry(wait=wait_exponential(multiplier=1, max=10),
+    @retry(wait=wait_chain(*[wait_fixed(3)] + [wait_fixed(7)] + [wait_fixed(9)]),
            stop=stop_after_attempt(3),
            retry=retry_if_exception_type(TwitterApiError)
            )
@@ -382,17 +382,20 @@ class Traptor(object):
 
     def _delete_rule_counters(self):
         """
-        Delete the existing rule counters.
+        Stop and then delete the existing rule counters.
         """
         if len(self.rule_counters) > 0:
             for counter in self.rule_counters:
                 try:
+                    self.rule_counters[counter].stop()
                     self.rule_counters[counter].delete_key()
                 except:
-                    self.logger.error("Caught exception while deleting a rule counter", extra={
+                    self.logger.error("Caught exception while stopping and deleting a rule counter", extra={
                         'error_type': 'RedisConnectionError',
                         'ex': traceback.format_exc()
                     })
+                    dd_monitoring.increment('redis_error',
+                                            tags=['error_type:connection_error'])
             self.logger.info("Rule counters deleted successfully.")
 
     def _make_limit_message_counter(self):
