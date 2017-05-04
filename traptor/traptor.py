@@ -895,11 +895,14 @@ class Traptor(object):
         """
         self.logger.info("Subscribing to the Traptor notification PubSub.")
         self.logger.debug("restart_flag = {}".format(self.restart_flag))
+
+        pubsub_check_interval = float(os.getenv('PUBSUB_CHECK_INTERVAL', 1))
+
         p = self.pubsub_conn.pubsub()
         p.subscribe(self.traptor_notify_channel)
 
         while True:
-            time.sleep(0.01)
+            time.sleep(pubsub_check_interval)
             m = p.get_message()
             if m is not None:
                 data = str(m['data'])
