@@ -21,7 +21,7 @@ deploy:
     repo: istresearch/traptor
 
 after_success:
-  - if [ "$TRAVIS_BRANCH" == "master" ] || [ $TRAVIS_BRANCH == "develop" ] || [ $TRAVIS_BRANCH == "pulse-3.1.3.1-prep" ]; then
+  - if [ "$TRAVIS_BRANCH" == "master" ] || [ $TRAVIS_BRANCH == "develop" ] || [ $TRAVIS_BRANCH == "pulse-3.1.4.1-prep" ]; then
     docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
     docker build --build-arg BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -t istresearch/traptor:$TRAVIS_BRANCH .;
     docker push istresearch/traptor:$TRAVIS_BRANCH;

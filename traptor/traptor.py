@@ -898,11 +898,14 @@ class Traptor(object):
         """
         self.logger.info("Subscribing to the Traptor notification PubSub.")
         self.logger.debug("restart_flag = {}".format(self.restart_flag))
+
+        pubsub_check_interval = float(os.getenv('PUBSUB_CHECK_INTERVAL', 1))
+
         p = self.pubsub_conn.pubsub()
         p.subscribe(self.traptor_notify_channel)
 
         while True:
-            time.sleep(1)
+            time.sleep(pubsub_check_interval)
             m = p.get_message()
             if m is not None:
                 data = str(m['data'])
@@ -1058,7 +1061,7 @@ class Traptor(object):
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
-            self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
+            self.logger.info("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
 
             # Make the rule and limit message counters
             if self.traptor_type != 'locations':
