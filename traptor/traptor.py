@@ -52,7 +52,8 @@ class Traptor(object):
                  log_level='INFO',
                  log_dir='/var/log/traptor',
                  log_file_name='traptor.log',
-                 test=False
+                 test=False,
+                 enable_stats_collection='true',
                  ):
         """
         Traptor base class.
@@ -75,6 +76,7 @@ class Traptor(object):
         :param str log_dir: directory for the traptor logs for the traptor logger instance.
         :param str log_file_name: log file name for the traptor logger instance.
         :param bool test: True for traptor test instance.
+        :param str enable_stats_collection: Whether or not to allow redis stats collection
         """
 
         self.redis_conn = redis_conn
@@ -94,6 +96,7 @@ class Traptor(object):
         self.log_dir = log_dir
         self.log_file_name = log_file_name
         self.test = test
+        self.enable_stats_collection = enable_stats_collection
 
         self.kafka_success_callback = self._gen_kafka_success()
         self.kafka_failure_callback = self._gen_kafka_failure()
@@ -236,7 +239,7 @@ class Traptor(object):
            )
     def _create_twitter_track_stream(self):
         """Create a Twitter follow stream."""
-        self.logger.info('Creating birdy follow stream')
+        self.logger.info('Creating birdy track stream')
         self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(track=self.twitter_rules,
                                                                         stall_warnings='true')
 
@@ -872,7 +875,7 @@ class Traptor(object):
             enriched_data = self._find_rule_matches(tweet)
 
             # Update the matched rule stats
-            if self.traptor_type != 'locations':
+            if self.traptor_type != 'locations' and self.enable_stats_collection == 'true':
                 self._increment_rule_counter(enriched_data)
         else:
             self.logger.info("Twitter message is not a tweet", extra={
@@ -1062,7 +1065,8 @@ class Traptor(object):
 
             # Make the rule and limit message counters
             if self.traptor_type != 'locations':
-                self._make_rule_counters()
+                if self.enable_stats_collection == 'true':
+                    self._make_rule_counters()
                 self._make_limit_message_counter()
 
             if not self.test:
@@ -1135,7 +1139,8 @@ def main():
                                log_level=log_level,
                                log_dir=log_dir,
                                log_file_name=log_file_name,
-                               test=False
+                               test=False,
+                               enable_stats_collection=os.getenv('ENABLE_STATS_COLLECTION', 'true')
                                )
 
     # Logger for this main function. The traptor has it's own logger
