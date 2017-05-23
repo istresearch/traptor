@@ -19,7 +19,7 @@ LOG_BACKUPS = 5
 LOG_STDOUT = 'False'
 LOG_JSON = 'True'
 LOG_LEVEL = 'INFO'                              # Default log level
-LOG_DIR = '/var/log/traptor'                    # Directory to store traptor logs
+LOG_DIR = '/tmp'                                # Directory to store traptor logs
 LOG_NAME = 'traptor'
 LOG_FILE = 'traptor.log'
 
