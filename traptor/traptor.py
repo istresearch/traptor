@@ -23,6 +23,7 @@ from scutils.stats_collector import StatsCollector
 from traptor_limit_counter import TraptorLimitCounter
 
 import logging
+import settings
 
 FORMAT = '%(asctime)-15s %(message)s'
 logging.basicConfig(level='INFO', format=FORMAT)
@@ -49,9 +50,6 @@ class Traptor(object):
                  kafka_topic='traptor',
                  use_sentry='false',
                  sentry_url=None,
-                 log_level='INFO',
-                 log_dir='/var/log/traptor',
-                 log_file_name='traptor.log',
                  test=False,
                  enable_stats_collection='true',
                  ):
@@ -72,9 +70,6 @@ class Traptor(object):
         :param str kafka_topic: name of the kafka topic to write to.
         :param str use_sentry: whether or not to use Sentry for error reporting
         :param str sentry_url: url for Sentry logging
-        :param str log_level: log level of the traptor logger instance.
-        :param str log_dir: directory for the traptor logs for the traptor logger instance.
-        :param str log_file_name: log file name for the traptor logger instance.
         :param bool test: True for traptor test instance.
         :param str enable_stats_collection: Whether or not to allow redis stats collection
         """
@@ -92,9 +87,6 @@ class Traptor(object):
         self.kafka_topic = kafka_topic
         self.use_sentry = use_sentry
         self.sentry_url = sentry_url
-        self.log_level = log_level
-        self.log_dir = log_dir
-        self.log_file_name = log_file_name
         self.test = test
         self.enable_stats_collection = enable_stats_collection
 
@@ -105,7 +97,7 @@ class Traptor(object):
         self.limit_counter = None
 
     def __repr__(self):
-        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {}, {}, {}, {})'.format(
+        return 'Traptor({}, {}, {}, {}, {}, {}, {}, {}, {}, {} ,{}, {}, {}, {})'.format(
             self.redis_conn,
             self.pubsub_conn,
             self.heartbeat_conn,
@@ -119,9 +111,6 @@ class Traptor(object):
             self.kafka_topic,
             self.use_sentry,
             self.sentry_url,
-            self.log_level,
-            self.log_dir,
-            self.log_file_name,
             self.test
         )
 
@@ -206,12 +195,12 @@ class Traptor(object):
                                               os.getenv('TRAPTOR_ID', 0))
 
         # Set up logging
-        self.logger = LogFactory.get_instance(json=True,
-                                              stdout=False,
-                                              name=traptor_name,
-                                              level=self.log_level,
-                                              dir=self.log_dir,
-                                              file=self.log_file_name)
+        self.logger = LogFactory.get_instance(json=os.getenv('LOG_JSON', settings.LOG_JSON) == 'True',
+                    name=os.getenv('LOG_NAME', settings.LOG_NAME),
+                    stdout=os.getenv('LOG_STDOUT', settings.LOG_STDOUT) == 'True',
+                    level=os.getenv('LOG_LEVEL', settings.LOG_LEVEL),
+                    dir=os.getenv('LOG_DIR', settings.LOG_DIR),
+                    file=os.getenv('LOG_FILE', settings.LOG_FILE))
 
         # Set the restart_flag to False
         self.restart_flag = False
@@ -1108,11 +1097,6 @@ def main():
                                  port=redis_port,
                                  db=redis_db)
 
-    # Logging
-    log_level = os.getenv('LOG_LEVEL', 'INFO')
-    log_dir = os.getenv('LOG_DIR', '/var/log/traptor')
-    log_file_name = os.getenv('LOG_FILE_NAME', 'traptor.log')
-
     # Twitter api keys
     api_keys = {
         'CONSUMER_KEY': os.getenv('CONSUMER_KEY'),
@@ -1136,9 +1120,6 @@ def main():
                                kafka_topic=os.getenv('KAFKA_TOPIC', 'traptor'),
                                use_sentry=os.getenv('USE_SENTRY', 'false'),
                                sentry_url=os.getenv('SENTRY_URL', None),
-                               log_level=log_level,
-                               log_dir=log_dir,
-                               log_file_name=log_file_name,
                                test=False,
                                enable_stats_collection=os.getenv('ENABLE_STATS_COLLECTION', 'true')
                                )
@@ -1147,12 +1128,12 @@ def main():
 
     traptor_name = 'traptor-{}-{}'.format(os.getenv('TRAPTOR_TYPE', 'track'),
                                           os.getenv('TRAPTOR_ID', 0))
-    logger = LogFactory.get_instance(json=True,
-                                     stdout=False,
-                                     name=traptor_name,
-                                     level=log_level,
-                                     dir=log_dir,
-                                     file=log_file_name)
+    logger = LogFactory.get_instance(name=traptor_name,
+                json=os.getenv('LOG_JSON', settings.LOG_JSON) == 'True',
+                stdout=os.getenv('LOG_STDOUT', settings.LOG_STDOUT) == 'True',
+                level=os.getenv('LOG_LEVEL', settings.LOG_LEVEL),
+                dir=os.getenv('LOG_DIR', settings.LOG_DIR),
+                file=os.getenv('LOG_FILE', settings.LOG_FILE))
 
     # Wait until all the other containers are up and going...
     time.sleep(30)

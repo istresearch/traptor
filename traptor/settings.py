@@ -14,9 +14,14 @@ USE_SENTRY = 'False'                            # Use Sentry for alerting; optio
 SENTRY_URL = ""                              # URL for Sentry if using it for application alerting
 
 # Logging settings
+LOG_MAX_BYTES = '10MB'
+LOG_BACKUPS = 5
+LOG_STDOUT = 'False'
+LOG_JSON = 'True'
 LOG_LEVEL = 'INFO'                              # Default log level
 LOG_DIR = '/var/log/traptor'                    # Directory to store traptor logs
-LOG_FILE_NAME = 'traptor.log'                   # Name of the log file `traptor.log`
+LOG_NAME = 'traptor'
+LOG_FILE = 'traptor.log'
 
 # Kafka
 KAFKA_ENABLED = 'True'
