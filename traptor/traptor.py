@@ -389,6 +389,7 @@ class Traptor(object):
                     })
                     dd_monitoring.increment('redis_error',
                                             tags=['error_type:connection_error'])
+            for counter in self.rule_counters:
                 try:
                     self.rule_counters[counter].stop()
                     self.rule_counters[counter].delete_key()
