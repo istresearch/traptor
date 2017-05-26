@@ -376,6 +376,16 @@ class Traptor(object):
         if len(self.rule_counters) > 0:
             for counter in self.rule_counters:
                 try:
+                    self.rule_counters[counter].deactivate()
+                except:
+                    self.logger.error("Caught exception while deactivating a rule counter", extra={
+                        'error_type': 'ConnectionError',
+                        'ex': traceback.format_exc()
+                    })
+                    dd_monitoring.increment('redis_error',
+                                            tags=['error_type:connection_error'])
+            for counter in self.rule_counters:
+                try:
                     self.rule_counters[counter].stop()
                     self.rule_counters[counter].delete_key()
                 except:
