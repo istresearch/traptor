@@ -1151,7 +1151,7 @@ def main():
 
     if settings.DW_ENABLED:
         dw_config(settings.DW_CONFIG)
-        self.logger.register_callback('>=INFO', dw_callback)
+        logger.register_callback('>=INFO', dw_callback)
 
     # Wait until all the other containers are up and going...
     time.sleep(30)

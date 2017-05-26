@@ -46,7 +46,7 @@ APIKEYS = {
     'ACCESS_TOKEN_SECRET': ""
 }
 
-DW_ENABLED = bool(os.getenv('DW_ENABLED', 'True') == 'True')
+DW_ENABLED = bool(os.getenv('DW_ENABLED', 'False') == 'True')
 DW_CONFIG = {
     'name': os.getenv('DW_NAME', 'traptor'),
     'options': {
