@@ -103,9 +103,6 @@ def traptor(request, redis_conn, pubsub_conn, heartbeat_conn, traptor_notify_cha
                                kafka_topic='traptor_test',
                                use_sentry='False',
                                sentry_url=None,
-                               log_level='DEBUG',
-                               log_dir='logs',
-                               log_file_name='traptor.log',
                                test=True
                                )
 
