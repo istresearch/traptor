@@ -1,0 +1,20 @@
+swagger: '2.0'
+info:
+  title: Traptor Manager API
+  version: "1.0"
+basePath: /v1.0
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /status:
+    get:
+      operationId: api.status
+      summary: Return API Status
+      responses:
+        200:
+          description: Success
+        500:
+          description: Internal Server Error
+

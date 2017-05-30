@@ -3,6 +3,8 @@ Settings for traptor
 ====================
 '''
 
+import os
+
 # Traptor defaults
 TRAPTOR_TYPE = 'track'                          # Type of traptor; options: follow, track, locations
 TRAPTOR_ID = 0                                  # Unique id of this traptor
@@ -42,6 +44,24 @@ APIKEYS = {
     'CONSUMER_SECRET': "",
     'ACCESS_TOKEN': "",
     'ACCESS_TOKEN_SECRET': ""
+}
+
+# Manager API 
+
+API_PORT = os.getenv('API_PORT', 5000)
+API_DIR = os.getenv('API_DIR', '.')
+
+# Dog Whistle
+DW_ENABLED = bool(os.getenv('DW_ENABLED', 'False') == 'True')
+DW_CONFIG = {
+    'name': os.getenv('DW_NAME', 'traptor'),
+    'options': {
+        'statsd_host': os.getenv('DW_STATSD_HOST', 'statsd'),
+        'statsd_port': os.getenv('DW_STATSD_PORT', 8125),
+        'local': bool(os.getenv('DW_LOCAL', 'True') == 'True')
+    },
+    'metrics': {
+    }
 }
 
 # Local Overrides

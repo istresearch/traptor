@@ -1,4 +1,6 @@
 birdy>=0.2
+connexion==1.1.10
+dog-whistle>=0.3.0
 requests==2.9.1
 requests-oauthlib==0.6.1
 redis==2.10.5
@@ -15,3 +17,4 @@ raven==5.13.0
 datadog==0.14.0
 mockredispy==2.9.3
 tenacity==4.0.1
+twython==3.4.0
