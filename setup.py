@@ -14,8 +14,8 @@ def readme():
     with open('README.rst') as f:
         return f.read()
 
-# with open('requirements.txt') as f:
-#     install_requires = [x.strip() for x in f]
+#with open('requirements.txt') as f:
+#    install_requires = [x.strip() for x in f]
 install_requires = [
     'birdy>=0.2',
     'requests>=1.2.3',
