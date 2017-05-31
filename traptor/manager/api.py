@@ -1,7 +1,7 @@
 import os
 from traptor import settings
-from dog_whistle import dw_config, dw_callback
 from functools import wraps
+from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
 from twython import Twython
 from __strings__ import *
@@ -19,17 +19,6 @@ if settings.DW_ENABLED:
     dw_config(settings.DW_CONFIG)
     logger.register_callback('>=INFO', dw_callback)
 
-def status():
-    logger.info(API_STATUS)
-    response = { }
-    try:
-        response['status'] = 'ok' if _connect_to_twitter().access_token is not None else 'error'
-    except Exception as e:
-        response['status'] = 'error'
-        response['detail'] = str(e)
-    status_code = 200 if response['status'] == 'ok' else 500
-    return response, status_code
-
 def _connect_to_twitter():
     """Create a connection to Twitter."""
     logger.info(CONNECT_TO_TWITTER)
@@ -38,26 +27,41 @@ def _connect_to_twitter():
                       oauth_version=2)
     access_token = twitter.obtain_access_token()
     twitter = Twython(settings.APIKEYS['CONSUMER_KEY'], access_token=access_token)
-
     return twitter
 
+def status():
+    response = { }
+    try:
+        response['status'] = 'ok' if _connect_to_twitter().access_token != None else 'error'
+    except Exception as e:
+        response['status'] = 'error'
+        response['detail'] = str(e)
+    status_code = 200 if response['status'] == 'ok' else 500
+    logger.info(API_STATUS, extra={'response': response, 'status_code': status_code})
+    return response, status_code
+
 def validate(rule):
-    logger.info(VALIDATE_RULE, extra=rule)
     response = {}
-
     response['rule'] = rule
-    
-    if rule['type'] in ('userid', 'username'):
-        response['result'] = _validate_follow_rule(rule['value'])
-    if rule['type'] in ('keyword', 'hashtag'):
-        response['result'] = _validate_track_rule(rule['value'])
-    if rule['type'] in ('geo'):
-        response['result'] = _validate_geo_rule(rule['value'])
-
-    return response, 200
+    try:
+        if rule['type'] in ('userid', 'username'):
+            response['result'] = _validate_follow_rule(rule['value'])
+        if rule['type'] in ('keyword', 'hashtag'):
+            response['result'] = _validate_track_rule(rule['value'])
+        if rule['type'] in ('geo'):
+            response['result'] = _validate_geo_rule(rule['value'])
+        status_code = 200
+    except Exception as e:
+        response['result'] = {'error': str(e)}
+        status_code = 500
+    logger.info(VALIDATE_RULE, extra={'request': rule, 'response': response, 'status_code': status_code})
+    return response, status_code
 
 def _validate_follow_rule(value):
-    return {'valid': True, 'value': value }
+    response = {}
+    if value[0] == '@':
+        value = value[1:]
+    return response
 
 def _validate_track_rule(value):
     return {'valid': True, 'value': value }

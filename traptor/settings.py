@@ -50,6 +50,7 @@ APIKEYS = {
 
 API_PORT = os.getenv('API_PORT', 5000)
 API_DIR = os.getenv('API_DIR', '.')
+API_SPEC = os.getenv('API_SPEC', 'spec.yml')
 
 # Dog Whistle
 DW_ENABLED = bool(os.getenv('DW_ENABLED', 'False') == 'True')
