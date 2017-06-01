@@ -32,7 +32,9 @@ paths:
                   - 'keyword'
                   - 'username'
               value:
-                type: string
+                type: 
+                  - string
+                  - object
       responses:
         200:
           description: Success
