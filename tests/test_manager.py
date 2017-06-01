@@ -58,7 +58,11 @@ def api_valid_username():
 
 @pytest.fixture()
 def api_valid_keyword():
-    obj = api.validate
+    if os.getenv('ONLINE'):
+        obj = api.validate
+    else:
+        obj = MagicMock()
+        obj.return_value = ({'status': 'ok', 'tweets_per_second': VALID_KEYWORD_THRESHOLD}, 200)
     return obj
 
 @pytest.fixture()
