@@ -45,7 +45,6 @@ def status():
     return response, status_code
 
 def validate(rule):
-    _get_twitter()
     response = {}
     response['context'] = rule
     try:
@@ -65,6 +64,7 @@ def validate(rule):
     return response, status_code
 
 def _validate_follow_rule(value):
+    _get_twitter()
     response = {}
     if value[0] == '@':
         value = value[1:]
@@ -77,6 +77,7 @@ def _validate_follow_rule(value):
     return response
 
 def _validate_track_rule(value):
+    _get_twitter()
     response = {}
     search_results = client.api.search.tweets.get(q=value, result_type='recent', count=100, include_entities='false').data
     tweet_creation_times = []
