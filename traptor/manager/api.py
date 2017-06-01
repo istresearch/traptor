@@ -1,9 +1,9 @@
 import os
-from traptor import settings
 from functools import wraps
 from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
-from twython import Twython
+from traptor import settings
+from birdy.twitter import AppClient
 from __strings__ import *
 
 # Initialize Logging
@@ -19,20 +19,22 @@ if settings.DW_ENABLED:
     dw_config(settings.DW_CONFIG)
     logger.register_callback('>=INFO', dw_callback)
 
-def _connect_to_twitter():
-    """Create a connection to Twitter."""
+client = None
+
+def _get_twitter():
+    """Create a connection to Twitter"""
+    global client
+    if not client:
+        client = AppClient(settings.APIKEYS['CONSUMER_KEY'], settings.APIKEYS['CONSUMER_SECRET'])
+        client.get_access_token()
     logger.info(CONNECT_TO_TWITTER)
-    twitter = Twython(settings.APIKEYS['CONSUMER_KEY'],
-                      settings.APIKEYS['CONSUMER_SECRET'],
-                      oauth_version=2)
-    access_token = twitter.obtain_access_token()
-    twitter = Twython(settings.APIKEYS['CONSUMER_KEY'], access_token=access_token)
-    return twitter
+    return client
 
 def status():
+    _get_twitter()
     response = { }
     try:
-        response['status'] = 'ok' if _connect_to_twitter().access_token != None else 'error'
+        response['status'] = 'ok' if client.access_token != None else 'error'
     except Exception as e:
         response['status'] = 'error'
         response['detail'] = str(e)
@@ -41,10 +43,11 @@ def status():
     return response, status_code
 
 def validate(rule):
+    _get_twitter()
     response = {}
     response['rule'] = rule
     try:
-        if rule['type'] in ('userid', 'username'):
+        if rule['type'] in ('username'):
             response['result'] = _validate_follow_rule(rule['value'])
         if rule['type'] in ('keyword', 'hashtag'):
             response['result'] = _validate_track_rule(rule['value'])
@@ -61,6 +64,12 @@ def _validate_follow_rule(value):
     response = {}
     if value[0] == '@':
         value = value[1:]
+    try:
+        response['userid'] = client.api.users.show.get(screen_name=value).data.id_str
+        response['status'] = 'ok'
+    except Exception as e:
+        response['status'] = 'error'
+        response['error'] = str(e)
     return response
 
 def _validate_track_rule(value):
@@ -68,4 +77,4 @@ def _validate_track_rule(value):
 
 def _validate_geo_rule(value):
     return {'valid': True, 'value': value }
-    
+

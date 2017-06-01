@@ -30,7 +30,6 @@ paths:
                   - 'hashtag'
                   - 'geo'
                   - 'keyword'
-                  - 'userid'
                   - 'username'
               value:
                 type: string

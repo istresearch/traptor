@@ -17,4 +17,3 @@ raven==5.13.0
 datadog==0.14.0
 mockredispy==2.9.3
 tenacity==4.0.1
-twython==3.4.0
