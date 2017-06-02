@@ -26,8 +26,8 @@ client = None
 def _get_twitter():
     """Create a connection to Twitter"""
     global client
-    if not client:
-        client = AppClient(settings.APIKEYS['CONSUMER_KEY'], settings.APIKEYS['CONSUMER_SECRET'])
+    if not client or not client.access_token:
+        client = AppClient(os.getenv('CONSUMER_KEY', settings.APIKEYS['CONSUMER_KEY']), os.getenv('CONSUMER_SECRET', settings.APIKEYS['CONSUMER_SECRET']))
         client.get_access_token()
     logger.info(CONNECT_TO_TWITTER)
     return client
