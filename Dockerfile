@@ -1,4 +1,4 @@
-FROM python:2-onbuild
+FROM python:2
 MAINTAINER Marti Martinez <marti.martinez@istresearch.com>
 
 ARG BUILD_NUMBER=0
