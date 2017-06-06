@@ -657,7 +657,9 @@ class Traptor(object):
             # User mentions
             if 'user_mentions' in tweet_dict['entities']:
                 for tag in tweet_dict['entities']['user_mentions']:
-                    query = query + " " + tag['id_str'].encode("utf-8")
+                    id_str = tag.get('id_str')
+                    if id_str:
+                        query = query + " " + id_str.encode("utf-8")
 
 
             # Retweeted parts
