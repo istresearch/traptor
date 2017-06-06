@@ -876,9 +876,10 @@ class Traptor(object):
                         'true':
                     self._increment_rule_counter(enriched_data)
             except Exception as e:
-                self.logger.error(traceback.format_exc())
-                self.logger.error("Failed to enrich tweet: {}".format(tweet))
-                self.logger.error("Skipping tweet enrichment")
+                self.logger.error("Failed to enrich tweet, skipping enhancement", {
+                    "tweet": json.dumps(tweet),
+                    "ex"   : traceback.format_exc()
+                })
 
                 # an error occurred while processing the tweet. If some information was
                 # set in the dictionary when calling _find_rule_matches, clear it out
