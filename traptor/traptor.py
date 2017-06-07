@@ -472,7 +472,8 @@ class Traptor(object):
             for key, value in self.locations_rule.iteritems():
                 new_dict['traptor'][key] = value
 
-        if self.traptor_type == 'track':
+        # Do track Traptor enrichments...
+        elif self.traptor_type == 'track':
 
             """
             Here's how Twitter does it, and so shall we:
@@ -635,7 +636,7 @@ class Traptor(object):
                                         tags=['error_type:rule_matching_failure'])
 
         # If this is a follow Traptor, only check the user/id field of the tweet
-        if self.traptor_type == 'follow':
+        elif self.traptor_type == 'follow':
             """
             Here's how Twitter does it, and so shall we:
 
@@ -672,7 +673,9 @@ class Traptor(object):
             # User mentions
             if 'user_mentions' in tweet_dict['entities']:
                 for tag in tweet_dict['entities']['user_mentions']:
-                    query = query + " " + tag['id_str'].encode("utf-8")
+                    id_str = tag.get('id_str')
+                    if id_str:
+                        query = query + " " + id_str.encode("utf-8")
 
 
             # Retweeted parts
@@ -714,6 +717,10 @@ class Traptor(object):
                 })
                 dd_monitoring.increment('traptor_error_occurred',
                                         tags=['error_type:rule_matching_failure'])
+
+        # unknown traptor type
+        else:
+            self.logger.warning("Ran into an unknown Traptor type...")
 
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
@@ -869,18 +876,31 @@ class Traptor(object):
             # Store the limit count in Redis
             self._increment_limit_message_counter(limit_count=limit_count)
         elif self._message_is_tweet(tweet):
-            # Add the initial traptor fields
-            tweet = self._create_traptor_obj(tweet)
+            try:
+                # Add the initial traptor fields
+                tweet = self._create_traptor_obj(tweet)
 
-            # Add the created_at_iso field
-            tweet = self._add_iso_created_at(tweet)
+                # Add the created_at_iso field
+                tweet = self._add_iso_created_at(tweet)
 
-            # Add the rule information
-            enriched_data = self._find_rule_matches(tweet)
+                # Add the rule information
+                enriched_data = self._find_rule_matches(tweet)
 
-            # Update the matched rule stats
-            if self.traptor_type != 'locations' and self.enable_stats_collection == 'true':
-                self._increment_rule_counter(enriched_data)
+                # Update the matched rule stats
+                if self.traptor_type != 'locations' and self.enable_stats_collection ==\
+                        'true':
+                    self._increment_rule_counter(enriched_data)
+            except Exception as e:
+                self.logger.error("Failed to enrich tweet, skipping enhancement", {
+                    "tweet": json.dumps(tweet),
+                    "ex"   : traceback.format_exc()
+                })
+
+                # an error occurred while processing the tweet. If some information was
+                # set in the dictionary when calling _find_rule_matches, clear it out
+                # because it is likely invalid...
+                enriched_data = {}
+
         else:
             self.logger.info("Twitter message is not a tweet", extra={
                 'twitter_message': tweet

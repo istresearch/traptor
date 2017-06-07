@@ -52,6 +52,11 @@ htmlcov/*
 # Editor files
 .idea/*
 
+#virtual environments
+virtual-env*
+venv*
+
+
 # Local testing files for Docker
 build_full_environment.sh
 docker-compose.build.yml
