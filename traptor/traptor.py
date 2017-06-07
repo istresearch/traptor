@@ -18,6 +18,7 @@ import dd_monitoring
 import threading
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type, wait_chain, wait_fixed
 
+from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
 from traptor_limit_counter import TraptorLimitCounter
@@ -201,6 +202,10 @@ class Traptor(object):
                     level=os.getenv('LOG_LEVEL', settings.LOG_LEVEL),
                     dir=os.getenv('LOG_DIR', settings.LOG_DIR),
                     file=os.getenv('LOG_FILE', settings.LOG_FILE))
+
+        if settings.DW_ENABLED:
+            dw_config(settings.DW_CONFIG)
+            self.logger.register_callback('>=INFO', dw_callback)
 
         # Set the restart_flag to False
         self.restart_flag = False
@@ -395,7 +400,7 @@ class Traptor(object):
                     })
                     dd_monitoring.increment('redis_error',
                                             tags=['error_type:connection_error'])
-            self.logger.info("Rule counters deleted successfully.")
+            self.logger.info("Rule counters deleted successfully")
 
     def _make_limit_message_counter(self):
         """
@@ -467,7 +472,8 @@ class Traptor(object):
             for key, value in self.locations_rule.iteritems():
                 new_dict['traptor'][key] = value
 
-        if self.traptor_type == 'track':
+        # Do track Traptor enrichments...
+        elif self.traptor_type == 'track':
 
             """
             Here's how Twitter does it, and so shall we:
@@ -630,7 +636,7 @@ class Traptor(object):
                                         tags=['error_type:rule_matching_failure'])
 
         # If this is a follow Traptor, only check the user/id field of the tweet
-        if self.traptor_type == 'follow':
+        elif self.traptor_type == 'follow':
             """
             Here's how Twitter does it, and so shall we:
 
@@ -667,7 +673,9 @@ class Traptor(object):
             # User mentions
             if 'user_mentions' in tweet_dict['entities']:
                 for tag in tweet_dict['entities']['user_mentions']:
-                    query = query + " " + tag['id_str'].encode("utf-8")
+                    id_str = tag.get('id_str')
+                    if id_str:
+                        query = query + " " + id_str.encode("utf-8")
 
 
             # Retweeted parts
@@ -709,6 +717,10 @@ class Traptor(object):
                 })
                 dd_monitoring.increment('traptor_error_occurred',
                                         tags=['error_type:rule_matching_failure'])
+
+        # unknown traptor type
+        else:
+            self.logger.warning("Ran into an unknown Traptor type...")
 
         if 'rule_tag' not in new_dict['traptor']:
             new_dict['traptor']['rule_type'] = self.traptor_type
@@ -760,7 +772,7 @@ class Traptor(object):
         elif self.traptor_type == 'locations':
             rule_max = 1
         else:
-            self.logger.error('traptor_type of {} is not supported'.format(self.traptor_type))
+            self.logger.error('Unsupported traptor_type', extra={'traptor_type': self.traptor_type})
             dd_monitoring.increment('traptor_error_occurred',
                                     tags=['error_type:not_implemented_error'])
             raise(NotImplementedError)
@@ -770,7 +782,7 @@ class Traptor(object):
                                              self.traptor_id)
         match = ':'.join([redis_key, '*'])
         try:
-            self.logger.info("Getting rules from Redis.")
+            self.logger.info("Getting rules from Redis")
             for idx, hashname in enumerate(self.redis_conn.scan_iter(match=match)):
                 if idx < rule_max:
                     redis_rule = self.redis_conn.hgetall(hashname)
@@ -864,18 +876,31 @@ class Traptor(object):
             # Store the limit count in Redis
             self._increment_limit_message_counter(limit_count=limit_count)
         elif self._message_is_tweet(tweet):
-            # Add the initial traptor fields
-            tweet = self._create_traptor_obj(tweet)
+            try:
+                # Add the initial traptor fields
+                tweet = self._create_traptor_obj(tweet)
 
-            # Add the created_at_iso field
-            tweet = self._add_iso_created_at(tweet)
+                # Add the created_at_iso field
+                tweet = self._add_iso_created_at(tweet)
 
-            # Add the rule information
-            enriched_data = self._find_rule_matches(tweet)
+                # Add the rule information
+                enriched_data = self._find_rule_matches(tweet)
 
-            # Update the matched rule stats
-            if self.traptor_type != 'locations' and self.enable_stats_collection == 'true':
-                self._increment_rule_counter(enriched_data)
+                # Update the matched rule stats
+                if self.traptor_type != 'locations' and self.enable_stats_collection ==\
+                        'true':
+                    self._increment_rule_counter(enriched_data)
+            except Exception as e:
+                self.logger.error("Failed to enrich tweet, skipping enhancement", {
+                    "tweet": json.dumps(tweet),
+                    "ex"   : traceback.format_exc()
+                })
+
+                # an error occurred while processing the tweet. If some information was
+                # set in the dictionary when calling _find_rule_matches, clear it out
+                # because it is likely invalid...
+                enriched_data = {}
+
         else:
             self.logger.info("Twitter message is not a tweet", extra={
                 'twitter_message': tweet
@@ -895,7 +920,7 @@ class Traptor(object):
         Check the Redis PubSub channel and restart Traptor if a message for
         this Traptor is found.
         """
-        self.logger.info("Subscribing to the Traptor notification PubSub.")
+        self.logger.info("Subscribing to the Traptor notification PubSub")
         self.logger.debug("restart_flag = {}".format(self.restart_flag))
 
         pubsub_check_interval = float(os.getenv('PUBSUB_CHECK_INTERVAL', 1))
@@ -936,7 +961,7 @@ class Traptor(object):
 
     def _send_heartbeat_message(self):
         """Add an expiring key to Redis as a heartbeat on a timed basis."""
-        self.logger.info("Starting the heartbeat.")
+        self.logger.info("Starting the heartbeat")
         hb_interval = 5
 
         # while Traptor is running, add a heartbeat message every 5 seconds
@@ -982,7 +1007,7 @@ class Traptor(object):
         enabled it will write to the kafka topic defined when instantiating
         the Traptor class.
         """
-        self.logger.info("Starting tweet processing.")
+        self.logger.info("Starting tweet processing")
         # Iterate through the twitter results
         for item in self.birdy_stream._stream_iter():
             if item:
@@ -1011,7 +1036,7 @@ class Traptor(object):
                         self.logger.debug(json.dumps(enriched_data, indent=2))
 
             if self.restart_flag:
-                self.logger.info("Restart flag is true; restarting myself.")
+                self.logger.info("Restart flag is true; restarting myself")
                 break
 
     def _wait_for_rules(self):
@@ -1020,11 +1045,11 @@ class Traptor(object):
         self.redis_rules = [rule for rule in self._get_redis_rules()]
 
         if len(self.redis_rules) == 0:
-            self.logger.info("Waiting for rules.")
+            self.logger.info("Waiting for rules")
 
         # If there are no rules assigned to this Traptor, simma down and wait a minute
         while len(self.redis_rules) == 0:
-            self.logger.debug("No Redis rules assigned. Sleeping for 60 seconds.")
+            self.logger.debug("No Redis rules assigned; Sleeping for 60 seconds")
             time.sleep(self.rule_check_interval)
             self.redis_rules = [rule for rule in self._get_redis_rules()]
 
@@ -1060,7 +1085,7 @@ class Traptor(object):
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
-            self.logger.info("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
+            self.logger.debug("Twitter rules: {}".format(self.twitter_rules.encode('utf-8')))
 
             # Make the rule and limit message counters
             if self.traptor_type != 'locations':
@@ -1144,6 +1169,10 @@ def main():
                 level=os.getenv('LOG_LEVEL', settings.LOG_LEVEL),
                 dir=os.getenv('LOG_DIR', settings.LOG_DIR),
                 file=os.getenv('LOG_FILE', settings.LOG_FILE))
+
+    if settings.DW_ENABLED:
+        dw_config(settings.DW_CONFIG)
+        logger.register_callback('>=INFO', dw_callback)
 
     # Wait until all the other containers are up and going...
     time.sleep(30)

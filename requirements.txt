@@ -1,4 +1,6 @@
-birdy>=0.2
+birdy==0.2
+connexion==1.1.10
+dog-whistle==0.3.0
 requests==2.9.1
 requests-oauthlib==0.6.1
 redis==2.10.5
