@@ -1,0 +1,54 @@
+swagger: '2.0'
+info:
+  title: Traptor Manager API
+  version: '1.0'
+basePath: /v1.0
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /validate:
+    post:
+      operationId: api.validate
+      summary: Validate Rule Values
+      consumes:
+        - application/json
+      parameters:
+        - in: body
+          name: rule
+          description: The rule data to validate.
+          schema:
+            type: object
+            required:
+              - type
+              - value
+            properties:
+              type:
+                type: string
+                enum:
+                  - 'hashtag'
+                  - 'geo'
+                  - 'keyword'
+                  - 'username'
+              value:
+                type: 
+                  - string
+                  - object
+      responses:
+        200:
+          description: Success
+        400:
+          description: Bad Request
+        500:
+          description: Internal Server Error
+  /status:
+    get:
+      operationId: api.status
+      summary: Return API Status
+      responses:
+        200:
+          description: Success
+        500:
+          description: Internal Server Error
+

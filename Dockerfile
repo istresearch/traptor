@@ -1,17 +1,19 @@
-FROM python:2-onbuild
-MAINTAINER Robert Dempsey <robert.dempsey@istresearch.com>
+FROM python:2
+MAINTAINER Marti Martinez <marti.martinez@istresearch.com>
 
 ARG BUILD_NUMBER=0
 ENV BUILD_NUMBER $BUILD_NUMBER
 
 # Install Python requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN rm requirements.txt
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
-COPY requirements.txt /usr/src/app/
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy over code
 COPY . /usr/src/app
+RUN pip install .
 
 # Start Traptor
-ENTRYPOINT ["python2", "traptor/traptor.py"]
+CMD ["python2", "traptor/traptor.py"]

@@ -46,6 +46,13 @@ APIKEYS = {
     'ACCESS_TOKEN_SECRET': ""
 }
 
+# Manager API 
+
+API_PORT = os.getenv('API_PORT', 5000)
+API_DIR = os.getenv('API_DIR', '.')
+API_SPEC = os.getenv('API_SPEC', 'spec.yml')
+
+# Dog Whistle
 DW_ENABLED = bool(os.getenv('DW_ENABLED', 'False') == 'True')
 DW_CONFIG = {
     'name': os.getenv('DW_NAME', 'traptor'),
@@ -57,7 +64,6 @@ DW_CONFIG = {
     'metrics': {
     }
 }
-
 
 # Local Overrides
 # ~~~~~~~~~~~~~~~
