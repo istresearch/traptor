@@ -1204,7 +1204,7 @@ def main():
 
         dd_monitoring.increment('traptor_error_occurred',
                                 tags=['error_type:traptor_start'])
-
+        raise e
 
 if __name__ == '__main__':
     from raven import Client
