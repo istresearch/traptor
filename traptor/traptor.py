@@ -19,6 +19,8 @@ import threading
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type, wait_chain, wait_fixed
 
 from dog_whistle import dw_config, dw_callback
+from requests.exceptions import ChunkedEncodingError
+
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
 from traptor_limit_counter import TraptorLimitCounter
@@ -1101,8 +1103,17 @@ class Traptor(object):
 
             self.restart_flag = False
 
-            # Start collecting data
-            self._main_loop()
+            try:
+                # Start collecting data
+                self._main_loop()
+            except ChunkedEncodingError as e:
+                self.logger.error("Ran into a ChunkedEncodingError while processing "
+                                  "tweets. Restarting Traptor from top of main process "
+                                  "loop", {
+                    'ex' : traceback.format_exc()
+                })
+
+
 
 
 def main():
