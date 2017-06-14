@@ -1,7 +1,6 @@
 import dateutil.parser as parser
 import os
 import traceback
-import requests
 from functools import wraps
 from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
