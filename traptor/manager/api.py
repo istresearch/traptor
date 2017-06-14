@@ -1,11 +1,11 @@
 import dateutil.parser as parser
 import os
 import traceback
+import requests
 from functools import wraps
 from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
 from traptor import settings
-from birdy.twitter import AppClient
 from __strings__ import *
 
 # Initialize Logging
@@ -20,29 +20,6 @@ logger = LogFactory.get_instance(name=os.getenv('LOG_NAME', settings.LOG_NAME),
 if settings.DW_ENABLED:
     dw_config(settings.DW_CONFIG)
     logger.register_callback('>=INFO', dw_callback)
-
-client = None
-
-def _get_twitter():
-    """Create a connection to Twitter"""
-    global client
-    if not client or not client.access_token:
-        client = AppClient(os.getenv('CONSUMER_KEY', settings.APIKEYS['CONSUMER_KEY']), os.getenv('CONSUMER_SECRET', settings.APIKEYS['CONSUMER_SECRET']))
-        client.get_access_token()
-    logger.info(CONNECT_TO_TWITTER)
-    return client
-
-def status():
-    _get_twitter()
-    response = { }
-    try:
-        response['status'] = 'ok' if client.access_token != None else 'error'
-    except Exception as e:
-        response['status'] = 'error'
-        response['error'] = str(e)
-    status_code = 200 if response['status'] == 'ok' else 500
-    logger.info(API_STATUS, extra={'response': response, 'status_code': status_code})
-    return response, status_code
 
 def validate(rule):
     response = {}

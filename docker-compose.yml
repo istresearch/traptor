@@ -52,16 +52,6 @@ services:
     ports:
       - "9200:9200"
 
-  kopf:
-    image: lmenezes/elasticsearch-kopf
-    ports:
-      - 8080:80
-    environment:
-      - KOPF_SERVER_NAME=dockerhost
-      - KOPF_ES_SERVERS=elasticsearch:9200
-    depends_on:
-      - elasticsearch
-
   logstash:
     image: logstash:2.4.0-1
     command: logstash -f /etc/logstash/conf.d/logstash.conf
@@ -79,7 +69,27 @@ services:
     depends_on:
       - elasticsearch
 
+  piscina:
+    image: istresearch/piscina
+    restart: always
+    volumes:
+      - ./piscina:/usr/src/app/data/
+      - ./piscina/local.ini:/usr/src/app/conf/local.ini
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+
   statsd:
     image: hopsoft/graphite-statsd
     ports:
-      - "8000:80"
+      - "8002:80"
+
+  kopf:
+    image: lmenezes/elasticsearch-kopf
+    ports:
+      - 8001:80
+    environment:
+      - KOPF_SERVER_NAME=dockerhost
+      - KOPF_ES_SERVERS=elasticsearch:9200
+    depends_on:
+      - elasticsearch
