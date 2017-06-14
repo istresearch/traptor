@@ -51,6 +51,10 @@ APIKEYS = {
 API_PORT = os.getenv('API_PORT', 5000)
 API_DIR = os.getenv('API_DIR', '.')
 API_SPEC = os.getenv('API_SPEC', 'spec.yml')
+PISCINA_URL = os.getenv('PISCINA_URL', 'http://localhost:8080')
+PISCINA_USER = 'test'
+PISCINA_PASSWORD = 'test'
+TWITTER_API_URL = 'https://api.twitter.com/1.1'
 
 # Dog Whistle
 DW_ENABLED = bool(os.getenv('DW_ENABLED', 'False') == 'True')

@@ -93,3 +93,20 @@ services:
       - KOPF_ES_SERVERS=elasticsearch:9200
     depends_on:
       - elasticsearch
+
+  twitterapi:
+    build: .
+    environment:
+      - LOG_NAME=twitterapi
+      - LOG_DIR=/var/log/twitterapi
+      - LOG_FILE=twitterapi.log
+      - LOG_STDOUT=False
+      - LOG_JSON=True
+      - LOG_LEVEL=DEBUG
+      - PISCINA_URL=http://piscina:8080
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./logs:/var/log/twitterapi
+    restart: always
+    command: python traptor/manager/run.py

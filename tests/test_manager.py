@@ -39,15 +39,6 @@ INVALID_GEO_JSON = {
 INVALID_GEO_JSON_ERROR = 'Lat/lon out of range: -100.0, 100.0'
 
 @pytest.fixture()
-def api_status():
-    if os.getenv('ONLINE'):
-        obj = api.status
-    else:
-        obj = MagicMock()
-        obj.return_value = ({'status': 'ok'}, 200)
-    return obj
-
-@pytest.fixture()
 def api_valid_username():
     if os.getenv('ONLINE'):
         obj = api.validate
@@ -81,10 +72,6 @@ def api_geo():
 
 class TestManagerAPI():
 
-    def test_status(self, api_status):
-        resp, code = api_status() 
-        assert code == 200 and resp['status'] == 'ok'
-    
     def test_valid_username(self, api_valid_username):
         resp, code = api_valid_username({'type': 'username', 'value': VALID_USER_USERNAME})
         assert code == 200 and resp['status'] == 'ok' and resp['userid'] == VALID_USER_USERID
