@@ -42,13 +42,3 @@ paths:
           description: Bad Request
         500:
           description: Internal Server Error
-  /status:
-    get:
-      operationId: api.status
-      summary: Return API Status
-      responses:
-        200:
-          description: Success
-        500:
-          description: Internal Server Error
-

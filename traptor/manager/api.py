@@ -5,8 +5,12 @@ from functools import wraps
 from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
 from traptor import settings
-from birdy.twitter import AppClient
 from __strings__ import *
+
+if settings.API_BACKEND == 'piscina':
+    from backends.piscina import get_userid_for_username, get_recent_tweets_by_keyword
+else: 
+    from backends.local import get_userid_for_username, get_recent_tweets_by_keyword
 
 # Initialize Logging
 
@@ -20,29 +24,6 @@ logger = LogFactory.get_instance(name=os.getenv('LOG_NAME', settings.LOG_NAME),
 if settings.DW_ENABLED:
     dw_config(settings.DW_CONFIG)
     logger.register_callback('>=INFO', dw_callback)
-
-client = None
-
-def _get_twitter():
-    """Create a connection to Twitter"""
-    global client
-    if not client or not client.access_token:
-        client = AppClient(os.getenv('CONSUMER_KEY', settings.APIKEYS['CONSUMER_KEY']), os.getenv('CONSUMER_SECRET', settings.APIKEYS['CONSUMER_SECRET']))
-        client.get_access_token()
-    logger.info(CONNECT_TO_TWITTER)
-    return client
-
-def status():
-    _get_twitter()
-    response = { }
-    try:
-        response['status'] = 'ok' if client.access_token != None else 'error'
-    except Exception as e:
-        response['status'] = 'error'
-        response['error'] = str(e)
-    status_code = 200 if response['status'] == 'ok' else 500
-    logger.info(API_STATUS, extra={'response': response, 'status_code': status_code})
-    return response, status_code
 
 def validate(rule):
     response = {}
@@ -64,12 +45,11 @@ def validate(rule):
     return response, status_code
 
 def _validate_follow_rule(value):
-    _get_twitter()
     response = {}
     if value[0] == '@':
         value = value[1:]
     try:
-        response['userid'] = client.api.users.show.get(screen_name=value).data.id_str
+        response['userid'] = get_userid_for_username(value)
         response['status'] = 'ok'
     except Exception as e:
         response['error'] = str(e)
@@ -77,9 +57,8 @@ def _validate_follow_rule(value):
     return response
 
 def _validate_track_rule(value):
-    _get_twitter()
     response = {}
-    search_results = client.api.search.tweets.get(q=value, result_type='recent', count=100, include_entities='false').data
+    search_results = get_recent_tweets_by_keyword(value)
     tweet_creation_times = []
     for result in search_results['statuses']:
         new_dt = parser.parse(result['created_at'], ignoretz=True)
