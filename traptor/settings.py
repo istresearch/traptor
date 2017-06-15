@@ -51,10 +51,10 @@ APIKEYS = {
 API_PORT = os.getenv('API_PORT', 5000)
 API_DIR = os.getenv('API_DIR', '.')
 API_SPEC = os.getenv('API_SPEC', 'spec.yml')
-API_BACKEND = os.getenv('API_BACKEND', 'piscina')
-PISCINA_URL = os.getenv('PISCINA_URL', 'http://localhost:8080')
-PISCINA_USER = 'test'
-PISCINA_PASSWORD = 'test'
+API_BACKEND = os.getenv('API_BACKEND', 'local')
+PROXY_URL = os.getenv('PROXY_URL', 'http://localhost:8080')
+PROXY_USER = os.getenv('PROXY_USER', 'test')
+PROXY_PASSWORD = os.getenv('PROXY_PASSWORD', 'test')
 TWITTER_API_URL = 'https://api.twitter.com/1.1'
 
 # Dog Whistle
