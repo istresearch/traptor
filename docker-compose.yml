@@ -103,7 +103,6 @@ services:
       - LOG_STDOUT=False
       - LOG_JSON=True
       - LOG_LEVEL=DEBUG
-      - PISCINA_URL=http://piscina:8080
     ports:
       - "5000:5000"
     volumes:
