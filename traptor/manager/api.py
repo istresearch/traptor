@@ -5,8 +5,12 @@ from functools import wraps
 from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
 from traptor import settings
-from piscina import get_userid_for_username, get_recent_tweets_by_keyword
 from __strings__ import *
+
+if settings.API_BACKEND == 'piscina':
+    from backends.piscina import get_userid_for_username, get_recent_tweets_by_keyword
+else: 
+    from backends.local import get_userid_for_username, get_recent_tweets_by_keyword
 
 # Initialize Logging
 
