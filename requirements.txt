@@ -18,3 +18,4 @@ datadog==0.14.0
 mockredispy==2.9.3
 tenacity==4.0.1
 urllib3==1.21.1
+uwsgi==2.0.15
