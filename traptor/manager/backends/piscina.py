@@ -7,14 +7,14 @@ SEARCH_TWEETS_STR = settings.TWITTER_API_URL + '/search/tweets.json?q={}&result_
 
 def get_userid_for_username(username):
     http = ProxyManager(settings.PROXY_URL, proxy_headers=make_headers(proxy_basic_auth='{}:{}'.format(settings.PROXY_USER, settings.PROXY_PASSWORD)))
-    resp = http.request('GET', USERS_LOOKUP_STR.format(username))
+    resp = http.request('GET', USERS_LOOKUP_STR.format(username), timeout=settings.PROXY_TIMEOUT)
     assert resp.status == 200, 'Twitter API error ({}): {}'.format(resp.status, resp.data)
     data = json.loads(resp.data)
     return data[0]['id_str']
 
 def get_recent_tweets_by_keyword(keyword):
     http = ProxyManager(settings.PROXY_URL, proxy_headers=make_headers(proxy_basic_auth='{}:{}'.format(settings.PROXY_USER, settings.PROXY_PASSWORD)))
-    resp = http.request('GET', SEARCH_TWEETS_STR.format(keyword))
+    resp = http.request('GET', SEARCH_TWEETS_STR.format(keyword), timeout=settings.PROXY_TIMEOUT)
     assert resp.status == 200, 'Twitter API error ({}): {}'.format(resp.status, resp.data)
     data = json.loads(resp.data)
     return data
