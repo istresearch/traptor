@@ -55,7 +55,7 @@ API_BACKEND = os.getenv('API_BACKEND', 'local')
 PROXY_URL = os.getenv('PROXY_URL', 'http://localhost:8080')
 PROXY_USER = os.getenv('PROXY_USER', 'test')
 PROXY_PASSWORD = os.getenv('PROXY_PASSWORD', 'test')
-PROXY_TIMEOUT = int(os.getenv('PROXY_TIMEOUT', 10))
+PROXY_TIMEOUT = int(os.getenv('PROXY_TIMEOUT', 4))
 TWITTER_API_URL = 'https://api.twitter.com/1.1'
 
 # Dog Whistle
