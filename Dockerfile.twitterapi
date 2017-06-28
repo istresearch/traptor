@@ -14,10 +14,11 @@ ENV TWITTER_API_WORKERS $TWITTER_API_WORKERS
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN rm requirements.txt
-RUN mkdir -p /usr/src/app
 
 # Copy over code
 COPY . /usr/src/app
+WORKDIR /usr/src/app
+RUN pip install .
 
 # Start Traptor Manager API
 WORKDIR /usr/src/app/traptor/manager
