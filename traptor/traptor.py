@@ -312,7 +312,31 @@ class Traptor(object):
             :returns: A ``str`` of twitter rules that can be loaded into the
                       a birdy twitter stream.
         """
-        rules_str = ','.join([rule['value'] for rule in rules])
+        phrases = []
+
+        for rule in rules:
+
+            phrase = rule.get('value')
+
+            if phrase is None:
+                continue
+
+            if 'orig_type' in rule and rule['orig_type'] is not None:
+                rule_type = rule['orig_type']
+
+                # For hastag rules ensure each term starts with '#' to prevent overcollection
+                if rule_type == 'hashtag':
+                    tokens = []
+                    for token in phrase.split(' '):
+                        if token:
+                            if not token.startswith('#'):
+                                tokens.append('#' + token)
+                            else:
+                                tokens.append(token)
+
+            phrases.append(phrase)
+
+        rules_str = ','.join(phrases)
         self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
         return rules_str
 
