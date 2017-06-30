@@ -334,6 +334,8 @@ class Traptor(object):
                             else:
                                 tokens.append(token)
 
+                    phrase = ' '.join(tokens)
+
             phrases.append(phrase)
 
         rules_str = ','.join(phrases)

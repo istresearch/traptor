@@ -311,6 +311,32 @@ class TestTraptor(object):
 
         assert traptor.logger.debug.call_count == 2
 
+    def test_ensure_traptor_builds_the_correct_fucking_filter_string(self, traptor):
+
+        traptor.logger = MagicMock()
+
+        traptor.twitter_rules = traptor._make_twitter_rules([{
+                "value": "happy",
+                "rule_type": "track"
+            },
+            {
+                "value": "summer",
+                "rule_type": "track",
+                "orig_type": "hashtag"
+            },
+            {
+                "value": "#apple",
+                "rule_type": "track",
+                "orig_type": "hashtag"
+            },
+            {
+                "value": "#sliding door",
+                "rule_type": "track",
+                "orig_type": "hashtag"
+            }])
+
+        assert traptor.twitter_rules == 'happy,#summer,#apple,#sliding #door'
+
     # Tweet Enrichments
 
     def test_ensure_traptor_only_enriches_tweets(self, traptor, non_tweet_stream_messages):
