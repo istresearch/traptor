@@ -49,7 +49,7 @@ Running Traptor
 
 To start, run it *without kafka* by running ``python traptor.py --test`` from the command line.  The ``--test`` flag tells **traptor** to skip sending data to kafka and just print to stdout.  You can pipe the output into jq (https://stedolan.github.io/jq/) like this ``python traptor.py --test | jq .`` to get a nicely colored JSON output.
 
-**traptor** also accepts a ``--info`` or ``--debug`` flag if you wish to print out logging information.
+**traptor** also accepts a ``--loglevel=info`` or ``--loglevel=debug`` argument if you wish to print out logging information.
 
 Once that is working successfully, try writing your data to kafka by running ``python traptor.py``.  You can tail the Kafka output by running the following command in your Kafka installation directory::
 
