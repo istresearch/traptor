@@ -1208,5 +1208,7 @@ def main():
 
 if __name__ == '__main__':
     from raven import Client
+    main()
 
-    sys.exit(main())
+    # We should never leave main()
+    sys.exit(1)
