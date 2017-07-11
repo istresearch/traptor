@@ -78,7 +78,7 @@ services:
     restart: always
     volumes:
       - ./piscina:/usr/src/app/data/
-      - ./piscina/local.ini:/usr/src/app/conf/local.ini
+      #- ./piscina/local.ini:/usr/src/app/conf/local.ini
     ports:
       - "8000:8000"
       - "8080:8080"
