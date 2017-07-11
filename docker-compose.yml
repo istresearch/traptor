@@ -21,6 +21,9 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=2
       - DW_ENABLED=True
+      - DATADOG_LOCAL=True # True for local dev
+      - DATADOG_STATSD_HOST= # on a linux host set to 172.17.0.1 and on mac os host set to docker.for.mac.localhost
+      - DATADOG_STATSD_PORT=8125 # port statsd container is listening on
     restart: always
 
   redis:
@@ -69,12 +72,13 @@ services:
     depends_on:
       - elasticsearch
 
+  #QCR-specific, IST does not have nor use
   piscina:
     image: istresearch/piscina
     restart: always
     volumes:
       - ./piscina:/usr/src/app/data/
-      - ./piscina/local.ini:/usr/src/app/conf/local.ini
+      #- ./piscina/local.ini:/usr/src/app/conf/local.ini
     ports:
       - "8000:8000"
       - "8080:8080"
@@ -87,7 +91,7 @@ services:
   kopf:
     image: lmenezes/elasticsearch-kopf
     ports:
-      - 8001:80
+      - "8001:80"
     environment:
       - KOPF_SERVER_NAME=dockerhost
       - KOPF_ES_SERVERS=elasticsearch:9200
