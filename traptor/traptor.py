@@ -42,7 +42,12 @@ logging.basicConfig(level='INFO', format=FORMAT)
 
 # Thanks to https://stackoverflow.com/a/715468
 def str2bool(v):
-    return v.lower() in ("yes", "true", "t", "1")
+    """
+    Convert a string to a boolean
+
+    :return boolean: Returns True if string is a true-type string.
+    """
+    return v.lower() in ('true', 't', '1', 'yes', 'y')
 
 
 # Override the default JSONobject
@@ -119,8 +124,11 @@ class Traptor(object):
         self.rule_counters = dict()
         self.limit_counter = None
         self.twitter_rules = None
-        self.locations_rule = None
+        self.locations_rule = {}
         self.restart_flag = False
+        self.name = 'traptor-{}-{}'.format(
+                self.traptor_type, self.traptor_id
+        )
 
     def __repr__(self):
         return 'Traptor(' \
@@ -219,42 +227,33 @@ class Traptor(object):
                                     tags=['error_type:kafka'])
         return kafka_failure
 
-    def _setup(self):
+    def _setup(self, args):
         """
         Set up Traptor.
 
         Load everything up. Note that any arg here will override both
         default and custom settings.
-        """
 
-        # traptor_name = 'traptor-{}-{}'.format(
-        #         os.getenv('TRAPTOR_TYPE', 'track'),
-        #         os.getenv('TRAPTOR_ID', 0)
-        # )
+        :param args: CLI arguments, if any.
+        """
 
         # Set up logging
         self.logger = LogFactory.get_instance(
                 json=str2bool(os.getenv('LOG_JSON', settings.LOG_JSON)),
                 name=os.getenv('LOG_NAME', settings.LOG_NAME),
                 stdout=str2bool(os.getenv('LOG_STDOUT', settings.LOG_STDOUT)),
-                level=os.getenv('LOG_LEVEL', settings.LOG_LEVEL),
+                level=getAppParamStr('LOG_LEVEL', settings.LOG_LEVEL, args.loglevel),
                 dir=os.getenv('LOG_DIR', settings.LOG_DIR),
-                file=os.getenv('LOG_FILE', settings.LOG_FILE)
+                file=getAppParamStr('LOG_FILE', settings.LOG_FILE, args.log_file)
         )
 
         if settings.DW_ENABLED:
             dw_config(settings.DW_CONFIG)
             self.logger.register_callback('>=INFO', dw_callback)
 
-        # Set the restart_flag to False
-        self.restart_flag = False
-
         # Set up required connections
         self._setup_kafka()
         self._setup_birdy()
-
-        # Create the locations_rule dict if this is a locations traptor
-        self.locations_rule = {}
 
     @retry(
         wait=wait_chain(*[wait_fixed(3)] + [wait_fixed(7)] + [wait_fixed(9)]),
@@ -531,8 +530,9 @@ class Traptor(object):
         """
         Find a rule match for the tweet.
 
-        This code only expects there to be one match.  If there is more than one, it will use the last one
-        it finds since the first match will be overwritten.
+        This code only expects there to be one match.  If there is more than
+        one, it will use the last one it finds since the first match will be
+        overwritten.
 
         :param dict tweet_dict: The dictionary twitter object.
         :returns: a ``dict`` with the augmented data fields.
@@ -916,7 +916,6 @@ class Traptor(object):
         """
         Add the traptor dict and id to the tweet.
 
-
         :param tweet_dict: tweet in json format
         :return tweet_dict: with additional traptor fields
         """
@@ -929,7 +928,6 @@ class Traptor(object):
     def _add_iso_created_at(self, tweet_dict):
         """
         Add the created_at_iso to the tweet.
-
 
         :param tweet_dict: tweet in json format
         :return tweet_dict: with created_at_iso field
@@ -969,6 +967,7 @@ class Traptor(object):
         """
         Enrich the tweet with additional fields, rule matching and stats collection.
 
+        :param tweet: raw tweet info to enrich
         :return dict enriched_data: tweet dict with additional enrichments
         :return dict tweet: non-tweet message with no additional enrichments
         """
@@ -1183,14 +1182,16 @@ class Traptor(object):
             time.sleep(self.rule_check_interval)
             self.redis_rules = [rule for rule in self._get_redis_rules()]
 
-    def run(self):
-        """ Run method for running a traptor instance.
+    def run(self, args):
+        """
+        Run method for running a traptor instance.
+        It sets up the logging, connections, grabs the rules from redis,
+        and starts writing data to kafka if enabled.
 
-            It sets up the logging, connections, grabs the rules from redis,
-            and starts writing data to kafka if enabled.
+        :param args: CLI arguements, if any.
         """
         # Setup connections and logging
-        self._setup()
+        self._setup(args)
 
         # Create the thread for the pubsub restart check
         ps_check = threading.Thread(group=None,
@@ -1246,29 +1247,94 @@ class Traptor(object):
                 })
 
 
-def main():
-    """ Command line interface to run a traptor instance.
+def getAppParamStr(aEnvVar, aDefault=None, aCliArg=None):
+    """
+    Retrieves a string parameter from either the environment
+    var or CLI param that overrides it, using aDefault if
+    neither are defined.
 
-        Can pass it flags for debug levels and also --stdout mode, which means
-        it will not write to kafka but stdout instread.
+    :param str aEnvVar: the name of the Environment variable.
+    :param str aDefault: the default value to use if None found.
+    :param str aCliArg: the name of the CLI argument.
+    :return: str: Returns the parameter value to use.
+    """
+    if aCliArg and aCliArg.strip():
+        return aCliArg.strip()
+    else:
+        return os.getenv(aEnvVar, aDefault)
+
+
+def getLoggingLevel(aLogLevelArg):
+    """
+    Get the logging level that should be reported.
+
+    :param str aLogLevelArg: the CLI param
+    :return: str: Returns one of the logging levels supported.
+    """
+    theLogLevel = getAppParamStr('LOG_LEVEL', settings.LOG_LEVEL, aLogLevelArg)
+    if theLogLevel and theLogLevel.upper() in \
+            ('CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'):
+        theLogLevel = theLogLevel.upper()
+    else:
+        theLogLevel = 'INFO'
+    return theLogLevel
+
+
+def createArgumentParser():
+    """
+    Create and return the parser used for defining and processing CLI arguments.
+
+    :return: ArgumentParser: returns the parser object.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
             '--skipdelay',
-            action='store_true',  # which defaults to False. weird.
+            action='store_true',  # which defaults to False.
             help='Skips the artificial delay to wait 30 seconds.'
     )
     parser.add_argument(
             '--test',
-            action='store_true',  # which defaults to False. weird.
-            help='Skip sending data to kafka and just print to stdout.'
+            action='store_true',  # which defaults to False.
+            help='Skips connecting to Twitter.'
     )
     parser.add_argument(
             '--loglevel',
             help='CRITICAL | ERROR | WARNING | INFO | DEBUG (case insensitive).'
     )
-    args = parser.parse_args()
+    parser.add_argument(
+            '--log_file',
+            help='Specify the LOG_FILE name.'
+    )
+    parser.add_argument(
+            '--redis_pubsub',
+            help='Specify the Traptor Redis PubSub channel.'
+    )
+    parser.add_argument(
+            '--traptor_type',
+            help='Specify the Traptor Type: track | follow | locations'
+    )
+    parser.add_argument(
+            '--traptor_id',
+            help='Specify the Traptor ID (an integer)'
+    )
+    parser.add_argument(
+            '--interval',
+            help='Specify the number of seconds between rule checks.'
+    )
+    parser.add_argument(
+            '--kafka_enabled',
+            help='Specify true for output to kafka or false for stdout.'
+    )
+    parser.add_argument(
+            '--stats',
+            help='Specify true or false for stats collection.'
+    )
+    return parser
 
+
+def main():
+    """ Command line interface to run a traptor instance. """
+    args = createArgumentParser().parse_args()
 
     # Redis connections
     redis_host = os.getenv('REDIS_HOST', 'localhost')
@@ -1302,41 +1368,38 @@ def main():
             redis_conn=redis_conn,
             pubsub_conn=pubsub_conn,
             heartbeat_conn=heartbeat_conn,
-            traptor_notify_channel=os.getenv(
-                'REDIS_PUBSUB_CHANNEL', 'traptor-notify'
+            traptor_notify_channel=getAppParamStr(
+                'REDIS_PUBSUB_CHANNEL', 'traptor-notify', args.redis_pubsub
             ),
-            rule_check_interval=int(os.getenv('RULE_CHECK_INTERVAL', 60)),
-            traptor_type=os.getenv('TRAPTOR_TYPE', 'track'),
-            traptor_id=int(os.getenv('TRAPTOR_ID', 0)),
+            rule_check_interval=int(getAppParamStr(
+                    'RULE_CHECK_INTERVAL', 60, args.interval
+            )),
+            traptor_type=getAppParamStr(
+                    'TRAPTOR_TYPE', 'track', args.traptor_type
+            ),
+            traptor_id=int(getAppParamStr('TRAPTOR_ID', 0, args.traptor_id)),
             apikeys=api_keys,
-            kafka_enabled=str2bool(os.getenv('KAFKA_ENABLED', 'true')),
+            kafka_enabled=str2bool(getAppParamStr(
+                    'KAFKA_ENABLED', 'true', args.kafka_enabled
+            )),
             kafka_hosts=os.getenv('KAFKA_HOSTS', 'localhost:9092'),
             kafka_topic=os.getenv('KAFKA_TOPIC', 'traptor'),
             use_sentry=str2bool(os.getenv('USE_SENTRY', 'false')),
             sentry_url=os.getenv('SENTRY_URL', None),
             test=args.test,
-            enable_stats_collection=str2bool(
-                os.getenv('ENABLE_STATS_COLLECTION', 'true')
-            ),
+            enable_stats_collection=str2bool(getAppParamStr(
+                    'ENABLE_STATS_COLLECTION', 'true', args.stats
+            )),
     )
 
     # Logger for this main function. The traptor has it's own logger
-
-    traptor_name = 'traptor-{}-{}'.format(os.getenv('TRAPTOR_TYPE', 'track'),
-                                          os.getenv('TRAPTOR_ID', 0))
-    theLogLevel = os.getenv('LOG_LEVEL', settings.LOG_LEVEL)
-    if args.loglevel:
-        theArgsLogLevel = args.loglevel.strip().upper()
-        if theArgsLogLevel in ('CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG' ):
-            theLogLevel = theArgsLogLevel
-
     logger = LogFactory.get_instance(
-            name=traptor_name,
+            name=traptor_instance.name,
             json=str2bool(os.getenv('LOG_JSON', settings.LOG_JSON)),
             stdout=str2bool(os.getenv('LOG_STDOUT', settings.LOG_STDOUT)),
-            level=theLogLevel,
-            dir=os.getenv('LOG_DIR', settings.LOG_DIR),
-            file=os.getenv('LOG_FILE', settings.LOG_FILE)
+            level=getLoggingLevel(args.loglevel),
+            dir=getAppParamStr('LOG_DIR', settings.LOG_DIR),
+            file=getAppParamStr('LOG_FILE', settings.LOG_FILE, args.log_file)
     )
 
     if settings.DW_ENABLED:
@@ -1345,6 +1408,7 @@ def main():
 
     # Wait until all the other containers are up and going...
     if not args.skipdelay:
+        print('waiting 30 sec for other containers to get up and going...')
         time.sleep(30)
     else:
         print('skipping artificial delay')
@@ -1355,18 +1419,19 @@ def main():
         logger.debug('Traptor', extra={
                 'dbg-info': repr(traptor_instance)
         })
-        traptor_instance.run()
+        traptor_instance.run(args)
     except Exception as e:
-        if str2bool(os.getenv('USE_SENTRY')):
-            client = Client(os.getenv('SENTRY_URL'))
-            client.captureException()
-
-        logger.error("Caught exception when starting Traptor", extra={
+        theLogMsg = 'Caught exception when starting Traptor'
+        logger.error(theLogMsg, extra={
+                'error_type': e.__class__.__name__,
+                'error_msg': e.message,
                 'ex': traceback.format_exc()
         })
-
         dd_monitoring.increment('traptor_error_occurred',
                                 tags=['error_type:traptor_start'])
+        if str2bool(getAppParamStr('USE_SENTRY', 'false')):
+            client = Client(getAppParamStr('SENTRY_URL'))
+            client.captureException()
         raise e
 
 if __name__ == '__main__':
@@ -1376,10 +1441,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("\n")
         sys.exit(0)
-    except Exception as e:
-        print(e.__class__.__name__)
-        print(e.message)
-        print(traceback.format_exc())
 
     # We should never leave main()
     sys.exit(1)
