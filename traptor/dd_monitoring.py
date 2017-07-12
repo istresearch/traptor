@@ -14,7 +14,7 @@ DEFAULT_TAGS = [
 ]
 
 options = {
-    'statsd_host': os.getenv('STATSD_HOST_IP', '127.0.0.1')
+    'statsd_host': os.getenv('STATSD_HOST_IP', 'statsd')
 }
 initialize(**options)
 
@@ -36,11 +36,13 @@ DATADOG_METRICS = {
     'limit_message_count': 'traptor.src.limit.current_limited',
 }
 
+
 def increment(metric_name, tags=None):
     if tags is None:
         tags = []
 
     return statsd.increment(DATADOG_METRICS[metric_name], tags=DEFAULT_TAGS + tags)
+
 
 def gauge(metric_name, value, tags=None):
     return statsd.gauge(DATADOG_METRICS[metric_name], value, tags=DEFAULT_TAGS + tags)
