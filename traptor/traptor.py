@@ -238,7 +238,8 @@ class Traptor(object):
     @retry(
             wait=wait_exponential(multiplier=1, max=10),
             stop=stop_after_attempt(3),
-            retry=retry_if_exception_type(KafkaUnavailableError)
+            retry=retry_if_exception_type(KafkaUnavailableError),
+            reraise = True,
     )
     def _create_kafka_producer(self):
         """Create the Kafka producer"""
@@ -323,7 +324,8 @@ class Traptor(object):
     @retry(
         wait=wait_chain(*[wait_fixed(3)] + [wait_fixed(7)] + [wait_fixed(9)]),
         stop=stop_after_attempt(3),
-        retry=retry_if_exception_type(TwitterApiError)
+        retry=retry_if_exception_type(TwitterApiError),
+        reraise = True,
     )
     def _create_twitter_follow_stream(self):
         """Create a Twitter follow stream."""
@@ -336,7 +338,8 @@ class Traptor(object):
     @retry(
         wait=wait_chain(*[wait_fixed(3)] + [wait_fixed(7)] + [wait_fixed(9)]),
         stop=stop_after_attempt(3),
-        retry=retry_if_exception_type(TwitterApiError)
+        retry=retry_if_exception_type(TwitterApiError),
+        reraise=True,
     )
     def _create_twitter_track_stream(self):
         """Create a Twitter follow stream."""
@@ -349,7 +352,8 @@ class Traptor(object):
     @retry(
         wait=wait_chain(*[wait_fixed(3)] + [wait_fixed(7)] + [wait_fixed(9)]),
         stop=stop_after_attempt(3),
-        retry=retry_if_exception_type(TwitterApiError)
+        retry=retry_if_exception_type(TwitterApiError),
+        reraise=True,
     )
     def _create_twitter_locations_stream(self):
         """Create a Twitter locations stream."""
@@ -459,10 +463,10 @@ class Traptor(object):
         self.rule_counters = rule_counters
 
     @retry(wait=wait_exponential(multiplier=1, max=10),
-           stop=stop_after_attempt(3),
-           reraise=True,
+        stop=stop_after_attempt(3),
+        reraise=True,
            retry=retry_if_exception_type(redis.ConnectionError)
-           )
+    )
     def _increment_rule_counter(self, tweet):
         """
         Increment a rule counter.
@@ -526,10 +530,10 @@ class Traptor(object):
 
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
-        stop=stop_after_attempt(3),
-        reraise=True,
-        retry=retry_if_exception_type(redis.ConnectionError)
-    )
+           stop=stop_after_attempt(3),
+           reraise=True,
+           retry=retry_if_exception_type(redis.ConnectionError)
+           )
     def _increment_limit_message_counter(self, limit_count):
         """
         Increment the limit message counter
@@ -1393,7 +1397,7 @@ def main():
             'ACCESS_TOKEN': os.getenv('ACCESS_TOKEN'),
             'ACCESS_TOKEN_SECRET': os.getenv('ACCESS_TOKEN_SECRET')
         }
-    if not api_keys['CONSUMER_KEY']:
+    if not api_keys or not api_keys['CONSUMER_KEY']:
         raise SystemExit('No API keys found')
 
     # Create the traptor instance
