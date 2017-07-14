@@ -111,6 +111,13 @@ def logExtra(*info_args):
     return result
 
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+
 # Override the default JSONobject
 class MyBirdyClient(StreamClient):
     @staticmethod
@@ -291,7 +298,7 @@ class Traptor(object):
         :param aLogger: logger object, if any.
         """
         if args is None:
-            args = {'log_stdout':'', 'loglevel':'', 'log_file':''}
+            args = dotdict({'log_stdout': '', 'loglevel': '', 'log_file': ''})
         # Set up logging
         self.logger = aLogger
         if aLogger is None:
@@ -1355,7 +1362,7 @@ def main():
     global my_traptor_type
     my_traptor_type = getAppParamStr('TRAPTOR_TYPE', 'track', args.type)
     global my_traptor_id
-    my_traptor_id = int(getAppParamStr('TRAPTOR_ID', 0, args.id))
+    my_traptor_id = int(getAppParamStr('TRAPTOR_ID', '0', args.id))
 
     # Redis connections
     redis_host = os.getenv('REDIS_HOST', 'localhost')
@@ -1377,7 +1384,7 @@ def main():
     )
 
     # Twitter api keys
-    if os.getenv('CONSUMER_KEY').startswith('ADD_'):
+    if os.getenv('CONSUMER_KEY', '').startswith('ADD_'):
         api_keys = settings.APIKEYS
     else:
         api_keys = {
@@ -1386,6 +1393,8 @@ def main():
             'ACCESS_TOKEN': os.getenv('ACCESS_TOKEN'),
             'ACCESS_TOKEN_SECRET': os.getenv('ACCESS_TOKEN_SECRET')
         }
+    if not api_keys['CONSUMER_KEY']:
+        raise SystemExit('No API keys found')
 
     # Create the traptor instance
     traptor_instance = Traptor(
@@ -1396,7 +1405,7 @@ def main():
                 'REDIS_PUBSUB_CHANNEL', 'traptor-notify', args.redis_pubsub
             ),
             rule_check_interval=int(getAppParamStr(
-                    'RULE_CHECK_INTERVAL', 60, args.interval
+                    'RULE_CHECK_INTERVAL', '60', args.interval
             )),
             traptor_type=my_traptor_type,
             traptor_id=my_traptor_id,
