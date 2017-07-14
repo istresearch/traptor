@@ -59,6 +59,10 @@ PROXY_TIMEOUT = int(os.getenv('PROXY_TIMEOUT', 4))
 TWITTER_API_URL = 'https://api.twitter.com/1.1'
 
 # Dog Whistle
+DWG_RULE_COUNT = {'name': 'Traptor Rule Count',
+                   'key': 'traptor_rule_count', 'value': 'rule_count'}
+DWG_MATCH_COUNT = {'name': 'Traptor Num Matches For ID',
+                   'key': 'traptor_num_matches_for_id', 'value': 'match_count'}
 DW_ENABLED = bool(os.getenv('DW_ENABLED', 'False') == 'True')
 DW_CONFIG = {
     'name': os.getenv('DW_NAME', 'traptor'),
@@ -68,6 +72,10 @@ DW_CONFIG = {
         'local': bool(os.getenv('DW_LOCAL', 'True') == 'True')
     },
     'metrics': {
+        'gauges': [
+            (DWG_RULE_COUNT['name'], DWG_RULE_COUNT['key'], DWG_RULE_COUNT['value']),
+            (DWG_MATCH_COUNT['name'], DWG_MATCH_COUNT['key'], DWG_MATCH_COUNT['value']),
+        ]
     }
 }
 

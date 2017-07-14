@@ -111,6 +111,11 @@ def logExtra(*info_args):
     return result
 
 
+def log_retry_bump():
+    print('log bump')
+    #return True
+
+
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
     __getattr__ = dict.get
@@ -325,7 +330,8 @@ class Traptor(object):
         wait=wait_chain(*[wait_fixed(3)] + [wait_fixed(7)] + [wait_fixed(9)]),
         stop=stop_after_attempt(3),
         retry=retry_if_exception_type(TwitterApiError),
-        reraise = True,
+        reraise=True,
+        after=log_retry_bump(),
     )
     def _create_twitter_follow_stream(self):
         """Create a Twitter follow stream."""
@@ -378,7 +384,9 @@ class Traptor(object):
                 self._create_twitter_follow_stream()
             except Exception as e:
                 theLogMsg = "Caught Twitter Api Error creating follow stream"
-                self.logger.critical(theLogMsg, extra=logExtra(e))
+                self.logger.critical(theLogMsg, extra=logExtra(e, {
+                    'retry': self._create_twitter_follow_stream.retry.statistics
+                }))
                 dd_monitoring.increment('twitter_error_occurred',
                                         tags=['error_type:twitter_api_error'])
                 sys.exit(3)
@@ -1099,10 +1107,11 @@ class Traptor(object):
                 'hb_interval': hb_interval
         }))
 
-        # while Traptor is running, add a heartbeat message every 5 seconds
+        # while Traptor is running, add a heartbeat message every X seconds, min 5.
         while True:
             try:
                 self._add_heartbeat_message_to_redis(hb_interval)
+                self.rule_counters
             except Exception as e:
                 theLogMsg = "Caught exception while adding the heartbeat message to Redis"
                 self.logger.error(theLogMsg, extra=logExtra(e))
@@ -1192,6 +1201,11 @@ class Traptor(object):
             }))
             time.sleep(self.rule_check_interval)
             self.redis_rules = [rule for rule in self._get_redis_rules()]
+
+        # We got rules, tell my supervisors about them
+        self.logger.info(settings.DWG_RULE_COUNT['key'], extra=logExtra({
+                settings.DWG_RULE_COUNT['value']: len(self.redis_rules)
+        }))
 
     def run(self, args=None, aLogger=None):
         """
@@ -1388,7 +1402,7 @@ def main():
     )
 
     # Twitter api keys
-    if os.getenv('CONSUMER_KEY', '').startswith('ADD_'):
+    if False and os.getenv('CONSUMER_KEY', '').startswith('ADD_'):
         api_keys = settings.APIKEYS
     else:
         api_keys = {
