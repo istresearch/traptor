@@ -82,7 +82,7 @@ def _validate_track_rule(value):
             response['status'] = 'ok'
         except Exception as e:
             # general edge case coverage - let it through
-            my_logger.error("Error when calculating tweets per second", extra={'exception': str(e)})
+            logger.error("Error when calculating tweets per second", extra={'exception': str(e)})
             response['tweets_per_second'] = 0
             response['status'] = 'ok'
     else:
