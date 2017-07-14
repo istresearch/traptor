@@ -47,7 +47,7 @@ Congratulations.  You are all set to run **traptor**!
 Running Traptor
 ---------------
 
-To start, run it *without kafka* by running ``python traptor.py --kafka_enabled`` from the command line.  The ``--kafka_enabled`` flag tells **traptor** to skip sending data to kafka and just print to stdout.  You can pipe the output into jq (https://stedolan.github.io/jq/) like this ``python traptor.py --test | jq .`` to get a nicely colored JSON output.
+To start, run it *without kafka* by running ``python traptor.py --kafka_enabled=0`` from the command line.  The ``--kafka_enabled=0`` flag tells **traptor** to skip sending data to kafka and just print to stdout.  You can pipe the output into jq (https://stedolan.github.io/jq/) like this ``python traptor.py --kafka_enabled=0 | jq .`` to get a nicely colored JSON output.
 
 **traptor** also accepts a ``--loglevel=info`` or ``--loglevel=debug`` argument if you wish to print out logging information.
 
