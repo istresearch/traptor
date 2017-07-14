@@ -280,7 +280,7 @@ class Traptor(object):
                                     tags=['error_type:kafka'])
         return kafka_failure
 
-    def _setup(self, args, aLogger=None):
+    def _setup(self, args=None, aLogger=None):
         """
         Set up Traptor.
 
@@ -288,8 +288,10 @@ class Traptor(object):
         default and custom settings.
 
         :param args: CLI arguments, if any.
+        :param aLogger: logger object, if any.
         """
-
+        if args is None:
+            args = {'log_stdout':'', 'loglevel':'', 'log_file':''}
         # Set up logging
         self.logger = aLogger
         if aLogger is None:
@@ -1180,7 +1182,7 @@ class Traptor(object):
             time.sleep(self.rule_check_interval)
             self.redis_rules = [rule for rule in self._get_redis_rules()]
 
-    def run(self, args, aLogger=None):
+    def run(self, args=None, aLogger=None):
         """
         Run method for running a traptor instance.
         It sets up the logging, connections, grabs the rules from redis,

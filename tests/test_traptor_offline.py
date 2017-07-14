@@ -101,7 +101,7 @@ def traptor(request, redis_conn, pubsub_conn, heartbeat_conn, traptor_notify_cha
                                kafka_enabled=False,
                                kafka_hosts='localhost:9092',
                                kafka_topic='traptor_test',
-                               use_sentry='False',
+                               use_sentry=False,
                                sentry_url=None,
                                test=True
                                )
