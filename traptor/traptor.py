@@ -40,9 +40,12 @@ import types
 
 FORMAT = '%(asctime)-15s %(message)s'
 logging.basicConfig(level='INFO', format=FORMAT)
+
+# Vars initialized once, then threadsafe to use
 my_component = 'traptor'
 my_traptor_type = None
 my_traptor_id = None
+my_logger = None
 
 
 # Thanks to https://stackoverflow.com/a/715468
@@ -111,9 +114,49 @@ def logExtra(*info_args):
     return result
 
 
-def log_retry_bump():
-    print('log bump')
-    #return True
+def log_retry_twitter(func, aRetryNum, arg3):
+    """
+    If a retry occurs, log it.
+
+    :param func: this function reference.
+    :param aRetryNum: the retry number.
+    :param arg3: unknown decimal value, maybe time since last retry?
+    """
+    global my_logger
+    if my_logger is not None:
+        my_logger.info(settings.DWC_RETRY_TWITTER, extra=logExtra({
+                'retry-num': aRetryNum,
+        }))
+
+
+def log_retry_redis(func, aRetryNum, arg3):
+    """
+    If a retry occurs, log it.
+
+    :param func: this function reference.
+    :param aRetryNum: the retry number.
+    :param arg3: unknown decimal value, maybe time since last retry?
+    """
+    global my_logger
+    if my_logger is not None:
+        my_logger.info(settings.DWC_RETRY_REDIS, extra=logExtra({
+                'retry-num': aRetryNum,
+        }))
+
+
+def log_retry_kafka(func, aRetryNum, arg3):
+    """
+    If a retry occurs, log it.
+
+    :param func: this function reference.
+    :param aRetryNum: the retry number.
+    :param arg3: unknown decimal value, maybe time since last retry?
+    """
+    global my_logger
+    if my_logger is not None:
+        my_logger.info(settings.DWC_RETRY_KAFKA, extra=logExtra({
+                'retry-num': aRetryNum,
+        }))
 
 
 class dotdict(dict):
@@ -241,10 +284,11 @@ class Traptor(object):
         )
 
     @retry(
-            wait=wait_exponential(multiplier=1, max=10),
-            stop=stop_after_attempt(3),
-            retry=retry_if_exception_type(KafkaUnavailableError),
-            reraise = True,
+        wait=wait_exponential(multiplier=1, max=10),
+        stop=stop_after_attempt(3),
+        retry=retry_if_exception_type(KafkaUnavailableError),
+        reraise = True,
+        after=log_retry_kafka,
     )
     def _create_kafka_producer(self):
         """Create the Kafka producer"""
@@ -331,7 +375,7 @@ class Traptor(object):
         stop=stop_after_attempt(3),
         retry=retry_if_exception_type(TwitterApiError),
         reraise=True,
-        after=log_retry_bump(),
+        after=log_retry_twitter,
     )
     def _create_twitter_follow_stream(self):
         """Create a Twitter follow stream."""
@@ -346,6 +390,7 @@ class Traptor(object):
         stop=stop_after_attempt(3),
         retry=retry_if_exception_type(TwitterApiError),
         reraise=True,
+        after=log_retry_twitter,
     )
     def _create_twitter_track_stream(self):
         """Create a Twitter follow stream."""
@@ -360,6 +405,7 @@ class Traptor(object):
         stop=stop_after_attempt(3),
         retry=retry_if_exception_type(TwitterApiError),
         reraise=True,
+        after=log_retry_twitter,
     )
     def _create_twitter_locations_stream(self):
         """Create a Twitter locations stream."""
@@ -470,10 +516,12 @@ class Traptor(object):
 
         self.rule_counters = rule_counters
 
-    @retry(wait=wait_exponential(multiplier=1, max=10),
+    @retry(
+        wait=wait_exponential(multiplier=1, max=10),
         stop=stop_after_attempt(3),
         reraise=True,
-           retry=retry_if_exception_type(redis.ConnectionError)
+        retry=retry_if_exception_type(redis.ConnectionError),
+        after=log_retry_redis,
     )
     def _increment_rule_counter(self, tweet):
         """
@@ -538,10 +586,11 @@ class Traptor(object):
 
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
-           stop=stop_after_attempt(3),
-           reraise=True,
-           retry=retry_if_exception_type(redis.ConnectionError)
-           )
+        stop=stop_after_attempt(3),
+        reraise=True,
+        retry=retry_if_exception_type(redis.ConnectionError),
+        after=log_retry_redis,
+    )
     def _increment_limit_message_counter(self, limit_count):
         """
         Increment the limit message counter
@@ -868,11 +917,13 @@ class Traptor(object):
 
         return new_dict
 
-    @retry(wait=wait_exponential(multiplier=1, max=10),
-           stop=stop_after_attempt(3),
-           reraise=True,
-           retry=retry_if_exception_type(redis.ConnectionError)
-           )
+    @retry(
+        wait=wait_exponential(multiplier=1, max=10),
+        stop=stop_after_attempt(3),
+        reraise=True,
+        retry=retry_if_exception_type(redis.ConnectionError),
+        after=log_retry_redis,
+    )
     def _get_redis_rules(self):
         """ Yields a traptor rule from redis.  This function
             expects that the redis keys are set up like follows:
@@ -1083,10 +1134,11 @@ class Traptor(object):
                     dd_monitoring.increment('restart_message_received')
 
     @retry(
-            wait=wait_exponential(multiplier=1, max=10),
-            stop=stop_after_attempt(3),
-            reraise=True,
-            retry=retry_if_exception_type(redis.ConnectionError)
+        wait=wait_exponential(multiplier=1, max=10),
+        stop=stop_after_attempt(3),
+        reraise=True,
+        retry=retry_if_exception_type(redis.ConnectionError),
+        after=log_retry_redis,
     )
     def _add_heartbeat_message_to_redis(self, hb_interval):
         """Add a heartbeat message to Redis."""
@@ -1121,11 +1173,13 @@ class Traptor(object):
 
             time.sleep(hb_interval)
 
-    @retry(wait=wait_exponential(multiplier=1, max=10),
-           stop=stop_after_attempt(3),
-           reraise=True,
-           retry=retry_if_exception_type(KafkaUnavailableError)
-           )
+    @retry(
+        wait=wait_exponential(multiplier=1, max=10),
+        stop=stop_after_attempt(3),
+        reraise=True,
+        retry=retry_if_exception_type(KafkaUnavailableError),
+        after=log_retry_kafka,
+    )
     def _send_enriched_data_to_kafka(self, tweet, enriched_data):
         """"
         Send the enriched data to Kafka
@@ -1402,7 +1456,7 @@ def main():
     )
 
     # Twitter api keys
-    if False and os.getenv('CONSUMER_KEY', '').startswith('ADD_'):
+    if os.getenv('CONSUMER_KEY', '').startswith('ADD_'):
         api_keys = settings.APIKEYS
     else:
         api_keys = {
@@ -1441,8 +1495,14 @@ def main():
             )),
     )
 
-    # Logger for this main function. The traptor has it's own logger
-    logger = LogFactory.get_instance(
+    # Ensure we setup our CONSTS before we start actually doing things with threads
+    dd_monitoring.DEFAULT_TAGS = [
+            'traptor_type:{}'.format(traptor_instance.traptor_type),
+            'traptor_id:{}'.format(traptor_instance.traptor_id),
+            'traptor_version:{}'.format(version.__version__),
+    ]
+    global my_logger
+    my_logger = LogFactory.get_instance(
             name=traptor_instance.name,
             json=str2bool(os.getenv('LOG_JSON', settings.LOG_JSON)),
             stdout=str2bool(getAppParamStr(
@@ -1455,12 +1515,7 @@ def main():
 
     if settings.DW_ENABLED:
         dw_config(settings.DW_CONFIG)
-        logger.register_callback('>=INFO', dw_callback)
-    dd_monitoring.DEFAULT_TAGS = [
-            'traptor_type:{}'.format(traptor_instance.traptor_type),
-            'traptor_id:{}'.format(traptor_instance.traptor_id),
-            'traptor_version:{}'.format(version.__version__),
-    ]
+        my_logger.register_callback('>=INFO', dw_callback)
 
     # Wait until all the other containers are up and going...
     if not args.skipdelay:
@@ -1477,12 +1532,12 @@ def main():
                 'rule_id': 'ARG-7777', 'tag': '7777-rule', 'value': args.rule
             })
 
-        logger.info('Starting Traptor', extra=logExtra())
-        logger.debug('Traptor', extra=logExtra(repr(traptor_instance)))
-        traptor_instance.run(args, logger)
+        my_logger.info('Starting Traptor', extra=logExtra())
+        my_logger.debug('Traptor', extra=logExtra(repr(traptor_instance)))
+        traptor_instance.run(args, my_logger)
     except Exception as e:
         theLogMsg = 'Caught exception when running Traptor'
-        logger.error(theLogMsg, extra=logExtra(e))
+        my_logger.error(theLogMsg, extra=logExtra(e))
         dd_monitoring.increment('traptor_error_occurred',
                                 tags=['error_type:traptor_start'])
         if str2bool(getAppParamStr('USE_SENTRY', 'false')):

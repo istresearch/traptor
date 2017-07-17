@@ -59,6 +59,9 @@ PROXY_TIMEOUT = int(os.getenv('PROXY_TIMEOUT', 4))
 TWITTER_API_URL = 'https://api.twitter.com/1.1'
 
 # Dog Whistle
+DWC_RETRY_TWITTER = 'traptor_retry_twitter_api'
+DWC_RETRY_REDIS = 'traptor_retry_redis_api'
+DWC_RETRY_KAFKA = 'traptor_retry_kakfa_api'
 DWG_RULE_COUNT = {'name': 'Traptor Rule Count',
                    'key': 'traptor_rule_count', 'value': 'rule_count'}
 DWG_MATCH_COUNT = {'name': 'Traptor Num Matches For ID',
