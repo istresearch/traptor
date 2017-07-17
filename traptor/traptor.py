@@ -1163,7 +1163,6 @@ class Traptor(object):
         while True:
             try:
                 self._add_heartbeat_message_to_redis(hb_interval)
-                self.rule_counters
             except Exception as e:
                 theLogMsg = "Caught exception while adding the heartbeat message to Redis"
                 self.logger.error(theLogMsg, extra=logExtra(e))
