@@ -257,14 +257,11 @@ class Traptor(object):
 
     def __repr__(self):
         return 'Traptor(' \
-               + 'redis='+repr(self.redis_conn) \
-               + ', redis_pubsub='+repr(self.pubsub_conn) \
-               + ', redis_heartbeat='+repr(self.heartbeat_conn) \
+               + 'type='+repr(self.traptor_type) \
+               + ', id='+repr(self.traptor_id) \
                + ', heartbeat='+repr(self._hb_interval()) \
                + ', notify_channel='+repr(self.traptor_notify_channel) \
                + ', check_interval='+repr(self.rule_check_interval) \
-               + ', type='+repr(self.traptor_type) \
-               + ', id='+repr(self.traptor_id) \
                + ', apikeys='+repr(self.apikeys) \
                + ', kafka_on='+repr(self.kafka_enabled) \
                + ', khosts='+repr(self.kafka_hosts) \
