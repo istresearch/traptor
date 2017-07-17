@@ -192,6 +192,7 @@ class Traptor(object):
             sentry_url=None,
             test=False,
             enable_stats_collection=True,
+            heartbeat_interval=0,
             ):
         """
         Traptor base class.
@@ -216,6 +217,8 @@ class Traptor(object):
         :param bool test: True for traptor test instance.
         :param bool enable_stats_collection: Whether or not to allow redis
                 stats collection
+        :param int heartbeat_interval: the number of seconds between heartbeats,
+                if 0, a minimum value will be used instead.
         """
 
         self.redis_conn = redis_conn
@@ -233,6 +236,9 @@ class Traptor(object):
         self.sentry_url = sentry_url
         self.test = test
         self.enable_stats_collection = enable_stats_collection
+        if heartbeat_interval < 5:
+            heartbeat_interval = 5
+        self.hb_interval = heartbeat_interval
 
         self.kafka_success_callback = self._gen_kafka_success()
         self.kafka_failure_callback = self._gen_kafka_failure()
@@ -251,6 +257,7 @@ class Traptor(object):
                + 'redis='+repr(self.redis_conn) \
                + ', redis_pubsub='+repr(self.pubsub_conn) \
                + ', redis_heartbeat='+repr(self.heartbeat_conn) \
+               + ', heartbeat='+repr(self.hb_interval) \
                + ', notify_channel='+repr(self.traptor_notify_channel) \
                + ', check_interval='+repr(self.rule_check_interval) \
                + ', type='+repr(self.traptor_type) \
@@ -1145,24 +1152,23 @@ class Traptor(object):
         now = datetime.now().strftime("%Y%M%d%H%M%S")
         key_to_add = "{}:{}:{}".format(self.traptor_type,
                                        self.traptor_id,
-                                       now)
-        message = "alive"
-        if self.heartbeat_conn.setex(key_to_add, hb_interval, message):
+                                       'heartbeat')
+        message = now
+        if self.heartbeat_conn.setex(key_to_add, int(hb_interval*1.5), message):
             theLogMsg = 'heartbeat_message_sent_success'
             self.logger.info(theLogMsg, extra=logExtra())
             dd_monitoring.increment(theLogMsg)
 
     def _send_heartbeat_message(self):
         """Add an expiring key to Redis as a heartbeat on a timed basis."""
-        hb_interval = 5
         self.logger.info("Starting the heartbeat", extra=logExtra({
-                'hb_interval': hb_interval
+                'hb_interval': self.hb_interval
         }))
 
         # while Traptor is running, add a heartbeat message every X seconds, min 5.
         while True:
             try:
-                self._add_heartbeat_message_to_redis(hb_interval)
+                self._add_heartbeat_message_to_redis(self.hb_interval)
             except Exception as e:
                 theLogMsg = "Caught exception while adding the heartbeat message to Redis"
                 self.logger.error(theLogMsg, extra=logExtra(e))
@@ -1170,7 +1176,7 @@ class Traptor(object):
                                         tags=['error_type:redis_connection_error'])
                 raise
 
-            time.sleep(hb_interval)
+            time.sleep(self.hb_interval)
 
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
@@ -1417,6 +1423,10 @@ def createArgumentParser():
             '--rule',
             help='Specify a rule to act upon for testing.'
     )
+    parser.add_argument(
+            '--heartbeat',
+            help='Specify the number of seconds between heartbeat notifications.'
+    )
     return parser
 
 
@@ -1492,6 +1502,9 @@ def main():
             enable_stats_collection=str2bool(getAppParamStr(
                     'ENABLE_STATS_COLLECTION', 'true', args.stats
             )),
+            heartbeat_interval=int(getAppParamStr(
+                    'HEARTBEAT_INTERVAL', '0', args.heartbeat
+            ))
     )
 
     # Ensure we setup our CONSTS before we start actually doing things with threads
