@@ -238,7 +238,6 @@ class Traptor(object):
         self.enable_stats_collection = enable_stats_collection
         if heartbeat_interval < 5:
             heartbeat_interval = 5
-        self.hb_interval = heartbeat_interval
 
         self.kafka_success_callback = self._gen_kafka_success()
         self.kafka_failure_callback = self._gen_kafka_failure()
@@ -247,17 +246,21 @@ class Traptor(object):
         self.limit_counter = None
         self.twitter_rules = None
         self.locations_rule = {}
-        self.restart_flag = False
         self.name = 'traptor-{}-{}'.format(
                 self.traptor_type, self.traptor_id
         )
+        # Properties that need to be accessed using a semaphore
+        self._NEEDS_SEMAPHORE_hb_interval = heartbeat_interval
+        self._NEEDS_SEMAPHORE_restart_flag = False
+        # Semaphore used to make accessing properties thread-safe
+        self.my_rlock = threading.RLock()
 
     def __repr__(self):
         return 'Traptor(' \
                + 'redis='+repr(self.redis_conn) \
                + ', redis_pubsub='+repr(self.pubsub_conn) \
                + ', redis_heartbeat='+repr(self.heartbeat_conn) \
-               + ', heartbeat='+repr(self.hb_interval) \
+               + ', heartbeat='+repr(self._hb_interval()) \
                + ', notify_channel='+repr(self.traptor_notify_channel) \
                + ', check_interval='+repr(self.rule_check_interval) \
                + ', type='+repr(self.traptor_type) \
@@ -271,6 +274,41 @@ class Traptor(object):
                + ', test_on='+repr(self.test) \
                + ', stats_on='+repr(self.enable_stats_collection) \
                + ')'
+
+    def _getRestartSearchFlag(self):
+        """
+        Thread-safe method to get the restart search flag value.
+
+        :return: Return the restart flag value.
+        """
+        with self.my_rlock:
+            return self._NEEDS_SEMAPHORE_restart_flag
+
+    def _setRestartSearchFlag(self, aValue):
+        """
+        Thread-safe method to set the restart search flag value.
+
+        :param bool aValue: the value to use.
+        """
+        theLogMsg = "Setting restart search flag"
+        # logger is already thread-safe, no need to use semaphore around it
+        self.logger.debug(theLogMsg, extra=logExtra(str(aValue)))
+        with self.my_rlock:
+            self._NEEDS_SEMAPHORE_restart_flag = aValue
+
+    def _hb_interval(self, interval=None):
+        """
+        Thread-safe method to get/set the heartbeat value.
+        Purposely combined getter/setter as possible alternative code style.
+
+        :param number interval: the value to use.
+        :return: Returns the value if interval param is not provided.
+        """
+        with self.my_rlock:
+            if interval is None:
+                return self._NEEDS_SEMAPHORE_hb_interval
+            else:
+                self._NEEDS_SEMAPHORE_hb_interval = interval
 
     def _setup_birdy(self):
         """ Set up a birdy twitter stream.
@@ -1109,36 +1147,27 @@ class Traptor(object):
         else:
             return tweet
 
-    def _check_redis_pubsub_for_restart(self):
+    def _listenToRedisForRestartFlag(self):
         """
-        Subscribe to Redis PubSub and restart if necessary.
-
-        Check the Redis PubSub channel and restart Traptor if a message for
-        this Traptor is found.
+        Listen to the Redis PubSub channel and set the restart flag for
+        this Traptor if the restart message is found.
         """
         theLogMsg = "Subscribing to Traptor notification PubSub"
         self.logger.info(theLogMsg, extra=logExtra({
-                'restart_flag': str(self.restart_flag)
+                'restart_flag': str(self._getRestartSearchFlag)
         }))
 
-        pubsub_check_interval = float(os.getenv('PUBSUB_CHECK_INTERVAL', 1))
-
-        p = self.pubsub_conn.pubsub()
+        p = self.pubsub_conn.pubsub(ignore_subscribe_messages=True)
         p.subscribe(self.traptor_notify_channel)
-
-        while True:
-            time.sleep(pubsub_check_interval)
-            msg = p.get_message()
+        # listen() is a generator that blocks until a message is available
+        for msg in p.listen():
             if msg is not None:
                 data = str(msg['data'])
                 t = data.split(':')
                 self.logger.debug('PubSub', extra=logExtra(t))
                 if t[0] == self.traptor_type and t[1] == str(self.traptor_id):
-                    # Log the action and restart
-                    self.restart_flag = True
-                    theLogMsg = "Redis PubSub message found. Setting restart flag to True."
-                    self.logger.debug(theLogMsg, extra=logExtra())
-                    dd_monitoring.increment('restart_message_received')
+                    # Restart flag found for our specific instance
+                    self._setRestartSearchFlag(True)
 
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
@@ -1157,26 +1186,25 @@ class Traptor(object):
         if self.heartbeat_conn.setex(key_to_add, int(hb_interval*1.5), message):
             theLogMsg = 'heartbeat_message_sent_success'
             self.logger.info(theLogMsg, extra=logExtra())
-            dd_monitoring.increment(theLogMsg)
+            # DEBUG: send Restart Flag to myself to test Restart Flag action (not thread-safe!)
+            # self.heartbeat_conn.publish(self.traptor_notify_channel, self.traptor_type+':'+str(self.traptor_id))
 
     def _send_heartbeat_message(self):
         """Add an expiring key to Redis as a heartbeat on a timed basis."""
         self.logger.info("Starting the heartbeat", extra=logExtra({
-                'hb_interval': self.hb_interval
+                'hb_interval': self._hb_interval()
         }))
 
         # while Traptor is running, add a heartbeat message every X seconds, min 5.
         while True:
             try:
-                self._add_heartbeat_message_to_redis(self.hb_interval)
+                self._add_heartbeat_message_to_redis(self._hb_interval())
             except Exception as e:
                 theLogMsg = "Caught exception while adding the heartbeat message to Redis"
                 self.logger.error(theLogMsg, extra=logExtra(e))
-                dd_monitoring.increment('heartbeat_message_sent_failure',
-                                        tags=['error_type:redis_connection_error'])
-                raise
+                raise e
 
-            time.sleep(self.hb_interval)
+            time.sleep(self._hb_interval())
 
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
@@ -1240,8 +1268,8 @@ class Traptor(object):
                                                     tags=['error_type:kafka'])
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
-
-            if self.restart_flag:
+            # Stop processing if we were told to restart
+            if self._getRestartSearchFlag():
                 self.logger.info("Restart flag is true; restarting myself")
                 break
 
@@ -1279,7 +1307,7 @@ class Traptor(object):
 
         # Create the thread for the pubsub restart check
         ps_check = threading.Thread(group=None,
-                                    target=self._check_redis_pubsub_for_restart
+                                    target=self._listenToRedisForRestartFlag
                                     )
         ps_check.setDaemon(True)
         ps_check.start()
@@ -1315,8 +1343,6 @@ class Traptor(object):
 
             if self.traptor_type == 'locations':
                 self.locations_rule = self._get_locations_traptor_rule()
-
-            self.restart_flag = False
 
             try:
                 # Start collecting data
