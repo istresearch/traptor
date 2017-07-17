@@ -206,7 +206,7 @@ class TestTraptor(object):
         traptor._setup()
 
         assert isinstance(traptor.logger, LogObject)
-        assert traptor.restart_flag is False
+        assert traptor._getRestartSearchFlag() is False
         assert traptor.kafka_conn is None
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
 
@@ -229,9 +229,9 @@ class TestTraptor(object):
                 raise Exception('called')
         traptor.logger.debug = MagicMock(side_effect=fake)
         with pytest.raises(Exception) as ex:
-            traptor._check_redis_pubsub_for_restart()
+            traptor._listenToRedisForRestartFlag()
         assert ex.value.message == 'called'
-        assert traptor.restart_flag == True
+        assert traptor._getRestartSearchFlag() == True
         traptor.logger.debug = old_logger
         assert True
 
