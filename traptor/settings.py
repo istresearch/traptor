@@ -64,6 +64,7 @@ DWC_RETRY_REDIS = 'traptor_retry_redis_api'
 DWC_RETRY_KAFKA = 'traptor_retry_kakfa_api'
 DWG_RULE_COUNT = {'name': 'Traptor Rule Count',
                    'key': 'traptor_rule_count', 'value': 'rule_count'}
+# Match Count gauge not in use, yet, was determined to complex to put in now.
 DWG_MATCH_COUNT = {'name': 'Traptor Num Matches For ID',
                    'key': 'traptor_num_matches_for_id', 'value': 'match_count'}
 DW_ENABLED = bool(os.getenv('DW_ENABLED', 'False') == 'True')
