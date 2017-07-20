@@ -264,10 +264,8 @@ class Traptor(object):
                + ', check_interval='+repr(self.rule_check_interval) \
                + ', apikeys='+repr(self.apikeys) \
                + ', kafka_on='+repr(self.kafka_enabled) \
-               + ', khosts='+repr(self.kafka_hosts) \
                + ', ktopic='+repr(self.kafka_topic) \
                + ', sentry_on='+repr(self.use_sentry) \
-               + ', sentry_url='+repr(self.sentry_url) \
                + ', test_on='+repr(self.test) \
                + ', stats_on='+repr(self.enable_stats_collection) \
                + ')'
@@ -1247,19 +1245,14 @@ class Traptor(object):
                                             tags=['error_type:json_loads_error'])
                 else:
                     enriched_data = self._enrich_tweet(tweet)
-                    # #4204 - since 1.4.14
-                    self.logger.info('tweet_to_kafka_enriched', extra=logExtra())
+                    # #4204 - since 1.4.13
+                    theLogMsg = settings.DWC_SEND_TO_KAFKA_ENRICHED
+                    self.logger.info(theLogMsg, extra=logExtra())
                     if self.kafka_enabled:
                         try:
                             self._send_enriched_data_to_kafka(tweet, enriched_data)
-                            theTagPrefix = self.name+':'
-                            theTags = [
-                                    theTagPrefix+self.traptor_type,
-                                    theTagPrefix+hashlib.md5(self.kafka_hosts)
-                            ]
-                            dd_monitoring.increment('tweet_to_kafka_enriched', tags=theTags)
                         except Exception as e:
-                            theLogMsg = "Caught exception adding Twitter message to Kafka"
+                            theLogMsg = settings.DWC_ERROR_SEND_TO_KAFKA
                             self.logger.error(theLogMsg, extra=logExtra(e))
                             dd_monitoring.increment('tweet_to_kafka_failure',
                                                     tags=['error_type:kafka'])
