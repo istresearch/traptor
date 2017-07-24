@@ -1334,6 +1334,8 @@ class Traptor(object):
             if self.traptor_type == 'locations':
                 self.locations_rule = self._get_locations_traptor_rule()
 
+            # reset Restart Search flag back to False
+            self._setRestartSearchFlag(False)
             try:
                 # Start collecting data
                 self._main_loop()
