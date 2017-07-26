@@ -1096,13 +1096,13 @@ class Traptor(object):
         enriched_data = dict()
 
         if self._message_is_limit_message(tweet):
-            # Increment counter
-            dd_monitoring.increment('limit_message_received')
             # Send DD the limit message value
             limit_count = tweet.get('limit').get(self.traptor_type, None)
             dd_monitoring.gauge('limit_message_count', limit_count, [])
             # Store the limit count in Redis
             self._increment_limit_message_counter(limit_count=limit_count)
+            # Log limit message
+            self.logger.warn('limit message received', extra={'limit_count': limit_count, 'traptor_type': self.traptor_type, 'traptor_id': self.traptor_id})
         elif self._message_is_tweet(tweet):
             try:
                 # Add the initial traptor fields
