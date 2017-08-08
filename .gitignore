@@ -51,6 +51,7 @@ htmlcov/*
 
 # Editor files
 .idea/*
+*.iml
 
 #virtual environments
 virtual-env*

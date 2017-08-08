@@ -16,6 +16,23 @@ from scutils.log_factory import LogObject
 from scutils.stats_collector import RollingTimeWindow
 
 
+def getAppParamStr(aEnvVar, aDefault=None, aCliArg=None):
+    """
+    Retrieves a string parameter from either the environment
+    var or CLI param that overrides it, using aDefault if
+    neither are defined.
+
+    :param str aEnvVar: the name of the Environment variable.
+    :param str aDefault: the default value to use if None found.
+    :param str aCliArg: the name of the CLI argument.
+    :return: str: Returns the parameter value to use.
+    """
+    if aCliArg and aCliArg.strip():
+        return aCliArg.strip()
+    else:
+        return os.getenv(aEnvVar, aDefault)
+
+
 @pytest.fixture()
 def redis_conn():
     redis_conn = mockredis.mock_strict_redis_client(host='localhost', port=6379, db=5)
@@ -32,7 +49,9 @@ def pubsub_conn():
 @pytest.fixture()
 def traptor_notify_channel():
     """Create a traptor notification channel."""
-    return 'traptor-notify'
+    return getAppParamStr(
+            'REDIS_PUBSUB_CHANNEL', 'traptor-notify'
+    )
 
 
 @pytest.fixture()
@@ -101,7 +120,7 @@ def traptor(request, redis_conn, pubsub_conn, heartbeat_conn, traptor_notify_cha
                                kafka_enabled=False,
                                kafka_hosts='localhost:9092',
                                kafka_topic='traptor_test',
-                               use_sentry='False',
+                               use_sentry=False,
                                sentry_url=None,
                                test=True
                                )
@@ -206,7 +225,7 @@ class TestTraptor(object):
         traptor._setup()
 
         assert isinstance(traptor.logger, LogObject)
-        assert traptor.restart_flag is False
+        assert traptor._getRestartSearchFlag() is False
         assert traptor.kafka_conn is None
         assert isinstance(traptor.birdy_conn, MyBirdyClient)
 
@@ -214,25 +233,14 @@ class TestTraptor(object):
         """Test pubsub message causes the restart_flag to be set to True."""
         traptor._setup()
         # mock response
-        old_logger = traptor.logger.debug
-        data = {'data': traptor.traptor_type + ':0'}
+        data = {'data': traptor.traptor_type + ':' + str(traptor.traptor_id)}
         retobj = MagicMock()
-        retobj.get_message = MagicMock(return_value=data)
+        retobj.listen = MagicMock(return_value=[data])
         traptor.pubsub_conn = MagicMock()
         traptor.pubsub_conn.pubsub = MagicMock(return_value=retobj)
-        self.counter = 0
-        def fake(*args, **kwargs):
-            self.counter += 1
-            if self.counter <= 2:
-                return None
-            else:
-                raise Exception('called')
-        traptor.logger.debug = MagicMock(side_effect=fake)
-        with pytest.raises(Exception) as ex:
-            traptor._check_redis_pubsub_for_restart()
-        assert ex.value.message == 'called'
-        assert traptor.restart_flag == True
-        traptor.logger.debug = old_logger
+        traptor._listenToRedisForRestartFlag()
+        restart_flag = traptor._getRestartSearchFlag()
+        assert restart_flag == True
         assert True
 
     def test_redis_rules(self, redis_rules, traptor):
