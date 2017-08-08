@@ -13,6 +13,7 @@ import threading
 
 import redis
 import dd_monitoring
+import six
 
 # noinspection PyPackageRequirements
 from kafka import KafkaProducer
@@ -29,6 +30,8 @@ from requests.exceptions import ChunkedEncodingError
 
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
+
+from rule_set import RuleSet
 from traptor_limit_counter import TraptorLimitCounter
 
 import logging
@@ -509,43 +512,30 @@ class Traptor(object):
             sys.exit(3)
 
     def _make_twitter_rules(self, rules):
-        """ Convert the rules from redis into a format compatible with the
-            Twitter API.
-
-            :param list rules: The rules are expected to be a list of
-                                dictionaries that comes from redis.
-            :returns: A ``str`` of twitter rules that can be loaded into the
-                      a birdy twitter stream.
         """
-        phrases = []
+        Convert the rules from redis into a format compatible with the
+        Twitter API.
+
+        This uses the RuleSet data structure, lifted from the Traptor Rule
+        Manager, to ensure the resulting filter phrase list is consistent with
+        the intent of the rule manager assignment and rule value de-duplication
+        is properly handled.
+
+        :param list rules: The rules are expected to be a list of
+                            dictionaries that comes from redis.
+        :returns: A ``str`` of twitter rules that can be loaded into the
+                  a birdy twitter stream.
+        """
+        rule_set = RuleSet()
 
         for rule in rules:
+            rule_set.append(rule)
 
-            phrase = rule.get('value')
+        phrases = ','.join(six.iterkeys(rule_set.rules_by_value))
 
-            if phrase is None:
-                continue
+        self.logger.debug('Twitter rules string: {}'.format(phrases.encode('utf-8')))
 
-            if 'orig_type' in rule and rule['orig_type'] is not None:
-                rule_type = rule['orig_type']
-
-                # For hastag rules ensure each term starts with '#' to prevent overcollection
-                if rule_type == 'hashtag':
-                    tokens = []
-                    for token in phrase.split(' '):
-                        if token:
-                            if not token.startswith('#'):
-                                tokens.append('#' + token)
-                            else:
-                                tokens.append(token)
-
-                    phrase = ' '.join(tokens)
-
-            phrases.append(phrase)
-
-        rules_str = ','.join(phrases)
-        self.logger.debug('Twitter rules string: {}'.format(rules_str.encode('utf-8')))
-        return rules_str
+        return phrases
 
     def _create_rule_counter(self, rule_id):
         """
