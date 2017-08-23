@@ -362,7 +362,7 @@ class Traptor(object):
             self.kafka_conn = None
 
     def _gen_kafka_success(self):
-        def kafka_success(tweet):  # , response):
+        def kafka_success(tweet, response):
             self.logger.info("Tweet sent to kafka", extra=logExtra({
                 'tweet_id': tweet.get('id_str', None)
             }))
