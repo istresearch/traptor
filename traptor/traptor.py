@@ -1388,7 +1388,7 @@ def createArgumentParser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
             '--skipdelay',
-            action='store_true',  # which defaults to False.
+            action='store_false',  # which defaults to True.
             help='Skips the artificial delay to wait 30 seconds.'
     )
     parser.add_argument(
