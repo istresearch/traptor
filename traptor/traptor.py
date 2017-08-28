@@ -31,15 +31,10 @@ from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
 from traptor_limit_counter import TraptorLimitCounter
 
-import logging
 import settings
-import hashlib
 import argparse
 import version
 import types
-
-FORMAT = '%(asctime)-15s %(message)s'
-logging.basicConfig(level='INFO', format=FORMAT)
 
 # Vars initialized once, then threadsafe to use
 my_component = 'traptor'
