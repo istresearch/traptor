@@ -1387,8 +1387,8 @@ def createArgumentParser():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-            '--skipdelay',
-            action='store_false',  # which defaults to True.
+            '--delay',
+            action='store_true',  # which defaults to False.
             help='Skips the artificial delay to wait 30 seconds.'
     )
     parser.add_argument(
@@ -1543,7 +1543,7 @@ def main():
         my_logger.register_callback('>=INFO', dw_callback)
 
     # Wait until all the other containers are up and going...
-    if not args.skipdelay:
+    if args.delay:
         print('waiting 30 sec for other containers to get up and going...')
         time.sleep(30)
     else:
