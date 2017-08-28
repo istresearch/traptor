@@ -96,9 +96,9 @@ def logExtra(*info_args):
     """
     result = {
             'component': my_component,
-            my_component+'-type': my_traptor_type,
-            my_component+'-id': my_traptor_id,
-            my_component+'-version': version.__version__,
+            my_component+'_version': version.__version__,
+            'tags': ["traptor_type:{}".format(my_traptor_type),
+                     "traptor_id:{}".format(my_traptor_id)]
     }
     for info in info_args:
         if isinstance(info, types.StringType):
