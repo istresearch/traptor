@@ -1389,7 +1389,7 @@ def createArgumentParser():
     parser.add_argument(
             '--delay',
             action='store_true',  # which defaults to False.
-            help='Skips the artificial delay to wait 30 seconds.'
+            help='Inserts an artificial delay to wait 30 seconds before startup.'
     )
     parser.add_argument(
             '--test',
