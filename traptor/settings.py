@@ -77,6 +77,21 @@ DW_CONFIG = {
         'statsd_port': os.getenv('DW_STATSD_PORT', 8125),
         'local': bool(os.getenv('DW_LOCAL', 'True') == 'True')
     },
+    'counters': [
+        ('heartbeat_message_sent_success', 'traptor.src.heartbeat.success.count'),
+        ('heartbeat_message_sent_failure', 'traptor.src.heartbeat.failure.count'),
+        ('restart_message_received', 'traptor.src.restart_message.success.count'),
+        ('kafka_error', 'traptor.src.kafka.error'),
+        ('redis_error', 'traptor.src.redis.error'),
+        ('traptor_error_occurred', 'traptor.src.error.count'),
+        ('twitter_error_occurred', 'traptor.src.twitter.error.count'),
+        ('tweet_process_success', 'traptor.src.tweet_process.success'),
+        ('tweet_process_failure', 'traptor.src.tweet_process.failure'),
+        ('tweet_to_kafka_success', 'traptor.src.tweet_to_kafka.success'),
+        ('tweet_to_kafka_failure', 'traptor.src.tweet_to_kafka.failure'),
+        ('limit_message_received', 'traptor.src.limit.messages.count'),
+        ('limit_message_count', 'traptor.src.limit.current_limited')
+    ],
     'metrics': {
         'gauges': [
             (DWG_RULE_COUNT['name'], DWG_RULE_COUNT['key'], DWG_RULE_COUNT['value']),
