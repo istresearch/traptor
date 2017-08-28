@@ -31,15 +31,10 @@ from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
 from traptor_limit_counter import TraptorLimitCounter
 
-import logging
 import settings
-import hashlib
 import argparse
 import version
 import types
-
-FORMAT = '%(asctime)-15s %(message)s'
-logging.basicConfig(level='INFO', format=FORMAT)
 
 # Vars initialized once, then threadsafe to use
 my_component = 'traptor'
@@ -96,9 +91,9 @@ def logExtra(*info_args):
     """
     result = {
             'component': my_component,
-            my_component+'-type': my_traptor_type,
-            my_component+'-id': my_traptor_id,
-            my_component+'-version': version.__version__,
+            my_component+'_version': version.__version__,
+            'tags': ["traptor_type:{}".format(my_traptor_type),
+                     "traptor_id:{}".format(my_traptor_id)]
     }
     for info in info_args:
         if isinstance(info, types.StringType):
@@ -1392,9 +1387,9 @@ def createArgumentParser():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-            '--skipdelay',
+            '--delay',
             action='store_true',  # which defaults to False.
-            help='Skips the artificial delay to wait 30 seconds.'
+            help='Inserts an artificial delay to wait 30 seconds before startup.'
     )
     parser.add_argument(
             '--test',
@@ -1548,7 +1543,7 @@ def main():
         my_logger.register_callback('>=INFO', dw_callback)
 
     # Wait until all the other containers are up and going...
-    if not args.skipdelay:
+    if args.delay:
         print('waiting 30 sec for other containers to get up and going...')
         time.sleep(30)
     else:
