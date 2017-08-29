@@ -81,14 +81,13 @@ DW_CONFIG = {
     'metrics': {
         'counters': [
             ('heartbeat_message_sent_success', 'src.heartbeat.success.count'),
-            ('heartbeat_message_sent_failure', 'src.heartbeat.failure.count'),
+            ('Caught exception while adding the heartbeat message to Redis', 'src.heartbeat.failure.count'),
             ('restart_message_received', 'src.restart_message.success.count'),
             ('kafka_error', 'src.kafka.error'),
             ('redis_error', 'src.redis.error'),
             ('traptor_error_occurred', 'src.error.count'),
             ('twitter_error_occurred', 'src.twitter.error.count'),
             ('tweet_process_success', 'src.tweet_process.success'),
-            ('tweet_process_failure', 'src.tweet_process.failure'),
             ('tweet_to_kafka_success', 'src.tweet_to_kafka.success'),
             ('tweet_to_kafka_failure', 'src.tweet_to_kafka.failure'),
             ('limit_message_received', 'src.limit.messages.count'),
