@@ -1097,7 +1097,7 @@ class Traptor(object):
             # Store the limit count in Redis
             self._increment_limit_message_counter(limit_count=limit_count)
             # Log limit message
-            self.logger.warn('limit message received', extra={'limit_count': limit_count, 'traptor_type': self.traptor_type, 'traptor_id': self.traptor_id})
+            self.logger.info('limit_message_received', extra=logExtra({'limit_count': limit_count}))
         elif self._message_is_tweet(tweet):
             try:
                 # Add the initial traptor fields
@@ -1158,6 +1158,7 @@ class Traptor(object):
                 if t[0] == self.traptor_type and t[1] == str(self.traptor_id):
                     # Restart flag found for our specific instance
                     self._setRestartSearchFlag(True)
+                    self.logger.info('restart_message_received', extra=logExtra())
 
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
