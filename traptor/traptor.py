@@ -1240,6 +1240,10 @@ class Traptor(object):
                     dd_monitoring.increment('traptor_error_occurred',
                                             tags=['error_type:json_loads_error'])
                 else:
+                    theLogMsg = "Enriching Tweet"
+                    self.logger.info(theLogMsg, extra=logExtra({
+                        'tweet_id': tweet.get('id_str', None)
+                    }))
                     enriched_data = self._enrich_tweet(tweet)
                     # #4204 - since 1.4.13
                     theLogMsg = settings.DWC_SEND_TO_KAFKA_ENRICHED
@@ -1261,6 +1265,8 @@ class Traptor(object):
             if self._getRestartSearchFlag():
                 self.logger.info("Restart flag is true; restarting myself")
                 break
+
+        self.logger.info("Stream iterator has exited.")
 
     def _wait_for_rules(self):
         """Wait for the Redis rules to appear"""
