@@ -1254,6 +1254,9 @@ class Traptor(object):
                                                     tags=['error_type:kafka'])
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
+            else:
+                self.logger.info("Stream keep-alive received")
+
             # Stop processing if we were told to restart
             if self._getRestartSearchFlag():
                 self.logger.info("Restart flag is true; restarting myself")
