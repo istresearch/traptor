@@ -72,12 +72,6 @@ DWG_MATCH_COUNT = {'name': 'Traptor Num Matches For ID',
 DW_ENABLED = bool(os.getenv('DW_ENABLED', 'False') == 'True')
 DW_CONFIG = {
     'name': os.getenv('DW_NAME', 'traptor'),
-    'allow_extra_tags': True,
-    'options': {
-        'statsd_host': os.getenv('DW_STATSD_HOST', 'statsd'),
-        'statsd_port': os.getenv('DW_STATSD_PORT', 8125),
-        'local': bool(os.getenv('DW_LOCAL', 'True') == 'True')
-    },
     'metrics': {
         'counters': [
             ('heartbeat_message_sent_success', 'src.heartbeat.success.count'),
@@ -91,12 +85,19 @@ DW_CONFIG = {
             ('tweet_to_kafka_success', 'src.tweet_to_kafka.success'),
             ('tweet_to_kafka_failure', 'src.tweet_to_kafka.failure'),
             ('limit_message_received', 'src.limit.messages.count'),
-            ('limit_message_count', 'src.limit.current_limited')
+            ('limit_message_count', 'src.limit.current_limited'),
+            ('Stream keep-alive received', 'src.twitter.keepalive')
         ],
         'gauges': [
             (DWG_RULE_COUNT['name'], DWG_RULE_COUNT['key'], DWG_RULE_COUNT['value']),
             (DWG_MATCH_COUNT['name'], DWG_MATCH_COUNT['key'], DWG_MATCH_COUNT['value']),
         ]
+    },
+    'allow_extra_tags': True,
+    'options': {
+        'statsd_host': os.getenv('DW_STATSD_HOST', 'statsd'),
+        'statsd_port': os.getenv('DW_STATSD_PORT', 8125),
+        'local': bool(os.getenv('DW_LOCAL', 'True') == 'True')
     }
 }
 
