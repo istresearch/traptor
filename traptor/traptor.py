@@ -30,7 +30,7 @@ from requests.exceptions import ChunkedEncodingError, ConnectionError, Timeout
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
 
-from traptor.traptor_birdy import TraptorBirdyClient
+from traptor_birdy import TraptorBirdyClient
 from traptor_limit_counter import TraptorLimitCounter
 
 import settings
