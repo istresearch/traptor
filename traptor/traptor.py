@@ -19,16 +19,18 @@ from kafka import KafkaProducer
 # noinspection PyPackageRequirements
 from kafka.common import KafkaUnavailableError
 
-from birdy.twitter import StreamClient, TwitterApiError
+from birdy.twitter import TwitterApiError
 
 from tenacity import retry, wait_exponential, stop_after_attempt, \
         retry_if_exception_type, wait_chain, wait_fixed
 
 from dog_whistle import dw_config, dw_callback
-from requests.exceptions import ChunkedEncodingError
+from requests.exceptions import ChunkedEncodingError, ConnectionError, Timeout
 
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
+
+from traptor_birdy import TraptorBirdyClient
 from traptor_limit_counter import TraptorLimitCounter
 
 import settings
@@ -159,13 +161,6 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
-
-
-# Override the default JSONobject
-class MyBirdyClient(StreamClient):
-    @staticmethod
-    def get_json_object_hook(data):
-        return data
 
 
 class Traptor(object):
@@ -311,7 +306,7 @@ class Traptor(object):
 
         # Set up a birdy twitter streaming client
         self.logger.info('Setting up birdy connection')
-        self.birdy_conn = MyBirdyClient(
+        self.birdy_conn = TraptorBirdyClient(
                 self.apikeys['CONSUMER_KEY'],
                 self.apikeys['CONSUMER_SECRET'],
                 self.apikeys['ACCESS_TOKEN'],
@@ -1230,7 +1225,7 @@ class Traptor(object):
         """
         self.logger.info("Starting tweet processing")
         # Iterate through the twitter results
-        for item in self.birdy_stream._stream_iter():
+        for item in self.birdy_stream.stream():
             if item:
                 try:
                     tweet = json.loads(item)
@@ -1240,6 +1235,10 @@ class Traptor(object):
                     dd_monitoring.increment('traptor_error_occurred',
                                             tags=['error_type:json_loads_error'])
                 else:
+                    theLogMsg = "Enriching Tweet"
+                    self.logger.info(theLogMsg, extra=logExtra({
+                        'tweet_id': tweet.get('id_str', None)
+                    }))
                     enriched_data = self._enrich_tweet(tweet)
                     # #4204 - since 1.4.13
                     theLogMsg = settings.DWC_SEND_TO_KAFKA_ENRICHED
@@ -1254,10 +1253,15 @@ class Traptor(object):
                                                     tags=['error_type:kafka'])
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
+            else:
+                self.logger.info("Stream keep-alive received", extra=logExtra())
+
             # Stop processing if we were told to restart
             if self._getRestartSearchFlag():
-                self.logger.info("Restart flag is true; restarting myself")
+                self.logger.info("Restart flag is true; restarting myself", extra=logExtra())
                 break
+
+        self.logger.info("Stream iterator has exited.", extra=logExtra())
 
     def _wait_for_rules(self):
         """Wait for the Redis rules to appear"""
@@ -1339,6 +1343,15 @@ class Traptor(object):
                 theLogMsg = "Ran into a ChunkedEncodingError while processing "\
                     "tweets. Restarting Traptor from top of main process loop"
                 self.logger.error(theLogMsg, extra=logExtra(e))
+            except (ConnectionError, Timeout) as e:
+                self.logger.error("Connection to Twitter broken.",
+                                  extra=logExtra(e))
+            finally:
+                try:
+                    self.birdy_stream.close()
+                except Exception as e:
+                    self.logger.error("Could not close the stream connection.",
+                                      extra=logExtra(e))
 
 
 def sendRuleToRedis(aRedisConn, aRule, aRuleIndex=sys.maxint):
