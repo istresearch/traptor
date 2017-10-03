@@ -20,29 +20,25 @@ from kafka import KafkaProducer
 # noinspection PyPackageRequirements
 from kafka.common import KafkaUnavailableError
 
-from birdy.twitter import StreamClient, TwitterApiError
+from birdy.twitter import TwitterApiError
 
 from tenacity import retry, wait_exponential, stop_after_attempt, \
         retry_if_exception_type, wait_chain, wait_fixed
 
 from dog_whistle import dw_config, dw_callback
-from requests.exceptions import ChunkedEncodingError
+from requests.exceptions import ChunkedEncodingError, ConnectionError, Timeout
 
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
 
 from rule_set import RuleSet
+from traptor_birdy import TraptorBirdyClient
 from traptor_limit_counter import TraptorLimitCounter
 
-import logging
 import settings
-import hashlib
 import argparse
 import version
 import types
-
-FORMAT = '%(asctime)-15s %(message)s'
-logging.basicConfig(level='INFO', format=FORMAT)
 
 # Vars initialized once, then threadsafe to use
 my_component = 'traptor'
@@ -99,9 +95,9 @@ def logExtra(*info_args):
     """
     result = {
             'component': my_component,
-            my_component+'-type': my_traptor_type,
-            my_component+'-id': my_traptor_id,
-            my_component+'-version': version.__version__,
+            my_component+'_version': version.__version__,
+            'tags': ["traptor_type:{}".format(my_traptor_type),
+                     "traptor_id:{}".format(my_traptor_id)]
     }
     for info in info_args:
         if isinstance(info, types.StringType):
@@ -167,13 +163,6 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
-
-
-# Override the default JSONobject
-class MyBirdyClient(StreamClient):
-    @staticmethod
-    def get_json_object_hook(data):
-        return data
 
 
 class Traptor(object):
@@ -319,7 +308,7 @@ class Traptor(object):
 
         # Set up a birdy twitter streaming client
         self.logger.info('Setting up birdy connection')
-        self.birdy_conn = MyBirdyClient(
+        self.birdy_conn = TraptorBirdyClient(
                 self.apikeys['CONSUMER_KEY'],
                 self.apikeys['CONSUMER_SECRET'],
                 self.apikeys['ACCESS_TOKEN'],
@@ -365,7 +354,7 @@ class Traptor(object):
             self.kafka_conn = None
 
     def _gen_kafka_success(self):
-        def kafka_success(tweet):  # , response):
+        def kafka_success(tweet, response):
             self.logger.info("Tweet sent to kafka", extra=logExtra({
                 'tweet_id': tweet.get('id_str', None)
             }))
@@ -1116,7 +1105,7 @@ class Traptor(object):
             # Store the limit count in Redis
             self._increment_limit_message_counter(limit_count=limit_count)
             # Log limit message
-            self.logger.warn('limit message received', extra={'limit_count': limit_count, 'traptor_type': self.traptor_type, 'traptor_id': self.traptor_id})
+            self.logger.info('limit_message_received', extra=logExtra({'limit_count': limit_count}))
         elif self._message_is_tweet(tweet):
             try:
                 # Add the initial traptor fields
@@ -1177,6 +1166,7 @@ class Traptor(object):
                 if t[0] == self.traptor_type and t[1] == str(self.traptor_id):
                     # Restart flag found for our specific instance
                     self._setRestartSearchFlag(True)
+                    self.logger.info('restart_message_received', extra=logExtra())
 
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
@@ -1248,7 +1238,7 @@ class Traptor(object):
         """
         self.logger.info("Starting tweet processing")
         # Iterate through the twitter results
-        for item in self.birdy_stream._stream_iter():
+        for item in self.birdy_stream.stream():
             if item:
                 try:
                     tweet = json.loads(item)
@@ -1258,6 +1248,10 @@ class Traptor(object):
                     dd_monitoring.increment('traptor_error_occurred',
                                             tags=['error_type:json_loads_error'])
                 else:
+                    theLogMsg = "Enriching Tweet"
+                    self.logger.info(theLogMsg, extra=logExtra({
+                        'tweet_id': tweet.get('id_str', None)
+                    }))
                     enriched_data = self._enrich_tweet(tweet)
                     # #4204 - since 1.4.13
                     theLogMsg = settings.DWC_SEND_TO_KAFKA_ENRICHED
@@ -1272,10 +1266,15 @@ class Traptor(object):
                                                     tags=['error_type:kafka'])
                     else:
                         self.logger.debug(json.dumps(enriched_data, indent=2))
+            else:
+                self.logger.info("Stream keep-alive received", extra=logExtra())
+
             # Stop processing if we were told to restart
             if self._getRestartSearchFlag():
-                self.logger.info("Restart flag is true; restarting myself")
+                self.logger.info("Restart flag is true; restarting myself", extra=logExtra())
                 break
+
+        self.logger.info("Stream iterator has exited.", extra=logExtra())
 
     def _wait_for_rules(self):
         """Wait for the Redis rules to appear"""
@@ -1357,6 +1356,15 @@ class Traptor(object):
                 theLogMsg = "Ran into a ChunkedEncodingError while processing "\
                     "tweets. Restarting Traptor from top of main process loop"
                 self.logger.error(theLogMsg, extra=logExtra(e))
+            except (ConnectionError, Timeout) as e:
+                self.logger.error("Connection to Twitter broken.",
+                                  extra=logExtra(e))
+            finally:
+                try:
+                    self.birdy_stream.close()
+                except Exception as e:
+                    self.logger.error("Could not close the stream connection.",
+                                      extra=logExtra(e))
 
 
 def sendRuleToRedis(aRedisConn, aRule, aRuleIndex=sys.maxint):
@@ -1406,9 +1414,9 @@ def createArgumentParser():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-            '--skipdelay',
+            '--delay',
             action='store_true',  # which defaults to False.
-            help='Skips the artificial delay to wait 30 seconds.'
+            help='Inserts an artificial delay to wait 30 seconds before startup.'
     )
     parser.add_argument(
             '--test',
@@ -1562,7 +1570,7 @@ def main():
         my_logger.register_callback('>=INFO', dw_callback)
 
     # Wait until all the other containers are up and going...
-    if not args.skipdelay:
+    if args.delay:
         print('waiting 30 sec for other containers to get up and going...')
         time.sleep(30)
     else:

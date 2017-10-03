@@ -9,7 +9,8 @@ import pytest
 from mock import MagicMock
 import mockredis
 
-from traptor.traptor import Traptor, MyBirdyClient
+from traptor.traptor import Traptor
+from traptor.traptor_birdy import TraptorBirdyClient
 from traptor.traptor_limit_counter import TraptorLimitCounter
 from scripts.rule_extract import RulesToRedis
 from scutils.log_factory import LogObject
@@ -227,7 +228,7 @@ class TestTraptor(object):
         assert isinstance(traptor.logger, LogObject)
         assert traptor._getRestartSearchFlag() is False
         assert traptor.kafka_conn is None
-        assert isinstance(traptor.birdy_conn, MyBirdyClient)
+        assert isinstance(traptor.birdy_conn, TraptorBirdyClient)
 
     def test_check_redis_pubsub_for_restart(self, traptor):
         """Test pubsub message causes the restart_flag to be set to True."""
