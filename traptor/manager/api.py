@@ -58,6 +58,7 @@ def _validate_follow_rule(value):
 
 def _validate_track_rule(value):
     response = {}
+    value = value.encode('utf-8')
     search_results = get_recent_tweets_by_keyword(value)
     tweet_creation_times = []
     for result in search_results['statuses']:
