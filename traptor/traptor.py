@@ -513,7 +513,7 @@ class Traptor(object):
 
             for rule in rules:
                 try:
-                    if isinstance(rule['value'], (int, long)) or rule['value'].isdigit():
+                    if str(rule['value']).isdigit():
                         valid_rules.append(rule['value'])
                     else:
                         raise ValueError("Invalid follow rule")
