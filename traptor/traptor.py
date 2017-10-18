@@ -1336,7 +1336,9 @@ class Traptor(object):
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
 
             if len(self.twitter_rules) == 0:
-                self.logger.info("No rules returned")
+                self.logger.warn('No valid Redis rules assigned', extra=logExtra({
+                    'sleep_seconds': self.rule_check_interval
+                }))
                 time.sleep(self.rule_check_interval)
                 continue
 
