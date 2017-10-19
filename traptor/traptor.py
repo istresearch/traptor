@@ -507,7 +507,23 @@ class Traptor(object):
             :returns: A ``str`` of twitter rules that can be loaded into the
                       a birdy twitter stream.
         """
-        rules_str = ','.join([rule['value'] for rule in rules])
+
+        if self.traptor_type == 'follow':
+            valid_rules = []
+
+            for rule in rules:
+                try:
+                    if str(rule['value']).isdigit():
+                        valid_rules.append(rule['value'])
+                    else:
+                        raise ValueError("Invalid follow rule")
+                except Exception as e:
+                    self.logger.error("Skipping invalid follow rule", extra=logExtra({"ex": e, "rule": rule}))
+
+            rules_str = ','.join(valid_rules)
+        else:
+            rules_str = ','.join([rule['value'] for rule in rules])
+
         self.logger.debug('Twitter rules', extra=logExtra({
                 'rules_str': rules_str.encode('utf-8')
         }))
@@ -1318,6 +1334,14 @@ class Traptor(object):
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
+
+            if len(self.twitter_rules) == 0:
+                self.logger.warn('No valid Redis rules assigned', extra=logExtra({
+                    'sleep_seconds': self.rule_check_interval
+                }))
+                time.sleep(self.rule_check_interval)
+                continue
+
             self.logger.debug('Twitter rules', extra=logExtra({
                     'dbg-rules': self.twitter_rules.encode('utf-8')
             }))
