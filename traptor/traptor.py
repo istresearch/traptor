@@ -518,9 +518,15 @@ class Traptor(object):
         rule_set = RuleSet()
 
         for rule in rules:
-            rule_set.append(rule)
+            if self.traptor_type == 'follow':
+                if str(rule['value']).isdigit():
+                    rule_set.append(rule)
+                else:
+                    self.logger.error("Skipping invalid follow rule", extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
+            else:
+                rule_set.append(rule)
 
-        phrases = ','.join(six.iterkeys(rule_set.rules_by_value))
+        phrases = u','.join(six.iterkeys(rule_set.rules_by_value))
 
         self.logger.debug('Twitter rules string: {}'.format(phrases.encode('utf-8')))
 
@@ -1331,6 +1337,14 @@ class Traptor(object):
 
             # Concatenate all of the rule['value'] fields
             self.twitter_rules = self._make_twitter_rules(self.redis_rules)
+
+            if len(self.twitter_rules) == 0:
+                self.logger.warn('No valid Redis rules assigned', extra=logExtra({
+                    'sleep_seconds': self.rule_check_interval
+                }))
+                time.sleep(self.rule_check_interval)
+                continue
+
             self.logger.debug('Twitter rules', extra=logExtra({
                     'dbg-rules': self.twitter_rules.encode('utf-8')
             }))

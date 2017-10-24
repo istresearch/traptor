@@ -554,3 +554,12 @@ class TestTraptor(object):
             enriched_data = traptor._enrich_tweet(tweet)
 
             assert enriched_data['traptor']['rule_value'] == 'tweet'
+
+    def test_invalid_follow_returns_blank(self, traptor):
+        traptor.logger = MagicMock()
+        traptor.logger = MagicMock()
+        traptor.logger = MagicMock()
+        traptor.traptor_type = 'follow'
+        rules_str = traptor._make_twitter_rules([{"value": "ishouldbeint"}])
+
+        assert len(rules_str) == 0
