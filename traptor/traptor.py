@@ -13,6 +13,7 @@ import threading
 
 import redis
 import dd_monitoring
+import six
 
 # noinspection PyPackageRequirements
 from kafka import KafkaProducer
@@ -30,6 +31,7 @@ from requests.exceptions import ChunkedEncodingError, ConnectionError, Timeout
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
 
+from rule_set import RuleSet
 from traptor_birdy import TraptorBirdyClient
 from traptor_limit_counter import TraptorLimitCounter
 
@@ -499,35 +501,36 @@ class Traptor(object):
             sys.exit(3)
 
     def _make_twitter_rules(self, rules):
-        """ Convert the rules from redis into a format compatible with the
-            Twitter API.
-
-            :param list rules: The rules are expected to be a list of
-                                dictionaries that comes from redis.
-            :returns: A ``str`` of twitter rules that can be loaded into the
-                      a birdy twitter stream.
         """
+        Convert the rules from redis into a format compatible with the
+        Twitter API.
 
-        if self.traptor_type == 'follow':
-            valid_rules = []
+        This uses the RuleSet data structure, lifted from the Traptor Rule
+        Manager, to ensure the resulting filter phrase list is consistent with
+        the intent of the rule manager assignment and rule value de-duplication
+        is properly handled.
 
-            for rule in rules:
-                try:
-                    if str(rule['value']).isdigit():
-                        valid_rules.append(rule['value'])
-                    else:
-                        raise ValueError("Invalid follow rule")
-                except Exception as e:
-                    self.logger.error("Skipping invalid follow rule", extra=logExtra({"ex": e, "rule": rule}))
+        :param list rules: The rules are expected to be a list of
+                            dictionaries that comes from redis.
+        :returns: A ``str`` of twitter rules that can be loaded into the
+                  a birdy twitter stream.
+        """
+        rule_set = RuleSet()
 
-            rules_str = ','.join(valid_rules)
-        else:
-            rules_str = ','.join([rule['value'] for rule in rules])
+        for rule in rules:
+            if self.traptor_type == 'follow':
+                if str(rule['value']).isdigit():
+                    rule_set.append(rule)
+                else:
+                    self.logger.error("Skipping invalid follow rule", extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
+            else:
+                rule_set.append(rule)
 
-        self.logger.debug('Twitter rules', extra=logExtra({
-                'rules_str': rules_str.encode('utf-8')
-        }))
-        return rules_str
+        phrases = u','.join(six.iterkeys(rule_set.rules_by_value))
+
+        self.logger.debug('Twitter rules string: {}'.format(phrases.encode('utf-8')))
+
+        return phrases
 
     def _create_rule_counter(self, rule_id):
         """
