@@ -323,6 +323,7 @@ class TestTraptor(object):
     def test_ensure_traptor_builds_the_correct_filter_string(self, traptor):
 
         traptor.logger = MagicMock()
+        traptor.traptor_type = 'track'
 
         traptor.twitter_rules = traptor._make_twitter_rules([
             {
