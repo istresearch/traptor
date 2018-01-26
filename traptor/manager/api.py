@@ -7,19 +7,18 @@ from scutils.log_factory import LogFactory
 from traptor import settings
 from __strings__ import *
 
-if settings.API_BACKEND == 'piscina':
-    from backends.piscina import get_userid_for_username, get_recent_tweets_by_keyword
-else: 
-    from backends.local import get_userid_for_username, get_recent_tweets_by_keyword
-
 # Initialize Logging
-
 logger = LogFactory.get_instance(name=os.getenv('LOG_NAME', settings.LOG_NAME),
             json=os.getenv('LOG_JSON', settings.LOG_JSON) == 'True',
             stdout=os.getenv('LOG_STDOUT', settings.LOG_STDOUT) == 'True',
             level=os.getenv('LOG_LEVEL', settings.LOG_LEVEL),
             dir=os.getenv('LOG_DIR', settings.LOG_DIR),
             file=os.getenv('LOG_FILE', settings.LOG_FILE))
+
+if settings.API_BACKEND == 'piscina':
+    from backends.piscina import get_userid_for_username, get_recent_tweets_by_keyword
+else: 
+    from backends.local import get_userid_for_username, get_recent_tweets_by_keyword
 
 if settings.DW_ENABLED:
     dw_config(settings.DW_CONFIG)
