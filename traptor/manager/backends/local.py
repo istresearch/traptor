@@ -2,6 +2,7 @@ import os
 from birdy.twitter import AppClient, TwitterClientError
 from traptor import settings
 from api import logger
+from time import sleep
 
 def retry_on_error(func):
     def func_wrapper(*args, **kwargs):
@@ -16,6 +17,7 @@ def retry_on_error(func):
                 if ex_str.find("Connection aborted") > -1:
                     retries += 1
                     logger.debug("Connection aborted, retrying {}/{}".format(retries, settings.TWITTERAPI_RETRY))
+                    sleep(.05)
 
                     if retries == settings.TWITTERAPI_RETRY:
                         raise
