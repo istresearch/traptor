@@ -101,6 +101,8 @@ DW_CONFIG = {
     }
 }
 
+TWITTERAPI_RETRY = 3
+
 # Local Overrides
 # ~~~~~~~~~~~~~~~
 
