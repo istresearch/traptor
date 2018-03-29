@@ -1,0 +1,78 @@
+build_env: &build_env
+  environment:
+    - project_tag: traptor
+    - version_tag: 3.2.4-dev
+    - ansible_branch: develop
+    - ansible_host: tutils@techops-utils.istresearch.com
+version: 2
+jobs:
+  build:
+    <<: *build_env
+    docker:
+      - image: docker
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Build Image
+          command: docker build -t istresearch/${project_tag}:${version_tag} -f Dockerfile .
+      - run: 
+          name: Run Tests
+          command: docker run istresearch/${project_tag}:${version_tag} bash -c 'python -m pytest -vv tests/test_traptor_offline.py'
+      - run:
+          name: Log in to Dockerhub
+          command: docker login -u $DOCKER_USER -p $DOCKER_PASS
+      - run:
+          name: Push Image
+          command: docker push istresearch/${project_tag}:${version_tag}
+  deploy:
+    <<: *build_env
+    docker:
+      - image: docker
+    steps:
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update bash openssh git
+      - run:
+          name: Configure SSH
+          command: |
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+            chmod 600 ~/.ssh/known_hosts
+            echo "Host *" > ~/.ssh/config
+            echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+      - run:
+          name: Clone ansible repo
+          command: git clone -b $ansible_branch git@github.com:istresearch/ansible-symphony-ist.git
+      - run:
+          name: Add vault file
+          command: echo $ANSIBLE_VAULT_KEY >> ansible-symphony-ist/vault.passwd
+      - run:
+          name: Patch ansible control_path
+          command: sed -i 's/control_path/#control_path/g' ansible-symphony-ist/ansible.cfg
+      - run:
+          name: Remove docker-all role dependencies for now
+          command: echo "" > ansible-symphony-ist/private_roles/docker-all/meta/main.yaml
+      - run:
+          name: Run ansible 
+          command: |
+            ssh $ansible_host mkdir -p /tmp/circleci_$project_tag/$CIRCLE_SHA1
+            scp -r ansible-symphony-ist $ansible_host:/tmp/circleci_$project_tag/$CIRCLE_SHA1/ansible-symphony-ist
+            ssh $ansible_host bash <<EOF
+              cd /tmp/circleci_$project_tag/$CIRCLE_SHA1/ansible-symphony-ist 
+              ansible-playbook -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes site-docker-infrastructure.yml
+            EOF
+
+workflows:
+  version: 2
+  build_workflow:
+    jobs:
+      - build:
+          context: globalconfig
+      - deploy:
+          context: globalconfig
+          requires:
+            - build
