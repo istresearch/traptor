@@ -63,7 +63,7 @@ jobs:
             scp -r ansible-symphony-ist $ansible_host:/tmp/circleci_$project_tag/$CIRCLE_SHA1/ansible-symphony-ist
             ssh $ansible_host bash <<EOF
               cd /tmp/circleci_$project_tag/$CIRCLE_SHA1/ansible-symphony-ist 
-              ansible-playbook -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes site-docker-infrastructure.yml
+              ansible-playbook -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes -e traptor_tag=$version_tag site-docker-infrastructure.yml
             EOF
 
 workflows:
