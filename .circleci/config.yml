@@ -39,7 +39,7 @@ jobs:
             echo $ANSIBLE_VAULT_KEY >> ansible-symphony-ist/vault.passwd
             sed -i 's/control_path/#control_path/g' ansible-symphony-ist/ansible.cfg
             echo '' > ansible-symphony-ist/private_roles/docker-all/meta/main.yaml
-            tar -czpf - ansible-symphony-ist | ssh $ANSIBLE_HOST "mkdir -p $WORKDIR ; tar -xzpf - -C $WORKDIR ; cd ${WORKDIR}/ansible-symphony-ist ; ansible-playbook -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes site-docker-infrastructure.yml"
+            tar -czpf - ansible-symphony-ist | ssh -l $ANSIBLE_EXECUTOR_USER $ANSIBLE_EXECUTOR_HOST "mkdir -p $WORKDIR ; tar -xzpf - -C $WORKDIR ; cd ${WORKDIR}/ansible-symphony-ist ; ansible-playbook -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes site-docker-infrastructure.yml"
         
 workflows:
   version: 2
