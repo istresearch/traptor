@@ -1,7 +1,7 @@
 build_env: &build_env
   environment:
     - project_tag: traptor
-    - version_tag: 3.2.4-dev
+    - version_tag: 3.2.4dev
     - ansible_branch: develop
     - ansible_host: tutils@techops-utils.istresearch.com
 version: 2
