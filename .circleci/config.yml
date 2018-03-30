@@ -1,0 +1,55 @@
+version: 2
+jobs:
+  run:
+    docker:
+      - image: docker
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Build 
+          command: |
+            apk add --update python openssh git
+            IMAGE_BASE=istresearch/traptor
+            DOCKER_CI_IMAGE_TAG="${IMAGE_BASE}:ci-develop"
+            BRANCH=${CIRCLE_BRANCH#*/}
+            VERSION=`python traptor/version.py`
+            if [[ ! -z $CIRCLE_TAG ]]; then
+              VERSION_TAG="${VERSION}"
+            elif [[ $BRANCH == develop ]]; then
+              VERSION_TAG="${VERSION}-dev"
+            else
+              VERSION_TAG="ci-${VERSION}-${BRANCH}"
+            fi
+            DOCKER_IMAGE_TAG="${IMAGE_BASE}:${VERSION_TAG}"
+            docker build -t $DOCKER_CI_IMAGE_TAG -t $DOCKER_IMAGE_TAG -f Dockerfile .
+            docker run $DOCKER_CI_IMAGE_TAG bash -c 'python -m pytest -vv tests/test_traptor_offline.py'
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+            docker push $DOCKER_CI_IMAGE_TAG
+            docker push $DOCKER_IMAGE_TAG
+      - run:
+          name: Deploy
+          command: |
+            BRANCH=${CIRCLE_BRANCH#*/}
+            if [[ $BRANCH == develop ]] || [[ $BRANCH == master ]]; then
+              WORKDIR="/tmp/circleci_traptor/${CIRCLE_SHA1}"
+              mkdir -p ~/.ssh
+              echo "Host *" > ~/.ssh/config
+              echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+              git clone -b develop git@github.com:istresearch/ansible-symphony-ist.git
+              echo $ANSIBLE_VAULT_KEY >> ansible-symphony-ist/vault.passwd
+              sed -i 's/control_path/#control_path/g' ansible-symphony-ist/ansible.cfg
+              tar -czpf - ansible-symphony-ist | ssh -l $ANSIBLE_EXECUTOR_USER $ANSIBLE_EXECUTOR_HOST "mkdir -p $WORKDIR ; tar -xzpf - -C $WORKDIR" 
+              ssh -l $ANSIBLE_EXECUTOR_USER $ANSIBLE_EXECUTOR_HOST "cd ${WORKDIR}/ansible-symphony-ist ; ansible-playbook -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes site-docker-infrastructure.yml"
+            else
+              echo "Skipping deploy step"
+            fi
+        
+workflows:
+  version: 2
+  pipeline:
+    jobs:
+      - run:
+          context: globalconfig
+
