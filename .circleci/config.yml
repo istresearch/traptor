@@ -2,7 +2,7 @@ version: 2
 jobs:
   run:
     docker:
-      - image: docker
+      - image: docker:18.03.0
     steps:
       - checkout
       - setup_remote_docker:
