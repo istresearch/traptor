@@ -1,6 +1,7 @@
 import dateutil.parser as parser
 import os
 import traceback
+import json
 from functools import wraps
 from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
@@ -33,7 +34,12 @@ def validate(rule):
         if rule['type'] in ('keyword', 'hashtag'):
             result = _validate_track_rule(rule['value'])
         if rule['type'] in ('geo',):
-            result = _validate_geo_rule(rule['value'])
+            try:
+                value = json.loads(rule.get('metadata', {}).get('complex_value', ''))
+            except Exception:
+                value = rule['value']
+
+            result = _validate_geo_rule(value)
         for kk in result:
             response[kk] = result[kk]
         status_code = 200 if result['status'] == 'ok' else 500
