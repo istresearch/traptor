@@ -26,6 +26,26 @@ services:
       - DW_STATSD_PORT=8125 # port statsd container is listening on
     restart: always
 
+  healthcheck:
+    build: .
+    volumes:
+      - .:/code
+      - ./logs:/var/log/traptor
+    env_file:
+      - ./traptor.env
+    depends_on:
+      - redis
+    command: ["python2", "traptor/healthcheck.py"]
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=2
+      - DW_ENABLED=True
+      - DW_LOCAL=True # True for local dev
+      - DW_STATSD_HOST=statsd # on a linux host set to 172.17.0.1 and on mac os host set to docker.for.mac.localhost
+      - DW_STATSD_PORT=8125 # port statsd container is listening on
+    restart: always
+
   redis:
     image: redis:2.8.17
     ports:
