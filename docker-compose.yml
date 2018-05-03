@@ -4,6 +4,7 @@ services:
 
   traptor:
     build: .
+    image: istresearch/traptor
     volumes:
       - .:/code
       - ./logs:/var/log/traptor
@@ -27,7 +28,7 @@ services:
     restart: always
 
   healthcheck:
-    build: .
+    image: istresearch/traptor
     volumes:
       - .:/code
       - ./logs:/var/log/traptor

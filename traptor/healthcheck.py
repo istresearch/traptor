@@ -10,8 +10,6 @@ from threading import Thread
 from scutils.log_factory import LogFactory
 from dog_whistle import dw_config, dw_callback
 from pykafka import KafkaClient
-from apiclient.discovery import build
-from apiclient.errors import HttpError
 
 
 class HealthCheck:
@@ -34,7 +32,7 @@ class HealthCheck:
 
         if settings.DW_ENABLED:
             self.logger.debug("Enabling dogwhistle")
-            dw_config(settings.DW_SETTINGS)
+            dw_config(settings.DW_CONFIG)
             self.logger.register_callback('>=INFO', dw_callback)
 
         signal.signal(signal.SIGINT, self.close)
@@ -53,14 +51,19 @@ class HealthCheck:
                                          db=os.getenv('REDIS_DB', settings.REDIS_DB))
 
                 if redis_client.ping():
-                    self.logger.info('redis_ping')
+                    status = {'int': 1, 'string': 'success' }
+                    self.logger.info('redis_ping_status', extra={"status": status})
                 else:
-                    self.logger.error('redis_ping_error')
+                    status = {'int': 0, 'string': 'failure' }
+                    self.logger.error('redis_ping_status', extra={"status": status})
             except Exception as ex:
                 redis_client = None
-                self.logger.error('redis_ping_error',
-                                  extra={"exception": str(ex),
-                                         "ex": traceback.format_exc()})
+                status = {'int': 0, 'string': 'failure' }
+                self.logger.error('redis_ping_status', extra={
+                    "exception": str(ex),
+                     "ex": traceback.format_exc(),
+                     "status": status
+                 })
 
             time.sleep(int(settings.HEALTHCHECK_REDIS_SLEEP))
 
@@ -92,15 +95,18 @@ class HealthCheck:
             time.sleep(int(settings.HEALTHCHECK_KAFKA_SLEEP))
 
     def run(self):
+        self.logger.info('Traptor healthcheck start up')
         self.logger.debug('Waiting before starting, to let kafka/redis in catch up')
         time.sleep(10)
 
         if int(settings.HEALTHCHECK_REDIS_SLEEP) > 0:
+            self.logger.info('Traptor Redis healthcheck started')
             self.redis_thread = Thread(target=self._check_redis)
             self.redis_thread.setDaemon(True)
             self.redis_thread.start()
 
         if int(settings.HEALTHCHECK_KAFKA_SLEEP) > 0:
+            self.logger.info('Traptor Kafka healthcheck started')
             self.kafka_thread = Thread(target=self._check_kafka)
             self.kafka_thread.setDaemon(True)
             self.kafka_thread.start()
