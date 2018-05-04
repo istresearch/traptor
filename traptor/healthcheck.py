@@ -11,6 +11,8 @@ from scutils.log_factory import LogFactory
 from dog_whistle import dw_config, dw_callback
 from pykafka import KafkaClient
 
+from birdy.twitter import StreamClient
+
 
 class HealthCheck:
     running = True
@@ -18,6 +20,7 @@ class HealthCheck:
 
     redis_thread = None
     kafka_thread = None
+    twitter_thread = None
 
     def __init__(self):
         self.logger = LogFactory.get_instance(json=os.getenv('LOG_JSON', 'True') == 'True',
@@ -81,18 +84,60 @@ class HealthCheck:
                     kafka_client.update_cluster()
 
                 if kafka_client:
-                    self.logger.info('kafka_ping')
+                    status = {'int': 1, 'string': 'success' }
+                    self.logger.info('kafka_ping_status', extra={"status": status})
                 else:
-                    self.logger.info('kafka_ping_error')
+                    status = {'int': 0, 'string': 'failure' }
+                    self.logger.error('kafka_ping_status', extra={"status": status})
 
             except Exception as ex:
                 #reset kafka so we can try to reopen it!
                 kafka_client = None
-                self.logger.error('kafka_ping_error',
-                                  extra={"exception": str(ex),
-                                         "ex": traceback.format_exc()})
+                status = {'int': 0, 'string': 'failure' }
+                self.logger.error('kafka_ping_status', extra={
+                    "exception": str(ex),
+                     "ex": traceback.format_exc(),
+                     "status": status
+                 })
 
             time.sleep(int(settings.HEALTHCHECK_KAFKA_SLEEP))
+
+    def _check_twitter(self):
+        twitter_stream = None
+
+        while self.running:
+            try:
+                self.logger.info('checking_twitter')
+
+                if twitter_stream is None:
+		    twitter_client = StreamClient(
+                        os.getenv('CONSUMER_KEY'),
+                        os.getenv('CONSUMER_SECRET'),
+                        os.getenv('ACCESS_TOKEN'),
+                        os.getenv('ACCESS_TOKEN_SECRET')
+                    )
+                    twitter_resource = twitter_client.stream.statuses.filter.post(track='twitter')
+                    twitter_stream = twitter_resource.stream()
+
+                tweet_data = next(twitter_stream)
+                if tweet_data:
+                    status = {'int': 1, 'string': 'success' }
+                    self.logger.info('twitter_ping_status', extra={"status": status})
+                else:
+                    status = {'int': 0, 'string': 'failure' }
+                    self.logger.error('twitter_ping_status', extra={"status": status})
+
+            except Exception as ex:
+                #reset twitter so we can try to reopen it!
+                twitter_stream = None
+                status = {'int': 0, 'string': 'failure' }
+                self.logger.error('twitter_ping_status', extra={
+                    "exception": str(ex),
+                     "ex": traceback.format_exc(),
+                     "status": status
+                 })
+
+            time.sleep(int(settings.HEALTHCHECK_TWITTER_SLEEP))
 
     def run(self):
         self.logger.info('Traptor healthcheck start up')
@@ -110,6 +155,12 @@ class HealthCheck:
             self.kafka_thread = Thread(target=self._check_kafka)
             self.kafka_thread.setDaemon(True)
             self.kafka_thread.start()
+
+        if int(settings.HEALTHCHECK_TWITTER_SLEEP) > 0:
+            self.logger.info('Traptor Twitter healthcheck started')
+            self.twitter_thread = Thread(target=self._check_twitter)
+            self.twitter_thread.setDaemon(True)
+            self.twitter_thread.start()
 
         heartbeat_period = int(settings.HEARTBEAT_PERIOD)
         if heartbeat_period < 1:
