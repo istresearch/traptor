@@ -4,6 +4,7 @@ services:
 
   traptor:
     build: .
+    image: istresearch/traptor
     volumes:
       - .:/code
       - ./logs:/var/log/traptor
@@ -24,6 +25,32 @@ services:
       - DW_LOCAL=True # True for local dev
       - DW_STATSD_HOST=statsd # on a linux host set to 172.17.0.1 and on mac os host set to docker.for.mac.localhost
       - DW_STATSD_PORT=8125 # port statsd container is listening on
+    restart: always
+
+  healthcheck:
+    image: istresearch/traptor
+    volumes:
+      - .:/code
+      - ./logs:/var/log/traptor
+    env_file:
+      - ./traptor.env
+    depends_on:
+      - redis
+    command: ["python2", "traptor/healthcheck.py"]
+    environment:
+      - KAFKA_HOSTS=kafka:9092
+      - KAFKA_TOPIC=traptor
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=2
+      - DW_ENABLED=True
+      - DW_LOCAL=False # True for local dev
+      - LOG_STDOUT=True # True for local dev
+      - DW_STATSD_HOST=172.17.0.1 # on a linux host set to 172.17.0.1 and on mac os host set to docker.for.mac.localhost
+      - DW_STATSD_PORT=8125 # port statsd container is listening on
+      - HEALTHCHECK_REDIS_SLEEP=30
+      - HEALTHCHECK_KAFKA_SLEEP=30
+      - HEALTHCHECK_TWITTER_SLEEP=60
     restart: always
 
   redis:
