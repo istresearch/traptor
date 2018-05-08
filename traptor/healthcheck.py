@@ -35,7 +35,14 @@ class HealthCheck:
 
         if settings.DW_ENABLED:
             self.logger.debug("Enabling dogwhistle")
-            dw_config(settings.DW_CONFIG)
+            default_tags = {
+                "tags": [
+                    "traptor_type:{}".format(os.getenv('TRAPTOR_TYPE')),
+                    "traptor_id:{}".format(os.getenv('TRAPTOR_ID'))
+                ]
+            }
+            dw_settings = dict(settings.DW_CONFIG.items() + default_tags.items())
+            dw_config(dw_settings)
             self.logger.register_callback('>=INFO', dw_callback)
 
         signal.signal(signal.SIGINT, self.close)
