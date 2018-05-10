@@ -91,6 +91,9 @@ DW_CONFIG = {
         'gauges': [
             (DWG_RULE_COUNT['name'], DWG_RULE_COUNT['key'], DWG_RULE_COUNT['value']),
             (DWG_MATCH_COUNT['name'], DWG_MATCH_COUNT['key'], DWG_MATCH_COUNT['value']),
+            ('redis_ping_status', 'redis_ping_status', 'status.int'),
+            ('kafka_ping_status', 'kafka_ping_status', 'status.int'),
+            ('twitter_ping_status', 'twitter_ping_status', 'status.int'),
         ]
     },
     'allow_extra_tags': True,
@@ -102,6 +105,12 @@ DW_CONFIG = {
 }
 
 TWITTERAPI_RETRY = 3
+
+HEALTHCHECK_TIMEOUT = os.getenv('HEALTHCHECK_TIMEOUT', 10)
+HEARTBEAT_PERIOD = int(os.getenv('HEARTBEAT_PERIOD', 100))
+HEALTHCHECK_REDIS_SLEEP = os.getenv('HEALTHCHECK_REDIS_SLEEP', 30)
+HEALTHCHECK_KAFKA_SLEEP = os.getenv('HEALTHCHECK_KAFKA_SLEEP', 30)
+HEALTHCHECK_TWITTER_SLEEP = os.getenv('HEALTHCHECK_TWITTER_SLEEP', 30)
 
 # Local Overrides
 # ~~~~~~~~~~~~~~~
