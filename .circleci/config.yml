@@ -52,4 +52,6 @@ workflows:
     jobs:
       - run:
           context: globalconfig
-
+          filters:
+            tags:
+              ignore: /^test-.*/
