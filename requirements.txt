@@ -21,3 +21,4 @@ tenacity>=4.0.1,<=4.3
 urllib3==1.21.1
 uwsgi==2.0.15
 pykafka==2.6.0
+gevent==1.2.2
