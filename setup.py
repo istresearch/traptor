@@ -28,8 +28,7 @@ install_requires = [
     'scutils>=0.0.6',
     'flatdict',
     'raven',
-    'datadog',
-    'gevent==1.2.2' # https://github.com/Parsely/pykafka/issues/801
+    'datadog'
 ]
 
 lint_requires = [
