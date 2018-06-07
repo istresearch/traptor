@@ -518,11 +518,19 @@ class Traptor(object):
         rule_set = RuleSet()
 
         for rule in rules:
-            if self.traptor_type == 'follow':
+            # Enforce some constraints
+            if self.traptor_type == 'track':
+                # The rule value is already unicode encoded at this point
+                if len(rule['value']) <= 60:
+                    rule_set.append(rule)
+                else:
+                    self.logger.error("Skipping invalid track rule, over 60 bytes", extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
+
+            elif self.traptor_type == 'follow':
                 if str(rule['value']).isdigit():
                     rule_set.append(rule)
                 else:
-                    self.logger.error("Skipping invalid follow rule", extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
+                    self.logger.error("Skipping invalid follow rule, not numeric", extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
             else:
                 rule_set.append(rule)
 
