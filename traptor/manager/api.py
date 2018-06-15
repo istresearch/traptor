@@ -26,30 +26,34 @@ if settings.DW_ENABLED:
     logger.register_callback('>=INFO', dw_callback)
 
 def validate(rule):
+    status_code = 200
     response = {}
     response['context'] = rule
     try:
         if rule['type'] in ('username',):
-            result = _validate_follow_rule(rule['value'])
+            result, status_code = _validate_follow_rule(rule['value'])
         if rule['type'] in ('keyword', 'hashtag'):
-            result = _validate_track_rule(rule['value'])
+            result, status_code = _validate_track_rule(rule['value'])
         if rule['type'] in ('geo',):
             try:
                 value = json.loads(rule.get('metadata', {}).get('complex_value', ''))
             except Exception:
                 value = rule['value']
 
-            result = _validate_geo_rule(value)
+            result, status_code = _validate_geo_rule(value)
+
         for kk in result:
             response[kk] = result[kk]
-        status_code = 200 if result['status'] == 'ok' else 500
+
     except Exception as e:
         response['result'] = {'status': 'error', 'error': str(e), 'detail': traceback.format_exc()}
         status_code = 500
+
     logger.info(VALIDATE_RULE, extra={'request': rule, 'response': response, 'status_code': status_code})
     return response, status_code
 
 def _validate_follow_rule(value):
+    code = 200
     response = {}
     if value[0] == '@':
         value = value[1:]
@@ -59,11 +63,23 @@ def _validate_follow_rule(value):
     except Exception as e:
         response['error'] = str(e)
         response['status'] = 'error'
-    return response
+        code = 500
+    return response, code
 
 def _validate_track_rule(value):
     response = {}
+    code = 200
     value = value.encode('utf-8')
+
+    if len(value) > 60:
+        msg = "The byte length of the track phrase is over 60."
+        logger.error(msg, extra={'value_num': len(value)})
+        response['tweets_per_second'] = 0
+        response['status'] = 'error'
+        response['error'] = msg
+        code = 400
+        return response, code
+
     search_results = get_recent_tweets_by_keyword(value)
     tweet_creation_times = []
     for result in search_results['statuses']:
@@ -94,9 +110,10 @@ def _validate_track_rule(value):
     else:
         response['tweets_per_second'] = 0
         response['status'] = 'ok'
-    return response
+    return response, code
 
 def _validate_geo_rule(value):
+    code = 200
     response = {}
     if isinstance(value, basestring):
         try:    
@@ -106,12 +123,14 @@ def _validate_geo_rule(value):
                 if not ((-90 <= float(lat) <= 90) and (-180 <= float(lon) <= 180)):
                     response['status'] = 'error'
                     response['error'] = 'Lat/lon out of range: {}, {}'.format(lat, lon)
+                    code = 500
                     logger.warn('Lat/lon out of range', extra={'lat': lat, 'lon': lon})
             if response['status'] == 'ok':
                 response['geo_type'] = 'legacy'
         except Exception as e:
             response['status'] = 'error'
             response['error'] = str(e)
+            code = 500
     if isinstance(value, dict):
         try:    
             type = value.get('type')
@@ -148,4 +167,5 @@ def _validate_geo_rule(value):
         except Exception as e:
             response['status'] = 'error'
             response['error'] = str(e)
-    return response
+            code = 500
+    return response, code
