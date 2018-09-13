@@ -22,7 +22,6 @@ paths:
             type: object
             required:
               - type
-              - value
             properties:
               type:
                 type: string
@@ -31,8 +30,6 @@ paths:
                   - 'geo'
                   - 'keyword'
                   - 'username'
-              value:
-                type: object
       responses:
         200:
           description: Success
