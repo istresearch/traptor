@@ -86,7 +86,8 @@ DW_CONFIG = {
             ('tweet_to_kafka_failure', 'src.tweet_to_kafka.failure'),
             ('limit_message_received', 'src.limit.messages.count'),
             ('limit_message_count', 'src.limit.current_limited'),
-            ('Stream keep-alive received', 'src.twitter.keepalive')
+            ('Stream keep-alive received', 'src.twitter.keepalive'),
+            ('Waiting for rules', 'src.rules.waiting')
         ],
         'gauges': [
             (DWG_RULE_COUNT['name'], DWG_RULE_COUNT['key'], DWG_RULE_COUNT['value']),

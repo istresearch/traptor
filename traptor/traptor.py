@@ -1295,13 +1295,10 @@ class Traptor(object):
         # Get the list of rules from Redis
         self.redis_rules = [rule for rule in self._get_redis_rules()]
 
-        if len(self.redis_rules) == 0:
-            self.logger.info('Waiting for rules', extra=logExtra())
-
         # If there are no rules assigned to this Traptor, simma down and wait a minute
         while len(self.redis_rules) == 0:
-            self.logger.debug('No Redis rules assigned', extra=logExtra({
-                    'sleep_seconds': self.rule_check_interval
+            self.logger.info('Waiting for rules', extra=logExtra({
+                'sleep_seconds': self.rule_check_interval
             }))
             time.sleep(self.rule_check_interval)
             self.redis_rules = [rule for rule in self._get_redis_rules()]
@@ -1339,7 +1336,7 @@ class Traptor(object):
         self.logger.debug("Heartbeat started. Now to check for the rules")
 
         # Do all the things
-        while True:
+        while True: # TODO Ensure we handle clean exits on signal
             self._delete_rule_counters()
             self._wait_for_rules()
 
