@@ -468,7 +468,7 @@ class Traptor(object):
     @retry(
         wait=wait_incrementing(60, 60, 300),
         stop=stop_never,
-        retry=retry_if_exception_type_with_caveat((BirdyException, TwitterApiError), excluding=TwitterAuthError),
+        retry=retry_if_exception_type_with_caveat(BirdyException, excluding=TwitterAuthError),
         reraise=True,
         after=log_retry_twitter,
     )
@@ -1181,14 +1181,14 @@ class Traptor(object):
 
                 pubsub = self.pubsub_conn.pubsub(ignore_subscribe_messages=True)
                 pubsub.subscribe(self.traptor_notify_channel)
-                # listen() is a generator that blocks until a message is available
+
                 while not self.exit:
-                #for msg in pubsub.listen():
                     msg = pubsub.get_message(timeout=1)
                     if msg is not None:
                         data = str(msg['data'])
                         t = data.split(':')
                         self.logger.debug('PubSub', extra=logExtra(t))
+
                         if t[0] == self.traptor_type and t[1] == str(self.traptor_id):
                             # Restart flag found for our specific instance
                             self._setRestartSearchFlag(True)
