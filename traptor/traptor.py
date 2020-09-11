@@ -55,18 +55,8 @@ class retry_if_exception_type_with_caveat(retry_if_exception):
         self.exception_types = exception_types
         self.excluding_types = excluding
 
-        def p(e):
-            et = type(e)
-
-            if isinstance(e, exception_types):
-                if not isinstance(e, excluding):
-                    return True
-            return False
-
-
         super(retry_if_exception_type_with_caveat, self).__init__(
-            p
-            #lambda e: isinstance(e, exception_types) and not isinstance(e, excluding)
+            lambda e: isinstance(e, exception_types) and not isinstance(e, excluding)
         )
 
 
