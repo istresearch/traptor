@@ -272,6 +272,7 @@ class Traptor(object):
         # Semaphore used to make accessing properties thread-safe
         self.my_rlock = threading.RLock()
 
+        self.rule_wait_event = threading.Event()
         self.exit_event = threading.Event()
         self.exit = False
 
@@ -290,6 +291,9 @@ class Traptor(object):
 
         self.exit = True
         self.exit_event.set()
+
+        # If we're currently waiting on rule assignment, wake up
+        self.rule_wait_event.set()
 
     def __repr__(self):
         return 'Traptor(' \
@@ -326,6 +330,7 @@ class Traptor(object):
         self.logger.debug(theLogMsg, extra=logExtra(str(aValue)))
         with self.my_rlock:
             self._NEEDS_SEMAPHORE_restart_flag = aValue
+            self.rule_wait_event.set()
 
     def _hb_interval(self, interval=None):
         """
@@ -351,7 +356,7 @@ class Traptor(object):
         """
 
         # Set up a birdy twitter streaming client
-        self.logger.info('Setting up birdy connection')
+        self.logger.info('Setting up birdy client')
         self.birdy_conn = TraptorBirdyClient(
                 self.apikeys['CONSUMER_KEY'],
                 self.apikeys['CONSUMER_SECRET'],
@@ -386,7 +391,7 @@ class Traptor(object):
                 self._create_kafka_producer()
             except Exception as e:
                 theLogMsg = "Caught Kafka Unavailable Error"
-                self.logger.critical(theLogMsg, extra=logExtra(e))
+                self.logger.critical(theLogMsg, extra=logExtra({'value_str': str(self.kafka_hosts)}, e))
                 dd_monitoring.increment('kafka_error',
                                         tags=['error_type:kafka_unavailable'])
                 # sys.exit(3)
@@ -507,7 +512,7 @@ class Traptor(object):
                                         tags=['error_type:not_implemented_error'])
         except Exception as e:
             theLogMsg = "Caught Twitter Api Error creating {} stream".format(self.traptor_type)
-            self.logger.critical(theLogMsg, extra=logExtra(e))
+            self.logger.error(theLogMsg, extra=logExtra(e))
             dd_monitoring.increment('twitter_error_occurred',
                                     tags=['error_type:twitter_api_error'])
             raise
@@ -1187,7 +1192,9 @@ class Traptor(object):
                 pubsub = self.pubsub_conn.pubsub(ignore_subscribe_messages=True)
                 pubsub.subscribe(self.traptor_notify_channel)
                 # listen() is a generator that blocks until a message is available
-                for msg in pubsub.listen():
+                while not self.exit:
+                #for msg in pubsub.listen():
+                    msg = pubsub.get_message(timeout=1)
                     if msg is not None:
                         data = str(msg['data'])
                         t = data.split(':')
@@ -1208,6 +1215,8 @@ class Traptor(object):
                         raise
                     except Exception as e:
                         self.logger.error("Exception caught closing redis pub/sub listener", extra=logExtra(e))
+
+        self.logger.info("The redis pub/sub listener is exiting.", extra=logExtra())
 
 
     @retry(
@@ -1246,6 +1255,8 @@ class Traptor(object):
                 self.logger.info("Withholding heartbeat, not accepting rule assignments", extra=logExtra({}))
 
             self.exit_event.wait(self._hb_interval())
+
+        self.logger.info("The heartbeat loop is exiting.", extra=logExtra())
 
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
@@ -1331,7 +1342,12 @@ class Traptor(object):
             self.logger.info('Waiting for rules', extra=logExtra({
                 'sleep_seconds': self.rule_check_interval
             }))
-            self.exit_event.wait(self.rule_check_interval)
+            self.rule_wait_event.wait(self.rule_check_interval)
+            self.rule_wait_event.clear()
+
+            if self.exit:
+                return
+
             self.redis_rules = [rule for rule in self._get_redis_rules()]
 
         # We got rules, tell my supervisors about them
@@ -1350,6 +1366,7 @@ class Traptor(object):
             self.logger.critical("API credentials are invalid", extra=logExtra(error))
             self.exit_event.wait(60)
 
+        self.logger.info("The auth error blocking loop has exited", extra=logExtra())
         # TODO Use Keydat to acquire new API keys
 
     def run(self, args=None, aLogger=None):
@@ -1379,63 +1396,94 @@ class Traptor(object):
 
         self.logger.debug("Heartbeat started. Now to check for the rules")
 
-        # Do all the things
-        while not self.exit:
-            self._delete_rule_counters()
-            self._wait_for_rules()
+        try:
+            while not self.exit:
+                self._delete_rule_counters()
+                self._wait_for_rules()
 
-            if self.exit:
-                break
+                if self.exit:
+                    break
 
-            # Concatenate all of the rule['value'] fields
-            self.twitter_rules = self._make_twitter_rules(self.redis_rules)
+                # Concatenate all of the rule['value'] fields
+                self.twitter_rules = self._make_twitter_rules(self.redis_rules)
 
-            if len(self.twitter_rules) == 0:
-                self.logger.warn('No valid Redis rules assigned', extra=logExtra({
-                    'sleep_seconds': self.rule_check_interval
+                if len(self.twitter_rules) == 0:
+                    self.logger.warn('No valid Redis rules assigned', extra=logExtra({
+                        'sleep_seconds': self.rule_check_interval
+                    }))
+                    self.exit_event.wait(self.rule_check_interval)
+                    continue
+
+                self.logger.debug('Twitter rules', extra=logExtra({
+                        'dbg-rules': self.twitter_rules.encode('utf-8')
                 }))
-                self.exit_event.wait(self.rule_check_interval)
-                continue
 
-            self.logger.debug('Twitter rules', extra=logExtra({
-                    'dbg-rules': self.twitter_rules.encode('utf-8')
-            }))
+                # Make the rule and limit message counters
+                if self.traptor_type != 'locations':
+                    if self.enable_stats_collection:
+                        self._make_rule_counters()
+                    self._make_limit_message_counter()
 
-            # Make the rule and limit message counters
-            if self.traptor_type != 'locations':
-                if self.enable_stats_collection:
-                    self._make_rule_counters()
-                self._make_limit_message_counter()
+                if not self.test and not self.exit:
+                    try:
+                        self._create_birdy_stream()
+                    except TwitterAuthError as e:
+                        self._handle_auth_error(e)
 
-            if not self.test and not self.exit:
+                if self.traptor_type == 'locations':
+                    self.locations_rule = self._get_locations_traptor_rule()
+
+                # reset Restart Search flag back to False
+                self._setRestartSearchFlag(False)
                 try:
-                    self._create_birdy_stream()
-                except TwitterAuthError as e:
-                    self._handle_auth_error(e)
+                    if self.exit:
+                        break
 
-            if self.traptor_type == 'locations':
-                self.locations_rule = self._get_locations_traptor_rule()
-
-            # reset Restart Search flag back to False
-            self._setRestartSearchFlag(False)
-            try:
-                # Start collecting data
-                self._main_loop()
-            except ChunkedEncodingError as e:
-                # Discussion online suggests this happens when we fall behind Twitter
-                # https://github.com/ryanmcgrath/twython/issues/288#issuecomment-66360160
-                theLogMsg = "Ran into a ChunkedEncodingError while processing "\
-                    "tweets. Restarting Traptor from top of main process loop"
-                self.logger.error(theLogMsg, extra=logExtra(e))
-            except (ConnectionError, Timeout) as e:
-                self.logger.error("Connection to Twitter broken.",
-                                  extra=logExtra(e))
-            finally:
-                try:
-                    self.birdy_stream.close()
-                except Exception as e:
-                    self.logger.error("Could not close the stream connection.",
+                    # Start collecting data
+                    self._main_loop()
+                except ChunkedEncodingError as e:
+                    # Discussion online suggests this happens when we fall behind Twitter
+                    # https://github.com/ryanmcgrath/twython/issues/288#issuecomment-66360160
+                    theLogMsg = "Ran into a ChunkedEncodingError while processing "\
+                        "tweets. Restarting Traptor from top of main process loop"
+                    self.logger.error(theLogMsg, extra=logExtra(e))
+                except (ConnectionError, Timeout) as e:
+                    self.logger.error("Connection to Twitter broken.",
                                       extra=logExtra(e))
+                finally:
+                    try:
+                        if self.birdy_stream:
+                            self.birdy_stream.close()
+                    except Exception as e:
+                        self.logger.error("Could not close the stream connection.",
+                                          extra=logExtra(e))
+        finally:
+            self.logger.info("Traptor has exited it's main loop", extra=logExtra())
+
+            # Ensure wee notify the other threads
+            if not self.exit:
+                self._exit()
+
+            try:
+                self.logger.info("Joining redis pub-sub thread", extra=logExtra())
+                ps_check.join(5)
+            except Exception as e:
+                self.logger.error("Failed to join redis pub-sub thread", extra=logExtra(e))
+
+            try:
+                self.logger.info("Joining heartbeat thread", extra=logExtra())
+                heartbeat.join(5)
+            except Exception as e:
+                self.logger.info("Failed to join heartbeat thread", extra=logExtra(e))
+
+            if self.kafka_conn is not None:
+                try:
+                    self.logger.info("Closing Kafka", extra=logExtra())
+                    self.kafka_conn.close(5)
+                except Exception as e:
+                    self.logger.info("Exception closing Kafka", extra=logExtra(e))
+
+            self.logger.info("Shutdown complete", extra=logExtra())
 
 
 def sendRuleToRedis(aRedisConn, aRule, aRuleIndex=sys.maxint):

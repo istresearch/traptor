@@ -239,23 +239,23 @@ class TestTraptor(object):
         traptor._setup()
         # mock response
         data = {'data': traptor.traptor_type + ':' + str(traptor.traptor_id)}
-        pubsub = MagicMock()
-        pubsub.subscribe = MagicMock()
-        pubsub.listen = MagicMock(return_value=[data])
-        pubsub.close = MagicMock()
-        traptor.pubsub_conn = MagicMock()
 
         def stop_after(*args, **kwargs):
             traptor.exit = True
-            return pubsub
+            return data
 
-        traptor.pubsub_conn.pubsub = MagicMock(side_effect=stop_after)
+        pubsub = MagicMock()
+        pubsub.subscribe = MagicMock()
+        pubsub.get_message = MagicMock(side_effect=stop_after)
+        pubsub.close = MagicMock()
+        traptor.pubsub_conn = MagicMock()
+        traptor.pubsub_conn.pubsub = MagicMock(return_value=pubsub)
 
         traptor._listenToRedisForRestartFlag()
         restart_flag = traptor._getRestartSearchFlag()
         assert restart_flag == True
         assert pubsub.subscribe.call_count == 1
-        assert pubsub.listen.call_count == 1
+        assert pubsub.get_message.call_count == 1
         assert pubsub.close.call_count == 1
 
     def test_redis_rules(self, redis_rules, traptor):
