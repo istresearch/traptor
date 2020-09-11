@@ -8,7 +8,9 @@ from redis import StrictRedis, ConnectionError
 import pytest
 from mock import MagicMock
 import mockredis
+from tenacity import wait_none
 
+from traptor.birdy.twitter import TwitterApiError, TwitterAuthError
 from traptor.traptor import Traptor
 from traptor.traptor_birdy import TraptorBirdyClient
 from traptor.traptor_limit_counter import TraptorLimitCounter
@@ -129,6 +131,8 @@ def traptor(request, redis_conn, pubsub_conn, heartbeat_conn, traptor_notify_cha
     traptor_instance.redis_conn.info = MagicMock(
         side_effect=[mock_redis_info_success_response])
 
+    traptor_instance.logger = MagicMock()
+
     return traptor_instance
 
 
@@ -235,14 +239,24 @@ class TestTraptor(object):
         traptor._setup()
         # mock response
         data = {'data': traptor.traptor_type + ':' + str(traptor.traptor_id)}
-        retobj = MagicMock()
-        retobj.listen = MagicMock(return_value=[data])
+        pubsub = MagicMock()
+        pubsub.subscribe = MagicMock()
+        pubsub.listen = MagicMock(return_value=[data])
+        pubsub.close = MagicMock()
         traptor.pubsub_conn = MagicMock()
-        traptor.pubsub_conn.pubsub = MagicMock(return_value=retobj)
+
+        def stop_after(*args, **kwargs):
+            traptor.exit = True
+            return pubsub
+
+        traptor.pubsub_conn.pubsub = MagicMock(side_effect=stop_after)
+
         traptor._listenToRedisForRestartFlag()
         restart_flag = traptor._getRestartSearchFlag()
         assert restart_flag == True
-        assert True
+        assert pubsub.subscribe.call_count == 1
+        assert pubsub.listen.call_count == 1
+        assert pubsub.close.call_count == 1
 
     def test_redis_rules(self, redis_rules, traptor):
         """Ensure the correct rules are retrieved for the Traptor type."""
@@ -310,7 +324,7 @@ class TestTraptor(object):
         traptor._setup()
 
         traptor.rule_check_interval = 2
-        traptor.logger.debug = MagicMock()
+        traptor.logger.info = MagicMock()
 
         empty_response = {}
         good_response = {"Rule": "Fun"}
@@ -318,7 +332,7 @@ class TestTraptor(object):
         traptor._get_redis_rules = MagicMock(side_effect=[empty_response, empty_response, good_response])
         traptor._wait_for_rules()
 
-        assert traptor.logger.debug.call_count == 2
+        assert traptor.logger.info.call_count == 3
 
     def test_ensure_traptor_builds_the_correct_filter_string(self, traptor):
 
@@ -564,3 +578,50 @@ class TestTraptor(object):
         rules_str = traptor._make_twitter_rules([{"value": "ishouldbeint"}])
 
         assert len(rules_str) == 0
+
+    def test_connection_retry(self, traptor):
+        """Ensure we can correctly retry connection failures, throttling, and auth failures."""
+
+        traptor.logger = MagicMock()
+
+        # Trade out the wait policy for the unit test
+        traptor._create_birdy_stream.retry.wait = wait_none()
+
+        if traptor.traptor_type == 'follow':
+            traptor._create_twitter_follow_stream = MagicMock(side_effect=None)
+
+            try:
+                traptor._create_birdy_stream()
+            except Exception as e:
+                # Follow should not throw exception
+                raise e
+
+            assert traptor._create_twitter_follow_stream.call_count == 1
+
+        elif traptor.traptor_type == 'track':
+            traptor._create_twitter_track_stream = MagicMock(side_effect=[
+                TwitterApiError("api error 1"),
+                TwitterApiError("api error 2"),
+                TwitterApiError("api error 3"),
+                TwitterApiError("api error 4"),
+                None # Finally succeed
+            ])
+
+            try:
+                traptor._create_birdy_stream()
+            except Exception as e:
+                # Track should not throw exception
+                raise e
+
+            assert traptor._create_twitter_track_stream.call_count == 5
+
+        elif traptor.traptor_type == 'locations':
+            traptor._create_twitter_locations_stream = MagicMock(side_effect=TwitterAuthError("auth error"))
+
+            try:
+                traptor._create_birdy_stream()
+            except TwitterAuthError as e:
+                # Locations should throw TwitterAuthError
+                pass
+
+            assert traptor._create_twitter_locations_stream.call_count == 1
