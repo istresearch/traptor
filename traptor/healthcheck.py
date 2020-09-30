@@ -117,7 +117,7 @@ class HealthCheck:
                 self.logger.info('checking_twitter')
 
                 if twitter_stream is None:
-		    twitter_client = StreamClient(
+                    twitter_client = StreamClient(
                         os.getenv('CONSUMER_KEY'),
                         os.getenv('CONSUMER_SECRET'),
                         os.getenv('ACCESS_TOKEN'),
