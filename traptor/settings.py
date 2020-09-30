@@ -86,7 +86,12 @@ DW_CONFIG = {
             ('tweet_to_kafka_failure', 'src.tweet_to_kafka.failure'),
             ('limit_message_received', 'src.limit.messages.count'),
             ('limit_message_count', 'src.limit.current_limited'),
-            ('Stream keep-alive received', 'src.twitter.keepalive')
+            ('Stream keep-alive received', 'src.twitter.keepalive'),
+            ('Waiting for rules', 'src.rules.waiting'),
+            ('Withholding heartbeat, not accepting rule assignments', 'src.rules.not_accepting'),
+            ('API credentials are invalid', 'src.auth.invalid'),
+            ('Exception caught in redis pub/sub listener, restarting listener', 'src.redis.error'),
+            ('Exception caught closing redis pub/sub listener', 'src.redis.error')
         ],
         'gauges': [
             (DWG_RULE_COUNT['name'], DWG_RULE_COUNT['key'], DWG_RULE_COUNT['value']),
