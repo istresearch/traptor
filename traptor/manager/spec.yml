@@ -38,12 +38,12 @@ paths:
         500:
           description: Internal Server Error
 
-  /screen_name:
+  /screen_name/{userid}:
     get:
       operationId: api.screen_name
       summary: Get screen_name from userid.
       parameters:
-        - in: query
+        - in: path
           name: userid
           required: true
           type: string
