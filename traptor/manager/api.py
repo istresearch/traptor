@@ -17,13 +17,25 @@ logger = LogFactory.get_instance(name=os.getenv('LOG_NAME', settings.LOG_NAME),
             file=os.getenv('LOG_FILE', settings.LOG_FILE))
 
 if settings.API_BACKEND == 'piscina':
-    from backends.piscina import get_userid_for_username, get_recent_tweets_by_keyword
-else: 
-    from backends.local import get_userid_for_username, get_recent_tweets_by_keyword
+    from backends.piscina import get_userid_for_username, get_screen_name_for_userid, get_recent_tweets_by_keyword
+else:
+    from backends.local import get_userid_for_username, get_screen_name_for_userid, get_recent_tweets_by_keyword
 
 if settings.DW_ENABLED:
     dw_config(settings.DW_CONFIG)
     logger.register_callback('>=INFO', dw_callback)
+
+def screen_name(userid):
+    code = 200
+    response = {}
+    try:
+        response['screen_name'] = get_screen_name_for_userid(userid)
+        response['status'] = 'ok'
+    except Exception as e:
+        response['error'] = str(e)
+        response['status'] = 'error'
+        code = 500
+    return response, code
 
 def validate(rule):
     status_code = 200
@@ -116,7 +128,7 @@ def _validate_geo_rule(value):
     code = 200
     response = {}
     if isinstance(value, basestring):
-        try:    
+        try:
             lon1, lat1, lon2, lat2 = value.split(',')
             response['status'] = 'ok'
             for lon, lat in ((lon1, lat1), (lon2, lat2)):
@@ -132,12 +144,12 @@ def _validate_geo_rule(value):
             response['error'] = str(e)
             code = 500
     if isinstance(value, dict):
-        try:    
+        try:
             type = value.get('type')
             if not type or type.lower() != 'feature':
                 raise Exception('GeoJSON type not supported: {}'.format(type))
             geometry = value.get('geometry')
-            if not isinstance(geometry, dict):  
+            if not isinstance(geometry, dict):
                 raise Exception('Invalid GeoJSON object')
             geo_type = geometry.get('type')
             if not geo_type or geo_type.lower() != 'polygon':
