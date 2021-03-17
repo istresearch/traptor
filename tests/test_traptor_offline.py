@@ -1,9 +1,11 @@
 """Traptor unit tests."""
 # To run with autotest and coverage and print all output to console run:
 #   py.test -s --cov=traptor --looponfail tests/
-
+from datetime import datetime, timedelta
 import os
 import json
+
+import token_bucket
 from redis import StrictRedis, ConnectionError
 import pytest
 from mock import MagicMock
@@ -53,7 +55,7 @@ def pubsub_conn():
 def traptor_notify_channel():
     """Create a traptor notification channel."""
     return getAppParamStr(
-            'REDIS_PUBSUB_CHANNEL', 'traptor-notify'
+        'REDIS_PUBSUB_CHANNEL', 'traptor-notify'
     )
 
 
@@ -604,7 +606,7 @@ class TestTraptor(object):
                 TwitterApiError("api error 2"),
                 TwitterApiError("api error 3"),
                 TwitterApiError("api error 4"),
-                None # Finally succeed
+                None  # Finally succeed
             ])
 
             try:
@@ -625,3 +627,84 @@ class TestTraptor(object):
                 pass
 
             assert traptor._create_twitter_locations_stream.call_count == 1
+
+    def test_token_bucket(self):
+        storage = token_bucket.MemoryStorage()
+        limiter = token_bucket.Limiter(10, 10, storage)
+        for i in range(30):
+            if limiter.consume('key'):
+                print("Write to kafka")
+            else:
+                print("Filter")
+            import time
+            time.sleep(.05)
+
+    def test_is_filtered_one_rule_value(self, traptor):
+        enriched_data = {
+            "traptor": {
+                "rule_value": "air force",
+            }
+        }
+        for i in range(100):
+            if not traptor._is_filtered(enriched_data):
+                print("Write to Kafka")
+            else:
+                print("Filter")
+            import time
+            time.sleep(.01)
+        print(len(traptor.twitter_rate["air force"]))
+        print(len(traptor.kafka_rate["air force"]))
+
+    def test_is_filtered_dummy(self, traptor):
+        enriched_data = {
+            "traptor": {
+                "rule_value": "air force",
+            }
+        }
+
+        twitter_rate = dict()
+        kafka_rate = dict()
+        rate_limiter = dict()
+        rule_last_seen = dict()
+
+        key = enriched_data['traptor']['rule_value']
+        rule_last_seen[key] = datetime.now()
+
+        traptor.logger = MagicMock()
+        # check only if received tweet
+        if key in rule_last_seen:
+            value = rule_last_seen[key]
+            upper_bound = datetime.now()
+            lower_bound = upper_bound - timedelta(minutes=2)
+
+            # thread interval every 2 minutes or function in traptor every 10,000 tweets
+            # function filter_maintance
+            for key, value in rule_last_seen:
+
+                if upper_bound >= value >= lower_bound:
+                    print('Last seen less than 2 minutes ago')
+                    print(rule_last_seen)
+                else:
+                    print('Last seen longer than 2 minutes ago, drop it')  # debug
+                    del rule_last_seen[key], twitter_rate[key], kafka_rate[key], rate_limiter[key]
+                    print(rule_last_seen)
+        else:
+            rule_last_seen[key] = datetime.now()
+
+        if key not in rate_limiter:
+            storage = token_bucket.MemoryStorage()
+            limiter = token_bucket.Limiter(10, 10, storage)
+            rate_limiter[key] = limiter
+            twitter_rate[key] = "Twitter Rate"  # every tweet
+            kafka_rate[key] = "Kafka Rate"  # wont know until after consume, only ones not filtered will be record here
+            rule_last_seen[key] = datetime.now()
+
+        # How to get rates , track yourself
+        # rate_limiter[key].consume() # check boolean result, if false then filter.
+
+        # create key, first timestamp, create new token bucket
+        # True if token bucket
+        for i in range(100):
+            traptor._is_filtered(enriched_data)
+            # number of trues match behavior expected
+        assert False

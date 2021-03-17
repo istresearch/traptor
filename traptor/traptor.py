@@ -6,13 +6,16 @@ import sys
 import os
 import time
 import random
-from datetime import datetime
+from collections import deque
+from datetime import datetime, timedelta
 # noinspection PyPackageRequirements
 import dateutil.parser as parser
 import traceback
 import threading
 
 import redis
+import token_bucket
+
 import dd_monitoring
 import six
 
@@ -265,6 +268,16 @@ class Traptor(object):
         self.rule_wait_event = threading.Event()
         self.exit_event = threading.Event()
         self.exit = False
+
+        # three in memory dict that contain keys of rule values  (up to 400 rule values, removing keys or memory leak)
+        # Map of rule value -> list of timestamps
+        self.twitter_rate = dict()
+        # Map of rule value -> list of kafka rate
+        self.kafka_rate = dict()
+        # Map of rule value -> token bucket
+        self.rate_limiter = dict()
+
+        self.last_filter_maintenance = 0
 
         def sigterm_handler(_signo, _stack_frame):
             self._exit()
@@ -1270,6 +1283,55 @@ class Traptor(object):
         future.add_callback(self.kafka_success_callback, tweet)
         future.add_errback(self.kafka_failure_callback)
 
+    def _filter_maintenance(self, expiration_age_sec=120):
+        expiration_time = time.time() - expiration_age_sec
+        for key, value in self.twitter_rate:
+            if value[-1] <= expiration_time:
+                del self.kafka_rate[key], self.rate_limiter[key], self.twitter_rate[key]
+            while value and value[0] <= expiration_time:
+                value.popleft()
+        for key, value in self.kafka_rate:
+            while value and value[0] <= expiration_time:
+                value.popleft()
+
+    def _log_rates(self):
+        for key, value in self.twitter_rate:
+            # Edge cases
+            tps = len(value) / (value[-1] - value[0])  #edge cases
+            self.logger.info("Twitter Rate", extra=logExtra({
+                'rule_value': key,
+                'tps': tps
+            }))
+        for key, value in self.kafka_rate:
+            # Edge cases
+            tps = len(value) / (value[-1] - value[0])  #edge cases
+            self.logger.info("Kafka Rate", extra=logExtra({
+                'rule_value': key,
+                'tps': tps
+            }))
+
+    def _is_filtered(self, enriched_data):
+        # set of keys -> rule_values
+        rule_values = set()
+        rule_values.add(enriched_data['traptor']['rule_value']) # TODO look for more rule values
+        filtered = True
+        for key in rule_values:
+            if key not in self.rate_limiter:
+                storage = token_bucket.MemoryStorage()
+                limiter = token_bucket.Limiter(settings.RATE_LIMITING_RATE_SEC, settings.RATE_LIMITING_CAPACITY, storage)
+                self.rate_limiter[key] = limiter
+                # tail - head / number of elements
+            if key not in self.twitter_rate:
+                self.twitter_rate[key] = deque()
+            self.twitter_rate[key].append(time.time())
+            self.rule_last_seen[key] = time.time()
+            if self.rate_limiter[key].consume(key):
+                if key not in self.kafka_rate:
+                    self.kafka_rate[key] = deque()
+                self.kafka_rate[key].append(time.time())
+                filtered = False
+        return filtered
+
     def _main_loop(self):
         """
         Main loop for iterating through the twitter data.
@@ -1296,21 +1358,33 @@ class Traptor(object):
                         'tweet_id': tweet.get('id_str', None)
                     }))
                     enriched_data = self._enrich_tweet(tweet)
-                    # #4204 - since 1.4.13
-                    theLogMsg = settings.DWC_SEND_TO_KAFKA_ENRICHED
-                    self.logger.info(theLogMsg, extra=logExtra())
-                    if self.kafka_enabled:
-                        try:
-                            self._send_enriched_data_to_kafka(tweet, enriched_data)
-                        except Exception as e:
-                            theLogMsg = settings.DWC_ERROR_SEND_TO_KAFKA
-                            self.logger.error(theLogMsg, extra=logExtra(e))
-                            dd_monitoring.increment('tweet_to_kafka_failure',
-                                                    tags=['error_type:kafka'])
+
+                    if not self._is_filtered(enriched_data):
+                        # #4204 - since 1.4.13
+                        theLogMsg = settings.DWC_SEND_TO_KAFKA_ENRICHED
+                        self.logger.info(theLogMsg, extra=logExtra())
+                        if self.kafka_enabled:
+                            try:
+                                self._send_enriched_data_to_kafka(tweet, enriched_data)
+                            except Exception as e:
+                                theLogMsg = settings.DWC_ERROR_SEND_TO_KAFKA
+                                self.logger.error(theLogMsg, extra=logExtra(e))
+                                dd_monitoring.increment('tweet_to_kafka_failure',
+                                                        tags=['error_type:kafka'])
+                        else:
+                            self.logger.debug(json.dumps(enriched_data, indent=2))
                     else:
-                        self.logger.debug(json.dumps(enriched_data, indent=2))
+                        self.logger.debug("Tweet Rate Filtered", extra=logExtra({
+                            'value_str': json.dumps(enriched_data, indent=2)
+                        }))
+
             else:
                 self.logger.info("Stream keep-alive received", extra=logExtra())
+
+            if time.time() > self.last_filter_maintenance + settings.RATE_LIMITING_REPORTING_INTERVAL_SEC:
+                self.last_filter_maintenance = time.time()
+                self._filter_maintenance(settings.RATE_LIMITING_REPORTING_INTERVAL_SEC)
+                self.log_tweet_rates()
 
             if self.exit:
                 break

@@ -46,6 +46,12 @@ APIKEYS = {
     'ACCESS_TOKEN_SECRET': ""
 }
 
+# Rate Limiter
+RATE_LIMITING_ENABLED = bool(os.getenv('RATE_LIMITING_ENABLED', 'False') == 'True')
+RATE_LIMITING_RATE_SEC = max(1.0, float(os.getenv('RATE_LIMITING_RATE_SEC', 10.0)))
+RATE_LIMITING_CAPACITY = max(1, int(os.getenv('RATE_LIMITING_CAPACITY', 10)))
+RATE_LIMITING_REPORTING_INTERVAL_SEC = max(1.0, float(os.getenv('RATE_LIMITING_REPORTING_INTERVAL_SEC')))
+
 # Manager API 
 
 API_PORT = os.getenv('API_PORT', 5000)
