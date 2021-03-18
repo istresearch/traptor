@@ -642,7 +642,7 @@ class TestTraptor(object):
     def test_is_filtered_one_rule_value(self, traptor):
         enriched_data = {
             "traptor": {
-                "rule_value": "air force",
+                "collection_rules": [{"value": "air force"}]
             }
         }
         for i in range(100):
@@ -658,7 +658,7 @@ class TestTraptor(object):
     def test_is_filtered_dummy(self, traptor):
         enriched_data = {
             "traptor": {
-                "rule_value": "air force",
+                "collection_rules": [{"value": "air force"}]
             }
         }
 
@@ -667,7 +667,7 @@ class TestTraptor(object):
         rate_limiter = dict()
         rule_last_seen = dict()
 
-        key = enriched_data['traptor']['rule_value']
+        key = enriched_data['traptor']['collection_rules'][0]['value']
         rule_last_seen[key] = datetime.now()
 
         traptor.logger = MagicMock()
