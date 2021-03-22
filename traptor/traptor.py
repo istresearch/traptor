@@ -744,7 +744,7 @@ class Traptor(object):
 
         if self.traptor_type == 'track':
 
-            free_text = {tweet.get('value', _s),
+            free_text = {tweet.get('text', _s),
                          tweet.get('quoted_status', _d).get('extended_tweet', _d).get('full_text', _s),
                          tweet.get('quoted_status', _d).get('text', _s),
                          tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('full_text', _s),
@@ -764,6 +764,8 @@ class Traptor(object):
             self._get_url_fields(tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('media', _l), free_text)
             self._get_url_fields(tweet.get('quoted_status', _d).get('entities', _d).get('media', _l), free_text)
 
+            if _s in free_text:
+                free_text.remove(_s)
             searchable['keyword'] = u" ".join(free_text).lower()
 
             for hashtag in tweet.get('extended_tweet', _d).get('entities', _d).get('hashtags', _l):
@@ -790,7 +792,8 @@ class Traptor(object):
                 if 'text' in hashtag and hashtag['text'] is not None:
                     searchable['hashtag'].add(hashtag.get('text').lower())
 
-            searchable['hashtag'].remove(_s)
+            if _s in searchable['hashtag']:
+                searchable['hashtag'].remove(_s)
 
         elif self.traptor_type == 'follow':
 
@@ -822,7 +825,8 @@ class Traptor(object):
                 if 'id_str' in user_mention and user_mention['id_str'] is not None:
                     searchable['userid'].add(user_mention.get('id_str'))
 
-            searchable['userid'].remove(_s)
+            if _s in searchable['userid']:
+                searchable['userid'].remove(_s)
 
             searchable['username'].add(tweet.get('user', _d).get('screen_name', _s).lower())
             searchable['username'].add(tweet.get('retweeted_status', _d).get('user', _d).get('screen_name', _s).lower())
@@ -852,7 +856,8 @@ class Traptor(object):
                 if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
                     searchable['username'].add(user_mention.get('screen_name').lower())
 
-            searchable['username'].remove(_s)
+            if _s in searchable['username']:
+                searchable['username'].remove(_s)
 
         return searchable
 
@@ -896,14 +901,11 @@ class Traptor(object):
 
                     if len(matches) >=1 and all(matches):
 
-                        # These two lines kept for backwards compatibility
-                        match = dict()
-                        match['rule_tag'] = rule.get('tag')
-                        match['rule_value'] = rule.get('value').encode("utf-8")
+                        match = copy.deepcopy(rule)
 
-                        # Copy all keys of the rule
-                        for key, value in rule.items():
-                            match[key] = value.encode("utf-8")
+                        # These two lines kept for backwards compatibility
+                        match['rule_tag'] = rule.get('tag')
+                        match['rule_value'] = rule.get('value')
 
                         collection_rules.append(match)
 
