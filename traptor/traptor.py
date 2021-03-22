@@ -1229,30 +1229,55 @@ class Traptor(object):
 
     def _filter_maintenance(self, expiration_age_sec=120):
         expiration_time = time.time() - expiration_age_sec
-        for key, value in self.twitter_rate:
+        for key, value in self.twitter_rate.items():
             if value[-1] <= expiration_time:
                 del self.kafka_rate[key], self.rate_limiter[key], self.twitter_rate[key]
+                continue
             while value and value[0] <= expiration_time:
                 value.popleft()
-        for key, value in self.kafka_rate:
+        for key, value in self.kafka_rate.items():
             while value and value[0] <= expiration_time:
                 value.popleft()
 
-    def _log_rates(self):
-        for key, value in self.twitter_rate:
+    # add parameter for time range ev
+    # Average tps and unit test
+
+    def _log_rates(self, evaluation_window):
+        for key, value in self.twitter_rate.items():
             # Edge cases
-            tps = len(value) / (value[-1] - value[0])  #edge cases
-            self.logger.info("Twitter Rate", extra=logExtra({
-                'rule_value': key,
-                'tps': tps
-            }))
-        for key, value in self.kafka_rate:
-            # Edge cases
-            tps = len(value) / (value[-1] - value[0])  #edge cases
-            self.logger.info("Kafka Rate", extra=logExtra({
-                'rule_value': key,
-                'tps': tps
-            }))
+            # IndexError: deque index out of range if value length is 0
+            # ZeroDivisionError: integer division or modulo by zero: if only one item in value
+            # ZeroDivisionError: integer division or modulo by zero: if value[-1] and value[0] are equal
+            if len(value) == 1:
+                tps = len(value)/evaluation_window  # evaluation window
+                self.logger.info("Twitter Rate", extra=logExtra({
+                    'rule_value': key,
+                    'average_tps': tps
+                }))
+            elif len(value) > 0:
+                # Max min or mean?
+                # still haven't figured out the min or max
+                #first_window = time.time() - evaluation_window
+
+                average_tps = len(value) / evaluation_window
+                self.logger.info("Twitter Rate", extra=logExtra({
+                    'rule_value': key,
+                    'average_tps': average_tps
+                }))
+
+        for key, value in self.kafka_rate.items():
+            if len(value) == 1:
+                tps = len(value)
+                self.logger.info("Kafka Rate", extra=logExtra({
+                    'rule_value': key,
+                    'tps': tps
+                }))
+            elif len(value) > 0:
+                tps = len(value) / (value[-1] - value[0])
+                self.logger.info("Kafka Rate", extra=logExtra({
+                    'rule_value': key,
+                    'tps': tps
+                }))
 
     def _is_filtered(self, enriched_data):
         # set of keys -> rule_values
@@ -1269,7 +1294,6 @@ class Traptor(object):
                 storage = token_bucket.MemoryStorage()
                 limiter = token_bucket.Limiter(settings.RATE_LIMITING_RATE_SEC, settings.RATE_LIMITING_CAPACITY, storage)
                 self.rate_limiter[key] = limiter
-                # tail - head / number of elements
             if key not in self.twitter_rate:
                 self.twitter_rate[key] = deque()
             self.twitter_rate[key].append(time.time())
@@ -1333,7 +1357,7 @@ class Traptor(object):
             if time.time() > self.last_filter_maintenance + settings.RATE_LIMITING_REPORTING_INTERVAL_SEC:
                 self.last_filter_maintenance = time.time()
                 self._filter_maintenance(settings.RATE_LIMITING_REPORTING_INTERVAL_SEC)
-                self.log_tweet_rates()
+                self.log_tweet_rates(settings.RATE_LIMITING_REPORTING_INTERVAL_SEC)
 
             if self.exit:
                 break

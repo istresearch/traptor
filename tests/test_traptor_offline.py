@@ -1,14 +1,16 @@
 """Traptor unit tests."""
 # To run with autotest and coverage and print all output to console run:
 #   py.test -s --cov=traptor --looponfail tests/
+from collections import deque
 from datetime import datetime, timedelta
+import time
 import os
 import json
 
 import token_bucket
 from redis import StrictRedis, ConnectionError
 import pytest
-from mock import MagicMock
+from mock import MagicMock, call
 import mockredis
 from tenacity import wait_none
 
@@ -640,6 +642,40 @@ class TestTraptor(object):
             import time
             time.sleep(.05)
 
+    def test_rate_logger(self, traptor):
+        traptor.kafka_rate['test'] = deque([1, 2, 3])
+        traptor.twitter_rate['test'] = deque([1, 2, 3])
+        traptor.logger = MagicMock()
+        traptor._log_rates()
+        assert traptor.logger.method_calls ==[call.info('Twitter Rate', extra={'tps': 1, 'rule_value': 'test', 'component': 'traptor', 'traptor_version': '4.0.6.2', 'tags': ['traptor_type:None', 'traptor_id:None']}),
+            call.info('Kafka Rate', extra={'tps': 1, 'rule_value': 'test', 'component': 'traptor', 'traptor_version': '4.0.6.2', 'tags': ['traptor_type:None', 'traptor_id:None']})]
+
+    def test_rate_logger_out_of_range(self, traptor):
+        traptor.kafka_rate['test'] = deque()
+        traptor.twitter_rate['test'] = deque()
+        traptor.logger = MagicMock()
+        traptor._log_rates()
+        assert traptor.logger.method_calls == []
+
+    def test_rate_logger_length_one(self, traptor):
+        traptor.kafka_rate['test'] = deque([2])
+        traptor.twitter_rate['test'] = deque([2])
+        traptor.logger = MagicMock()
+        traptor._log_rates()
+        assert traptor.logger.method_calls == [call.info('Twitter Rate', extra={'tps': 1, 'rule_value': 'test', 'component': 'traptor', 'traptor_version': '4.0.6.2','tags': ['traptor_type:None', 'traptor_id:None']}),
+            call.info('Kafka Rate', extra={'tps': 1, 'rule_value': 'test', 'component': 'traptor', 'traptor_version': '4.0.6.2', 'tags': ['traptor_type:None', 'traptor_id:None']})]
+
+    def test_filter_maintenance(self, traptor):
+        now = time.time()
+        traptor.twitter_rate['test'] = deque([time.time() - 360, time.time() - 240, time.time() - 120, now])
+        traptor.kafka_rate['test'] = deque([time.time() - 360, time.time() - 240, time.time() - 120, now])
+
+        traptor._filter_maintenance()
+
+        assert traptor.twitter_rate['test'] == deque([now])
+        assert traptor.kafka_rate['test'] == deque([now])
+        traptor._filter_maintenance()
+
     def test_is_filtered_one_rule_value(self, traptor):
         enriched_data = {
             "traptor": {
@@ -647,14 +683,11 @@ class TestTraptor(object):
             }
         }
         for i in range(100):
-            if not traptor._is_filtered(enriched_data):
-                print("Write to Kafka")
-            else:
-                print("Filter")
-            import time
+            traptor._is_filtered(enriched_data)
             time.sleep(.01)
-        print(len(traptor.twitter_rate["air force"]))
-        print(len(traptor.kafka_rate["air force"]))
+
+        assert len(traptor.twitter_rate['air force']) == 100
+        assert len(traptor.kafka_rate['air force']) == 21
 
     def test_is_filtered_dummy(self, traptor):
         enriched_data = {
@@ -680,8 +713,9 @@ class TestTraptor(object):
 
             # thread interval every 2 minutes or function in traptor every 10,000 tweets
             # function filter_maintance
-            for key, value in rule_last_seen.items():
 
+
+            for key, value in rule_last_seen:
                 if upper_bound >= value >= lower_bound:
                     print('Last seen less than 2 minutes ago')
                     print(rule_last_seen)
@@ -708,4 +742,4 @@ class TestTraptor(object):
         for i in range(100):
             traptor._is_filtered(enriched_data)
             # number of trues match behavior expected
-        #assert False
+
