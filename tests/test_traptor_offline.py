@@ -200,20 +200,20 @@ class TestRuleExtract():
         """Test retrieving the tracking rules."""
         assert {'tag': 'test', 'value': 'happy', 'status': 'active', 'description': 'Tweets for a hashtag',
                 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'track', 'rule_id': '12347'} == redis_rules.hgetall('traptor-track:0:0')
+                'rule_type': 'track', 'orig_type': 'keyword', 'rule_id': '12347'} == redis_rules.hgetall('traptor-track:0:0')
 
     def test_follow(self, redis_rules):
         """Test retrieving the follow rules."""
         assert {'tag': 'test', 'value': '17919972', 'status': 'active', 'description': 'Tweets from some user',
                 'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'follow', 'rule_id': '12345'} == redis_rules.hgetall('traptor-follow:0:0')
+                'rule_type': 'follow', 'orig_type': 'userid', 'rule_id': '12345'} == redis_rules.hgetall('traptor-follow:0:0')
 
     def test_locations(self, redis_rules):
         """Test retrieving the location rules."""
         assert {'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8', 'status': 'active',
                 'description': 'Tweets from some continent', 'appid': 'test-appid',
                 'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'locations', 'rule_id': '12346'} == redis_rules.hgetall('traptor-locations:0:0')
+                'rule_type': 'locations', 'orig_type': 'geo', 'rule_id': '12346'} == redis_rules.hgetall('traptor-locations:0:0')
 
 
 class TestTraptor(object):
@@ -271,17 +271,17 @@ class TestTraptor(object):
             assert traptor.redis_rules == [{'tag': 'test', 'value': 'happy', 'status': 'active',
                                             'description': 'Tweets for a hashtag', 'appid': 'test-appid',
                                             'date_added': '2016-05-10 16:58:34', 'rule_type': 'track',
-                                            'rule_id': '12347'}]
+                                            'orig_type': 'keyword', 'rule_id': '12347'}]
         if traptor.traptor_type == 'follow':
             assert traptor.redis_rules == [{'tag': 'test', 'value': '17919972', 'status': 'active',
                                             'description': 'Tweets from some user', 'appid': 'test-appid',
                                             'date_added': '2016-05-10 16:58:34', 'rule_type': 'follow',
-                                            'rule_id': '12345'}]
+                                            'orig_type': 'userid', 'rule_id': '12345'}]
         if traptor.traptor_type == 'locations':
             assert traptor.redis_rules == [{'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8', 'status': 'active',
                                             'description': 'Tweets from some continent', 'appid': 'test-appid',
                                             'date_added': '2016-05-10 16:58:34', 'rule_type': 'locations',
-                                            'rule_id': '12346'}]
+                                            'orig_type': 'geo', 'rule_id': '12346'}]
 
     def test_twitter_rules(self, redis_rules, traptor):
         """Ensure Traptor can create Twitter rules from the Redis rules."""
@@ -345,7 +345,8 @@ class TestTraptor(object):
             {
                 "rule_id": "1",
                 "value": "happy",
-                "rule_type": "track"
+                "rule_type": "track",
+                "orig_type": "keyword"
             },
             {
                 "rule_id": "2",
@@ -509,36 +510,36 @@ class TestTraptor(object):
         # This is actually testing the rule matching
         if traptor.traptor_type == 'track':
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-22T01:34:53+00:00'
-            assert enriched_data['traptor']['rule_tag'] == 'test'
-            assert enriched_data['traptor']['rule_value'] == 'happy'
-            assert enriched_data['traptor']['rule_type'] == 'track'
-            assert enriched_data['traptor']['tag'] == 'test'
-            assert enriched_data['traptor']['value'] == 'happy'
-            assert enriched_data['traptor']['status'] == 'active'
-            assert enriched_data['traptor']['description'] == 'Tweets for a hashtag'
-            assert enriched_data['traptor']['appid'] == 'test-appid'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_tag'] == 'test'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_value'] == 'happy'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_type'] == 'track'
+            assert enriched_data['traptor']['collection_rules'][0]['tag'] == 'test'
+            assert enriched_data['traptor']['collection_rules'][0]['value'] == 'happy'
+            assert enriched_data['traptor']['collection_rules'][0]['status'] == 'active'
+            assert enriched_data['traptor']['collection_rules'][0]['description'] == 'Tweets for a hashtag'
+            assert enriched_data['traptor']['collection_rules'][0]['appid'] == 'test-appid'
 
         if traptor.traptor_type == 'follow':
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-20T03:52:59+00:00'
-            assert enriched_data['traptor']['rule_tag'] == 'test'
-            assert enriched_data['traptor']['rule_value'] == '17919972'
-            assert enriched_data['traptor']['rule_type'] == 'follow'
-            assert enriched_data['traptor']['tag'] == 'test'
-            assert enriched_data['traptor']['value'] == '17919972'
-            assert enriched_data['traptor']['status'] == 'active'
-            assert enriched_data['traptor']['description'] == 'Tweets from some user'
-            assert enriched_data['traptor']['appid'] == 'test-appid'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_tag'] == 'test'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_value'] == '17919972'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_type'] == 'follow'
+            assert enriched_data['traptor']['collection_rules'][0]['tag'] == 'test'
+            assert enriched_data['traptor']['collection_rules'][0]['value'] == '17919972'
+            assert enriched_data['traptor']['collection_rules'][0]['status'] == 'active'
+            assert enriched_data['traptor']['collection_rules'][0]['description'] == 'Tweets from some user'
+            assert enriched_data['traptor']['collection_rules'][0]['appid'] == 'test-appid'
 
         if traptor.traptor_type == 'locations':
             assert enriched_data['traptor']['created_at_iso'] == '2016-02-23T02:02:54+00:00'
-            assert enriched_data['traptor']['rule_tag'] == 'test'
-            assert enriched_data['traptor']['rule_value'] == '-122.75,36.8,-121.75,37.8'
-            assert enriched_data['traptor']['rule_type'] == 'locations'
-            assert enriched_data['traptor']['tag'] == 'test'
-            assert enriched_data['traptor']['value'] == '-122.75,36.8,-121.75,37.8'
-            assert enriched_data['traptor']['status'] == 'active'
-            assert enriched_data['traptor']['description'] == 'Tweets from some continent'
-            assert enriched_data['traptor']['appid'] == 'test-appid'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_tag'] == 'test'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_value'] == '-122.75,36.8,-121.75,37.8'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_type'] == 'locations'
+            assert enriched_data['traptor']['collection_rules'][0]['tag'] == 'test'
+            assert enriched_data['traptor']['collection_rules'][0]['value'] == '-122.75,36.8,-121.75,37.8'
+            assert enriched_data['traptor']['collection_rules'][0]['status'] == 'active'
+            assert enriched_data['traptor']['collection_rules'][0]['description'] == 'Tweets from some continent'
+            assert enriched_data['traptor']['collection_rules'][0]['appid'] == 'test-appid'
 
     @pytest.mark.extended
     def test_main_loop_extended(self, redis_rules, traptor, extended_tweets):
@@ -560,7 +561,7 @@ class TestTraptor(object):
             # Do the rule matching against the redis rules
             enriched_data = traptor._enrich_tweet(tweet)
 
-            assert enriched_data['traptor']['rule_value'] == '735369652956766200'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_value'] == '735369652956766200'
 
         if traptor.traptor_type == 'track':
             with open('tests/data/extended_tweets/track_rules.json') as f:
@@ -570,7 +571,7 @@ class TestTraptor(object):
             # Do the rule matching against the redis rules
             enriched_data = traptor._enrich_tweet(tweet)
 
-            assert enriched_data['traptor']['rule_value'] == 'tweet'
+            assert enriched_data['traptor']['collection_rules'][0]['rule_value'] == 'tweet'
 
     def test_invalid_follow_returns_blank(self, traptor):
         traptor.logger = MagicMock()
@@ -642,7 +643,7 @@ class TestTraptor(object):
     def test_is_filtered_one_rule_value(self, traptor):
         enriched_data = {
             "traptor": {
-                "rule_value": "air force",
+                "collection_rules": [{"value": "air force"}]
             }
         }
         for i in range(100):
@@ -658,7 +659,7 @@ class TestTraptor(object):
     def test_is_filtered_dummy(self, traptor):
         enriched_data = {
             "traptor": {
-                "rule_value": "air force",
+                "collection_rules": [{"value": "air force"}]
             }
         }
 
@@ -667,7 +668,7 @@ class TestTraptor(object):
         rate_limiter = dict()
         rule_last_seen = dict()
 
-        key = enriched_data['traptor']['rule_value']
+        key = enriched_data['traptor']['collection_rules'][0]['value']
         rule_last_seen[key] = datetime.now()
 
         traptor.logger = MagicMock()
@@ -679,7 +680,7 @@ class TestTraptor(object):
 
             # thread interval every 2 minutes or function in traptor every 10,000 tweets
             # function filter_maintance
-            for key, value in rule_last_seen:
+            for key, value in rule_last_seen.items():
 
                 if upper_bound >= value >= lower_bound:
                     print('Last seen less than 2 minutes ago')
@@ -707,4 +708,4 @@ class TestTraptor(object):
         for i in range(100):
             traptor._is_filtered(enriched_data)
             # number of trues match behavior expected
-        assert False
+        #assert False
