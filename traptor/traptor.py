@@ -287,7 +287,7 @@ class Traptor(object):
         # Map of rule value -> token bucket
         self.rate_limiter = dict()
 
-        self._last_filter_maintenance = 0
+        self._last_filter_maintenance = -1
 
         def sigterm_handler(_signo, _stack_frame):
             self._exit()
@@ -1230,11 +1230,15 @@ class Traptor(object):
         """
         theLogMsg = "Attempting to send tweet to kafka"
         self.logger.info(theLogMsg, extra=logExtra({
-                'tweet_id': tweet.get('id_str', None)
+            'tweet_id': tweet.get('id_str', None)
         }))
-        future = self.kafka_conn.send(self.kafka_topic, enriched_data)
-        future.add_callback(self.kafka_success_callback, tweet)
-        future.add_errback(self.kafka_failure_callback)
+
+        try:
+            future = self.kafka_conn.send(self.kafka_topic, enriched_data)
+            future.add_callback(self.kafka_success_callback, tweet)
+            future.add_errback(self.kafka_failure_callback)
+        except Exception as e:
+            self.logger.error("Kafka failed", extra=logExtra(e))
 
     def _filter_maintenance(self, t_now=time.time(), expiration_age_sec=60.0):
         """
@@ -1288,8 +1292,6 @@ class Traptor(object):
         if evaluation_window_sec <= 0.0:
             return rates
 
-        t_start = t_now - evaluation_window_sec
-
         for key, value in data.items():
             count = len(value)
             average_tps = float(count) / evaluation_window_sec
@@ -1301,13 +1303,13 @@ class Traptor(object):
                 second_buckets = dict()
 
                 for i in range(int(math.ceil(evaluation_window_sec))):
-                    second_buckets[i + int(math.floor(t_start))] = 0
+                    second_buckets[i] = 0
 
                 for timestamp in value:
-                    key = int(timestamp - value[0])
-                    if key not in second_buckets:
-                        second_buckets[key] = 0
-                    second_buckets[key] += 1
+                    second = int(timestamp - value[0])
+                    if second not in second_buckets:
+                        second_buckets[second] = 0
+                    second_buckets[second] += 1
 
                 for second, occurances in second_buckets.items():
                     max_tps = max(max_tps, float(occurances))
@@ -1412,7 +1414,7 @@ class Traptor(object):
                                             tags=['error_type:json_loads_error'])
                 else:
                     theLogMsg = "Enriching Tweet"
-                    self.logger.info(theLogMsg, extra=logExtra({
+                    self.logger.debug(theLogMsg, extra=logExtra({
                         'tweet_id': tweet.get('id_str', None)
                     }))
                     enriched_data = self._enrich_tweet(tweet)
@@ -1441,8 +1443,8 @@ class Traptor(object):
 
             t_now = time.time()
 
-            if t_now > self.last_filter_maintenance + self.rate_limiting_reporting_interval_sec:
-                self._log_rates(t_now, t_now - self._last_filter_maintenance)
+            if t_now > self._last_filter_maintenance + self.rate_limiting_reporting_interval_sec:
+                self._log_rates(t_now, min(t_now - self._last_filter_maintenance, 2 * self.rate_limiting_reporting_interval_sec))
                 self._filter_maintenance(t_now, 0.0)
                 self._last_filter_maintenance = t_now
 
