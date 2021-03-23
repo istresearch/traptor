@@ -1357,7 +1357,7 @@ class Traptor(object):
         # set of keys -> rule_values
         rule_values = set()
 
-        if 'collection_rules' in enriched_data['traptor']:
+        if 'traptor' in enriched_data and 'collection_rules' in enriched_data['traptor']:
             for rule in enriched_data['traptor']['collection_rules']:
                 if 'value' in rule:
                     rule_values.add(rule.get('value'))
