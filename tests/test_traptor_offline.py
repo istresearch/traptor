@@ -646,42 +646,47 @@ class TestTraptor(object):
         traptor.kafka_rate['test'] = deque([1, 2, 3])
         traptor.twitter_rate['test'] = deque([1, 2, 3])
         traptor.logger = MagicMock()
-        traptor._log_rates()
-        assert traptor.logger.method_calls ==[call.info('Twitter Rate', extra={'tps': 1, 'rule_value': 'test', 'component': 'traptor', 'traptor_version': '4.0.6.2', 'tags': ['traptor_type:None', 'traptor_id:None']}),
-            call.info('Kafka Rate', extra={'tps': 1, 'rule_value': 'test', 'component': 'traptor', 'traptor_version': '4.0.6.2', 'tags': ['traptor_type:None', 'traptor_id:None']})]
+        traptor._log_rates(4.0, 4.0)
+        assert traptor.logger.method_calls ==[call.info('Twitter Rate', extra={'count': 3, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 2, 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.75, 'traptor_version': '4.0.6.2'}),
+                                              call.info('Kafka Rate', extra={'count': 3, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 2, 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.75, 'traptor_version': '4.0.6.2'})]
 
     def test_rate_logger_out_of_range(self, traptor):
         traptor.kafka_rate['test'] = deque()
         traptor.twitter_rate['test'] = deque()
         traptor.logger = MagicMock()
-        traptor._log_rates()
-        assert traptor.logger.method_calls == []
+        traptor._log_rates(4.0, 4.0)
+        assert traptor.logger.method_calls == [call.info('Twitter Rate', extra={'count': 0, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 0.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.0, 'traptor_version': '4.0.6.2'}),
+                                               call.info('Kafka Rate', extra={'count': 0, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 0.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.0, 'traptor_version': '4.0.6.2'})]
 
     def test_rate_logger_length_one(self, traptor):
         traptor.kafka_rate['test'] = deque([2])
         traptor.twitter_rate['test'] = deque([2])
         traptor.logger = MagicMock()
-        traptor._log_rates()
-        assert traptor.logger.method_calls == [call.info('Twitter Rate', extra={'tps': 1, 'rule_value': 'test', 'component': 'traptor', 'traptor_version': '4.0.6.2','tags': ['traptor_type:None', 'traptor_id:None']}),
-            call.info('Kafka Rate', extra={'tps': 1, 'rule_value': 'test', 'component': 'traptor', 'traptor_version': '4.0.6.2', 'tags': ['traptor_type:None', 'traptor_id:None']})]
+        traptor._log_rates(4.0, 4.0)
+        assert traptor.logger.method_calls == [call.info('Twitter Rate', extra={'count': 1, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 0, 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.25, 'traptor_version': '4.0.6.2'}),
+                                               call.info('Kafka Rate', extra={'count': 1, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 0, 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.25, 'traptor_version': '4.0.6.2'})]
 
     def test_filter_maintenance(self, traptor):
         now = time.time()
         traptor.twitter_rate['test'] = deque([time.time() - 360, time.time() - 240, time.time() - 120, now])
         traptor.kafka_rate['test'] = deque([time.time() - 360, time.time() - 240, time.time() - 120, now])
 
-        traptor._filter_maintenance()
+        traptor._filter_maintenance(now, 30.0)
 
         assert traptor.twitter_rate['test'] == deque([now])
         assert traptor.kafka_rate['test'] == deque([now])
-        traptor._filter_maintenance()
+        traptor._filter_maintenance(now, 30.0)
 
     def test_is_filtered_one_rule_value(self, traptor):
+
         enriched_data = {
             "traptor": {
                 "collection_rules": [{"value": "air force"}]
             }
         }
+
+        traptor.rate_limiting_enabled = True
+
         for i in range(100):
             traptor._is_filtered(enriched_data)
             time.sleep(.01)
@@ -715,7 +720,7 @@ class TestTraptor(object):
             # function filter_maintance
 
 
-            for key, value in rule_last_seen:
+            for key, value in rule_last_seen.items():
                 if upper_bound >= value >= lower_bound:
                     print('Last seen less than 2 minutes ago')
                     print(rule_last_seen)

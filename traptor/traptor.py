@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
+import math
 import signal
 import sys
 import os
@@ -202,6 +203,10 @@ class Traptor(object):
             test=False,
             enable_stats_collection=True,
             heartbeat_interval=0,
+            rate_limiting_enabled=False,
+            rate_limiting_rate_sec=10.0,
+            rate_limiting_capacity=10,
+            rate_limiting_reporting_interval_sec=60.0
             ):
         """
         Traptor base class.
@@ -241,6 +246,10 @@ class Traptor(object):
         self.kafka_enabled = kafka_enabled
         self.kafka_hosts = kafka_hosts
         self.kafka_topic = kafka_topic
+        self.rate_limiting_enabled = rate_limiting_enabled
+        self.rate_limiting_rate_sec = max(1.0, float(rate_limiting_rate_sec))
+        self.rate_limiting_capacity = max(1, int(rate_limiting_capacity))
+        self.rate_limiting_reporting_interval_sec = max(1.0, float(rate_limiting_reporting_interval_sec))
         self.use_sentry = use_sentry
         self.sentry_url = sentry_url
         self.test = test
@@ -278,7 +287,7 @@ class Traptor(object):
         # Map of rule value -> token bucket
         self.rate_limiter = dict()
 
-        self.last_filter_maintenance = 0
+        self._last_filter_maintenance = 0
 
         def sigterm_handler(_signo, _stack_frame):
             self._exit()
@@ -1227,59 +1236,122 @@ class Traptor(object):
         future.add_callback(self.kafka_success_callback, tweet)
         future.add_errback(self.kafka_failure_callback)
 
-    def _filter_maintenance(self, expiration_age_sec=120):
-        expiration_time = time.time() - expiration_age_sec
-        for key, value in self.twitter_rate.items():
-            if value[-1] <= expiration_time:
-                del self.kafka_rate[key], self.rate_limiter[key], self.twitter_rate[key]
-                continue
-            while value and value[0] <= expiration_time:
-                value.popleft()
-        for key, value in self.kafka_rate.items():
-            while value and value[0] <= expiration_time:
-                value.popleft()
+    def _filter_maintenance(self, t_now=time.time(), expiration_age_sec=60.0):
+        """
+        This examines each rule value we are tracking rates on for filtering and truncates
+        any data that it outside the active window for evaluation. If all rate data is outside
+        the window, then it means we haven't recently received traffic for that rule value and
+        we can stop tracking it.
+        :param t_now: The time at which to base maintenance from
+        :type t_now: float
+        :param expiration_age_sec: The length of time data is valid
+        :type expiration_age_sec: float
+        """
+        expiration_time = t_now - expiration_age_sec
+        keys = list(self.twitter_rate.keys())
 
-    # add parameter for time range ev
-    # Average tps and unit test
+        for key in keys:
+            value = self.twitter_rate[key]
 
-    def _log_rates(self, evaluation_window):
-        for key, value in self.twitter_rate.items():
-            # Edge cases
-            # IndexError: deque index out of range if value length is 0
-            # ZeroDivisionError: integer division or modulo by zero: if only one item in value
-            # ZeroDivisionError: integer division or modulo by zero: if value[-1] and value[0] are equal
-            if len(value) == 1:
-                tps = len(value)/evaluation_window  # evaluation window
-                self.logger.info("Twitter Rate", extra=logExtra({
-                    'rule_value': key,
-                    'average_tps': tps
-                }))
-            elif len(value) > 0:
-                # Max min or mean?
-                # still haven't figured out the min or max
-                #first_window = time.time() - evaluation_window
+            # If the most recent value is too old, stop tracking the value
+            if (value and value[-1] <= expiration_time) or not value:
+                if key in self.kafka_rate:
+                    del self.kafka_rate[key]
 
-                average_tps = len(value) / evaluation_window
-                self.logger.info("Twitter Rate", extra=logExtra({
-                    'rule_value': key,
-                    'average_tps': average_tps
-                }))
+                if key in self.rate_limiter:
+                    del self.rate_limiter[key]
+
+                if key in self.twitter_rate:
+                    del self.twitter_rate[key]
+            else:
+                # Drop old entries to stay within the expiration_age_sec
+                while value and value[0] <= expiration_time:
+                    value.popleft()
 
         for key, value in self.kafka_rate.items():
-            if len(value) == 1:
-                tps = len(value)
-                self.logger.info("Kafka Rate", extra=logExtra({
-                    'rule_value': key,
-                    'tps': tps
-                }))
-            elif len(value) > 0:
-                tps = len(value) / (value[-1] - value[0])
-                self.logger.info("Kafka Rate", extra=logExtra({
-                    'rule_value': key,
-                    'tps': tps
-                }))
+            while value and value[0] <= expiration_time:
+                value.popleft()
+
+    def _compute_rates(self, data, t_now, evaluation_window_sec):
+        """
+
+        :param data:
+        :type data: dict
+        :param t_now:
+        :type t_now: float
+        :param evaluation_window_sec:
+        :type evaluation_window_sec: float
+        :return:
+        """
+        rates = dict()
+
+        if evaluation_window_sec <= 0.0:
+            return rates
+
+        t_start = t_now - evaluation_window_sec
+
+        for key, value in data.items():
+            count = len(value)
+            average_tps = float(count) / evaluation_window_sec
+
+            max_tps = average_tps
+            min_tps = average_tps
+
+            if count > 0:
+                second_buckets = dict()
+
+                for i in range(int(math.ceil(evaluation_window_sec))):
+                    second_buckets[i + int(math.floor(t_start))] = 0
+
+                for timestamp in value:
+                    key = int(timestamp - value[0])
+                    if key not in second_buckets:
+                        second_buckets[key] = 0
+                    second_buckets[key] += 1
+
+                for second, occurances in second_buckets.items():
+                    max_tps = max(max_tps, float(occurances))
+                    min_tps = min(min_tps, float(occurances))
+
+            rates[key] = {
+                'count': count,
+                'max_tps': max_tps,
+                'average_tps': average_tps,
+                'min_tps': min_tps
+            }
+
+        return rates
+
+    def _log_rates(self, t_now, evaluation_window_sec):
+        """
+        This computes the rate of traffic per rule value and logs the metrics.
+        :param t_now: The time at which to base calculations from
+        :type t_now: float
+        :param evaluation_window_sec: The length of time data is evaluated
+        :type evaluation_window_sec: float
+        """
+
+        for key, value in self._compute_rates(self.twitter_rate, t_now, evaluation_window_sec).items():
+
+            self.logger.info("Twitter Rate", extra=logExtra(dict({
+                'rule_value': key
+            }, **value)))
+
+        for key, value in self._compute_rates(self.kafka_rate, t_now, evaluation_window_sec).items():
+
+            self.logger.info("Kafka Rate", extra=logExtra(dict({
+                'rule_value': key
+            }, **value)))
 
     def _is_filtered(self, enriched_data):
+        """
+        Tracks the volume of tweets per rule value received from twitter and applies a token bucket
+        rate limiter to determine if we should send the tweet to kafka.
+
+        :param enriched_data: The tweet with rule matches
+        :return:
+        """
+
         # set of keys -> rule_values
         rule_values = set()
 
@@ -1288,22 +1360,35 @@ class Traptor(object):
                 if 'value' in rule:
                     rule_values.add(rule.get('value'))
 
-        filtered = True
+        filtered = list()
+        t_now = time.time()
+
         for key in rule_values:
-            if key not in self.rate_limiter:
+
+            if self.rate_limiting_enabled and key not in self.rate_limiter:
+                # Initialize a limiter for the untracked rule value
                 storage = token_bucket.MemoryStorage()
-                limiter = token_bucket.Limiter(settings.RATE_LIMITING_RATE_SEC, settings.RATE_LIMITING_CAPACITY, storage)
+                limiter = token_bucket.Limiter(self.rate_limiting_rate_sec, self.rate_limiting_capacity, storage)
                 self.rate_limiter[key] = limiter
+
             if key not in self.twitter_rate:
                 self.twitter_rate[key] = deque()
-            self.twitter_rate[key].append(time.time())
 
-            if self.rate_limiter[key].consume(key):
+            self.twitter_rate[key].append(t_now)
+
+            # Do we have enough token bucket credits (under the limit) to send the tweet?
+            if not self.rate_limiting_enabled or self.rate_limiter[key].consume(key):
+
                 if key not in self.kafka_rate:
                     self.kafka_rate[key] = deque()
-                self.kafka_rate[key].append(time.time())
-                filtered = False
-        return filtered
+
+                self.kafka_rate[key].append(t_now)
+                filtered.append(False)
+            else:
+                filtered.append(True)
+
+        # Ensure we don't filter tweets without any rules
+        return len(filtered) != 0 and all(filtered)
 
     def _main_loop(self):
         """
@@ -1354,10 +1439,12 @@ class Traptor(object):
             else:
                 self.logger.info("Stream keep-alive received", extra=logExtra())
 
-            if time.time() > self.last_filter_maintenance + settings.RATE_LIMITING_REPORTING_INTERVAL_SEC:
-                self.last_filter_maintenance = time.time()
-                self._filter_maintenance(settings.RATE_LIMITING_REPORTING_INTERVAL_SEC)
-                self.log_tweet_rates(settings.RATE_LIMITING_REPORTING_INTERVAL_SEC)
+            t_now = time.time()
+
+            if t_now > self.last_filter_maintenance + self.rate_limiting_reporting_interval_sec:
+                self._log_rates(t_now, t_now - self._last_filter_maintenance)
+                self._filter_maintenance(t_now, 0.0)
+                self._last_filter_maintenance = t_now
 
             if self.exit:
                 break
@@ -1700,7 +1787,19 @@ def main():
             )),
             heartbeat_interval=int(getAppParamStr(
                     'HEARTBEAT_INTERVAL', '0', args.heartbeat
-            ))
+            )),
+            rate_limiting_enabled=str2bool(getAppParamStr(
+                'RATE_LIMITING_ENABLED', settings.RATE_LIMITING_ENABLED
+            )),
+            rate_limiting_rate_sec=float(getAppParamStr(
+                'RATE_LIMITING_RATE_SEC', settings.RATE_LIMITING_RATE_SEC
+            )),
+            rate_limiting_capacity=int(getAppParamStr(
+                'RATE_LIMITING_CAPACITY', settings.RATE_LIMITING_CAPACITY
+            )),
+            rate_limiting_reporting_interval_sec=float(getAppParamStr(
+                'RATE_LIMITING_REPORTING_INTERVAL_SEC', settings.RATE_LIMITING_REPORTING_INTERVAL_SEC
+            )),
     )
 
     # Ensure we setup our CONSTS before we start actually doing things with threads
