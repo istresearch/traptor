@@ -14,7 +14,7 @@ from mock import MagicMock, call
 import mockredis
 from tenacity import wait_none
 
-import version
+from traptor import version
 from traptor.birdy.twitter import TwitterApiError, TwitterAuthError
 from traptor.traptor import Traptor
 from traptor.traptor_birdy import TraptorBirdyClient
