@@ -14,6 +14,7 @@ from mock import MagicMock, call
 import mockredis
 from tenacity import wait_none
 
+import version
 from traptor.birdy.twitter import TwitterApiError, TwitterAuthError
 from traptor.traptor import Traptor
 from traptor.traptor_birdy import TraptorBirdyClient
@@ -647,24 +648,24 @@ class TestTraptor(object):
         traptor.twitter_rate['test'] = deque([1, 2, 3])
         traptor.logger = MagicMock()
         traptor._log_rates(4.0, 4.0)
-        assert traptor.logger.method_calls ==[call.info('Twitter Rate', extra={'count': 3, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 2, 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.75, 'traptor_version': '4.0.6.2'}),
-                                              call.info('Kafka Rate', extra={'count': 3, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 2, 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.75, 'traptor_version': '4.0.6.2'})]
+        assert traptor.logger.method_calls ==[call.info('Twitter Rate', extra={'count': 3, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.75, 'traptor_version': version.__version__}),
+                                              call.info('Kafka Rate', extra={'count': 3, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.75, 'traptor_version': version.__version__})]
 
     def test_rate_logger_out_of_range(self, traptor):
         traptor.kafka_rate['test'] = deque()
         traptor.twitter_rate['test'] = deque()
         traptor.logger = MagicMock()
         traptor._log_rates(4.0, 4.0)
-        assert traptor.logger.method_calls == [call.info('Twitter Rate', extra={'count': 0, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 0.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.0, 'traptor_version': '4.0.6.2'}),
-                                               call.info('Kafka Rate', extra={'count': 0, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 0.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.0, 'traptor_version': '4.0.6.2'})]
+        assert traptor.logger.method_calls == [call.info('Twitter Rate', extra={'count': 0, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 0.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.0, 'traptor_version': version.__version__}),
+                                               call.info('Kafka Rate', extra={'count': 0, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 0.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.0, 'traptor_version': version.__version__})]
 
     def test_rate_logger_length_one(self, traptor):
         traptor.kafka_rate['test'] = deque([2])
         traptor.twitter_rate['test'] = deque([2])
         traptor.logger = MagicMock()
         traptor._log_rates(4.0, 4.0)
-        assert traptor.logger.method_calls == [call.info('Twitter Rate', extra={'count': 1, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 0, 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.25, 'traptor_version': '4.0.6.2'}),
-                                               call.info('Kafka Rate', extra={'count': 1, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 0, 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.25, 'traptor_version': '4.0.6.2'})]
+        assert traptor.logger.method_calls == [call.info('Twitter Rate', extra={'count': 1, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.25, 'traptor_version': version.__version__}),
+                                               call.info('Kafka Rate', extra={'count': 1, 'tags': ['traptor_type:None', 'traptor_id:None'], 'rule_value': 'test', 'max_tps': 1.0, 'component': 'traptor', 'min_tps': 0.0, 'average_tps': 0.25, 'traptor_version': version.__version__})]
 
     def test_filter_maintenance(self, traptor):
         now = time.time()
