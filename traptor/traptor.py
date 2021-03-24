@@ -1292,8 +1292,16 @@ class Traptor(object):
         if evaluation_window_sec <= 0.0:
             return rates
 
+        t_start = t_now - evaluation_window_sec
+
         for key, value in data.items():
-            count = len(value)
+
+            current_data = deque(value)
+
+            while current_data and current_data[0] < t_start:
+                current_data.popleft()
+
+            count = len(current_data)
             average_tps = float(count) / evaluation_window_sec
 
             max_tps = average_tps
@@ -1305,8 +1313,8 @@ class Traptor(object):
                 for i in range(int(math.ceil(evaluation_window_sec))):
                     second_buckets[i] = 0
 
-                for timestamp in value:
-                    second = int(timestamp - value[0])
+                for timestamp in current_data:
+                    second = int(timestamp - current_data[0])
                     if second not in second_buckets:
                         second_buckets[second] = 0
                     second_buckets[second] += 1
@@ -1445,7 +1453,7 @@ class Traptor(object):
 
             if t_now > self._last_filter_maintenance + self.rate_limiting_reporting_interval_sec:
                 self._log_rates(t_now, min(t_now - self._last_filter_maintenance, 2 * self.rate_limiting_reporting_interval_sec))
-                self._filter_maintenance(t_now, 0.0)
+                self._filter_maintenance(t_now, self.rate_limiting_reporting_interval_sec)
                 self._last_filter_maintenance = t_now
 
             if self.exit:
