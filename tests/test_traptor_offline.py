@@ -693,7 +693,7 @@ class TestTraptor(object):
             time.sleep(.01)
 
         assert len(traptor.twitter_rate['air force']) == 100
-        assert len(traptor.kafka_rate['air force']) == 21
+        assert 20 <= len(traptor.kafka_rate['air force']) <= 22
 
     def test_is_filtered_dummy(self, traptor):
         enriched_data = {
