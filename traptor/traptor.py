@@ -1310,7 +1310,7 @@ class Traptor(object):
             if count > 0:
                 second_buckets = dict()
 
-                for i in range(int(math.ceil(evaluation_window_sec))):
+                for i in range(int(evaluation_window_sec)):
                     second_buckets[i] = 0
 
                 for timestamp in current_data:
