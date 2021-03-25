@@ -4,6 +4,7 @@
 ###############################################################################
 import os
 from datadog import statsd, initialize
+import settings
 
 traptor_type = os.getenv('TRAPTOR_TYPE', 'track')
 traptor_id = os.getenv('TRAPTOR_ID', '0')
@@ -17,7 +18,9 @@ DEFAULT_TAGS = [
 options = {
     'statsd_host': os.getenv('STATSD_HOST_IP', 'statsd')
 }
-initialize(**options)
+
+if settings.DW_ENABLED:
+    initialize(**options)
 
 # CONST metric names and their actual dd value.
 DATADOG_METRICS = {
