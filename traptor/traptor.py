@@ -1,18 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import copy
 import json
+import math
 import signal
 import sys
 import os
 import time
 import random
-from datetime import datetime
+from collections import deque
+from datetime import datetime, timedelta
 # noinspection PyPackageRequirements
 import dateutil.parser as parser
 import traceback
 import threading
 
 import redis
+import token_bucket
+
 import dd_monitoring
 import six
 
@@ -198,6 +203,10 @@ class Traptor(object):
             test=False,
             enable_stats_collection=True,
             heartbeat_interval=0,
+            rate_limiting_enabled=False,
+            rate_limiting_rate_sec=10.0,
+            rate_limiting_capacity=10,
+            rate_limiting_reporting_interval_sec=60.0
             ):
         """
         Traptor base class.
@@ -237,6 +246,10 @@ class Traptor(object):
         self.kafka_enabled = kafka_enabled
         self.kafka_hosts = kafka_hosts
         self.kafka_topic = kafka_topic
+        self.rate_limiting_enabled = rate_limiting_enabled
+        self.rate_limiting_rate_sec = max(1.0, float(rate_limiting_rate_sec))
+        self.rate_limiting_capacity = max(1, int(rate_limiting_capacity))
+        self.rate_limiting_reporting_interval_sec = max(1.0, float(rate_limiting_reporting_interval_sec))
         self.use_sentry = use_sentry
         self.sentry_url = sentry_url
         self.test = test
@@ -265,6 +278,16 @@ class Traptor(object):
         self.rule_wait_event = threading.Event()
         self.exit_event = threading.Event()
         self.exit = False
+
+        # three in memory dict that contain keys of rule values  (up to 400 rule values, removing keys or memory leak)
+        # Map of rule value -> list of timestamps
+        self.twitter_rate = dict()
+        # Map of rule value -> list of kafka rate
+        self.kafka_rate = dict()
+        # Map of rule value -> token bucket
+        self.rate_limiter = dict()
+
+        self._last_filter_maintenance = -1
 
         def sigterm_handler(_signo, _stack_frame):
             self._exit()
@@ -688,295 +711,238 @@ class Traptor(object):
 
         return locations_rule
 
+    def _get_url_fields(self, url_entities, collection):
+        """
+
+        :param url_entities:
+        :type url_entities: list
+        :param collection:
+        :type collection: set
+        """
+
+        for item in url_entities:
+            value = item.get('expanded_url')
+
+            if value is not None:
+                collection.add(value)
+
+            value = item.get('display_url')
+
+            if value is not None:
+                collection.add(value)
+
+    def _build_match_content(self, tweet):
+        """
+        Assembles the content of the tweet into a searchable data structure. All content in put into lowercase.
+
+        :param tweet: The dictionary twitter object.
+        :type tweet: dict
+        :rtype: dict
+        """
+        searchable = {
+            "hashtag": set(),
+            "keyword": u"",
+            "username": set(),
+            "userid": set()
+        }
+
+        # Placeholder defaults to minimize allocations
+        _d = dict()
+        _l = list()
+        _s = ''
+
+        if self.traptor_type == 'track':
+
+            free_text = {tweet.get('text', _s),
+                         tweet.get('quoted_status', _d).get('extended_tweet', _d).get('full_text', _s),
+                         tweet.get('quoted_status', _d).get('text', _s),
+                         tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('full_text', _s),
+                         tweet.get('retweeted_status', _d).get('text', _s),
+                         tweet.get('user', _d).get('screen_name', _s)}
+
+            self._get_url_fields(tweet.get('entities', _d).get('urls', _l), free_text)
+            self._get_url_fields(tweet.get('extended_tweet', _d).get('entities', _d).get('urls', _l), free_text)
+            self._get_url_fields(tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('urls', _l), free_text)
+            self._get_url_fields(tweet.get('retweeted_status', _d).get('entities', _d).get('urls', _l), free_text)
+            self._get_url_fields(tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('urls', _l), free_text)
+            self._get_url_fields(tweet.get('quoted_status', _d).get('entities', _d).get('urls', _l), free_text)
+            self._get_url_fields(tweet.get('extended_tweet', _d).get('entities', _d).get('media', _l), free_text)
+            self._get_url_fields(tweet.get('entities', _d).get('media', _l), free_text)
+            self._get_url_fields(tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('media', _l), free_text)
+            self._get_url_fields(tweet.get('retweeted_status', _d).get('entities', _d).get('media', _l), free_text)
+            self._get_url_fields(tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('media', _l), free_text)
+            self._get_url_fields(tweet.get('quoted_status', _d).get('entities', _d).get('media', _l), free_text)
+
+            if _s in free_text:
+                free_text.remove(_s)
+            searchable['keyword'] = u" ".join(free_text).lower()
+
+            for hashtag in tweet.get('extended_tweet', _d).get('entities', _d).get('hashtags', _l):
+                if 'text' in hashtag and hashtag['text'] is not None:
+                    searchable['hashtag'].add(hashtag.get('text').lower())
+
+            for hashtag in tweet.get('entities', _d).get('hashtags', _l):
+                if 'text' in hashtag and hashtag['text'] is not None:
+                    searchable['hashtag'].add(hashtag.get('text').lower())
+
+            for hashtag in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('hashtags', _l):
+                if 'text' in hashtag and hashtag['text'] is not None:
+                    searchable['hashtag'].add(hashtag.get('text').lower())
+
+            for hashtag in tweet.get('retweeted_status', _d).get('entities', _d).get('hashtags', _l):
+                if 'text' in hashtag and hashtag['text'] is not None:
+                    searchable['hashtag'].add(hashtag.get('text').lower())
+
+            for hashtag in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('hashtags', _l):
+                if 'text' in hashtag and hashtag['text'] is not None:
+                    searchable['hashtag'].add(hashtag.get('text').lower())
+
+            for hashtag in tweet.get('quoted_status', _d).get('entities', _d).get('hashtags', _l):
+                if 'text' in hashtag and hashtag['text'] is not None:
+                    searchable['hashtag'].add(hashtag.get('text').lower())
+
+            if _s in searchable['hashtag']:
+                searchable['hashtag'].remove(_s)
+
+        elif self.traptor_type == 'follow':
+
+            searchable['userid'].add(tweet.get('user', _d).get('id_str', _s))
+            searchable['userid'].add(tweet.get('retweeted_status', _d).get('user', _d).get('id_str', _s))
+            searchable['userid'].add(tweet.get('quoted_status', _d).get('user', _d).get('id_str', _s))
+
+            for user_mention in tweet.get('entities', _d).get('user_mentions', _l):
+                if 'id_str' in user_mention and user_mention['id_str'] is not None:
+                    searchable['userid'].add(user_mention.get('id_str'))
+
+            for user_mention in tweet.get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+                if 'id_str' in user_mention and user_mention['id_str'] is not None:
+                    searchable['userid'].add(user_mention.get('id_str'))
+
+            for user_mention in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+                if 'id_str' in user_mention and user_mention['id_str'] is not None:
+                    searchable['userid'].add(user_mention.get('id_str'))
+
+            for user_mention in tweet.get('retweeted_status', _d).get('entities', _d).get('user_mentions', _l):
+                if 'id_str' in user_mention and user_mention['id_str'] is not None:
+                    searchable['userid'].add(user_mention.get('id_str'))
+
+            for user_mention in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+                if 'id_str' in user_mention and user_mention['id_str'] is not None:
+                    searchable['userid'].add(user_mention.get('id_str'))
+
+            for user_mention in tweet.get('quoted_status', _d).get('entities', _d).get('user_mentions', _l):
+                if 'id_str' in user_mention and user_mention['id_str'] is not None:
+                    searchable['userid'].add(user_mention.get('id_str'))
+
+            if _s in searchable['userid']:
+                searchable['userid'].remove(_s)
+
+            searchable['username'].add(tweet.get('user', _d).get('screen_name', _s).lower())
+            searchable['username'].add(tweet.get('retweeted_status', _d).get('user', _d).get('screen_name', _s).lower())
+            searchable['username'].add(tweet.get('quoted_status', _d).get('user', _d).get('screen_name', _s).lower())
+
+            for user_mention in tweet.get('entities', _d).get('user_mentions', _l):
+                if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
+                    searchable['username'].add(user_mention.get('screen_name').lower())
+
+            for user_mention in tweet.get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+                if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
+                    searchable['username'].add(user_mention.get('screen_name').lower())
+
+            for user_mention in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+                if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
+                    searchable['username'].add(user_mention.get('screen_name').lower())
+
+            for user_mention in tweet.get('retweeted_status', _d).get('entities', _d).get('user_mentions', _l):
+                if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
+                    searchable['username'].add(user_mention.get('screen_name').lower())
+
+            for user_mention in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+                if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
+                    searchable['username'].add(user_mention.get('screen_name').lower())
+
+            for user_mention in tweet.get('quoted_status', _d).get('entities', _d).get('user_mentions', _l):
+                if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
+                    searchable['username'].add(user_mention.get('screen_name').lower())
+
+            if _s in searchable['username']:
+                searchable['username'].remove(_s)
+
+        return searchable
+
     def _find_rule_matches(self, tweet_dict):
         """
-        Find a rule match for the tweet.
+        Best effort search for rule matches for the tweet.
 
-        This code only expects there to be one match.  If there is more than
-        one, it will use the last one it finds since the first match will be
-        overwritten.
-
-        :param dict tweet_dict: The dictionary twitter object.
-        :returns: a ``dict`` with the augmented data fields.
+        :param tweet_dict: The dictionary twitter object.
+        :type tweet_dict: dict
+        :returns: a dict with the augmented data fields.
+        :rtype: dict
         """
         new_dict = tweet_dict
         self.logger.debug('Finding tweet rule matches')
 
+        collection_rules = list()
+        tweet_dict['traptor']['collection_rules'] = collection_rules
+
         # If the Traptor is a geo traptor, return the one rule we've already set up
         if self.traptor_type == 'locations':
-            for key, value in self.locations_rule.iteritems():
-                new_dict['traptor'][key] = value
+            rule = copy.deepcopy(self.locations_rule)
+            collection_rules.append(rule)
 
-        # Do track Traptor enrichments...
-        elif self.traptor_type == 'track':
-
-            """
-            Here's how Twitter does it, and so shall we:
-
-            The text of the Tweet and some entity fields are considered for matches.
-            Specifically, the text attribute of the Tweet, expanded_url and display_url
-            for links and media, text for hashtags, and screen_name for user mentions
-            are checked for matches.
-            """
-
-            # Build up the query from our tweet fields
-            query = ""
-
-            # Tweet text
-            query = query + tweet_dict['text'].encode("utf-8")
-
-            # URLs and Media
-            url_list = []
-            if 'urls' in tweet_dict['entities']:
-                for url in tweet_dict['entities']['urls']:
-                    expanded_url = url.get('expanded_url', None)
-                    display_url = url.get('display_url', None)
-
-                    if expanded_url is not None:
-                        url_list.append(expanded_url)
-                    if display_url is not None:
-                        url_list.append(display_url)
-
-            if 'media' in tweet_dict['entities']:
-                for item in tweet_dict['entities']['media']:
-                    expanded_url = item.get('expanded_url', None)
-                    display_url = item.get('display_url', None)
-
-                    if expanded_url is not None:
-                        url_list.append(expanded_url)
-                    if display_url is not None:
-                        url_list.append(display_url)
-
-            # Hashtags
-            if 'hashtags' in tweet_dict['entities']:
-                for tag in tweet_dict['entities']['hashtags']:
-                    query = query + " " + tag['text'].encode("utf-8")
-
-            # Screen name
-            if 'screen_name' in tweet_dict['user']:
-                query = query + " " + tweet_dict['user']['screen_name'].encode('utf-8')
-
-            # Retweeted parts
-            if tweet_dict.get('retweeted_status', None) is not None:
-                # Status
-                query += " " + tweet_dict['retweeted_status']['text'].encode("utf-8")
-
-                theFullText = tweet_dict['retweeted_status']\
-                    .get('quoted_status', {})\
-                    .get('extended_tweet', {})\
-                    .get('full_text', None)
-                if theFullText is not None:
-                    query = " " + theFullText.encode("utf-8")
-
-                # URLs and Media
-                if 'urls' in tweet_dict['retweeted_status']['entities']:
-                    for url in tweet_dict['retweeted_status']['entities']['urls']:
-                        expanded_url = url.get('expanded_url', None)
-                        display_url = url.get('display_url', None)
-
-                        if expanded_url is not None:
-                            url_list.append(expanded_url)
-                        if display_url is not None:
-                            url_list.append(display_url)
-
-                if 'media' in tweet_dict['retweeted_status']['entities']:
-                    for item in tweet_dict['retweeted_status']['entities']['media']:
-                        expanded_url = item.get('expanded_url', None)
-                        display_url = item.get('display_url', None)
-
-                        if expanded_url is not None:
-                            url_list.append(expanded_url)
-                        if display_url is not None:
-                            url_list.append(display_url)
-
-                # Hashtags
-                if 'hashtags' in tweet_dict['retweeted_status']['entities']:
-                    for tag in tweet_dict['retweeted_status']['entities']['hashtags']:
-                        query = query + " " + tag['text'].encode("utf-8")
-
-                # Names
-                if 'in_reply_to_screen_name' in tweet_dict['retweeted_status']:
-                    in_reply_to_screen_name = tweet_dict.get('retweeted_status', {})\
-                            .get('in_reply_to_screen_name', None)
-                    if in_reply_to_screen_name is not None:
-                        query += " " + tweet_dict['retweeted_status']['in_reply_to_screen_name'].encode('utf-8')
-
-                if 'screen_name' in tweet_dict['retweeted_status']['user']:
-                    screen_name = tweet_dict.get('retweeted_status', {}).get('user', {}).get('screen_name', None)
-                    if screen_name is not None:
-                        query += " " + tweet_dict['retweeted_status']['user']['screen_name'].encode('utf-8')
-
-            # Quoted Status parts
-            if tweet_dict.get('quoted_status', None) is not None:
-                # Standard tweet
-                if tweet_dict.get('quoted_status').get('text', None) is not None:
-                    query = query + " " + tweet_dict['quoted_status']['text'].encode('utf-8')
-
-                # Extended tweet
-                if tweet_dict.get('quoted_status').get('extended_tweet', {}).get('full_text', None) is not None:
-                    query = query + " " + tweet_dict['quoted_status']['extended_tweet']['full_text'].encode('utf-8')
-
-            # De-dup urls and add to the giant query
-            if len(url_list) > 0:
-                url_list = set(url_list)
-                for url in url_list:
-                    query = query + " " + url.encode("utf-8")
-
-            # Lowercase the entire thing
-            query = query.lower()
-
-            random.shuffle(self.redis_rules)
-
+        # Do track and follow Traptor rule tagging...
+        elif self.traptor_type == 'track' or self.traptor_type == 'follow':
             try:
-                # Shuffle the rules every once in a while
+                content = self._build_match_content(tweet_dict)
+
                 for rule in self.redis_rules:
-                    # Get the rule to search for and lowercase it
-                    search_str = rule['value'].encode("utf-8").lower()
 
-                    # Split the rule value and see if it's a multi-parter
-                    part_finder = list()
-                    search_str_multi = search_str.split(" ")
+                    rule_type = rule.get('orig_type')
+                    rule_value = rule.get('value').encode("utf-8").lower()
+                    value_terms = rule_value.split(u" ")
+                    matches = list()
 
-                    # If there is more than one part to the rule, check for each part in the query
-                    if len(search_str_multi) > 1:
-                        for part in search_str_multi:
-                            if part in query:
-                                part_finder.append(True)
-                            else:
-                                part_finder.append(False)
+                    for search_term in value_terms:
+                        if rule_type in content:
+                            matches.append(search_term in content[rule_type])
+                        else:
+                            pass
 
-                    if len(search_str_multi) > 1 and all(part_finder):
+                    if len(matches) >=1 and all(matches):
+
+                        match = copy.deepcopy(rule)
+
                         # These two lines kept for backwards compatibility
-                        new_dict['traptor']['rule_tag'] = rule['tag']
-                        new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
+                        match['rule_tag'] = rule.get('tag')
+                        match['rule_value'] = rule.get('value')
 
-                        # Pass all key/value pairs from matched rule through to Traptor
-                        for key, value in rule.iteritems():
-                            new_dict['traptor'][key] = value.encode("utf-8")
+                        collection_rules.append(match)
 
                         # Log that a rule was matched
                         self.logger.debug('Rule matched', extra=logExtra({
-                                'tweet id': tweet_dict['id_str']
+                            'tweet id': tweet_dict.get('id_str'),
+                            'rule_value': rule_value,
+                            'rule_id': rule.get('rule_id')
                         }))
 
-                    elif search_str in query:
-                        # These two lines kept for backwards compatibility
-                        new_dict['traptor']['rule_tag'] = rule['tag']
-                        new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
-
-                        # Pass all key/value pairs from matched rule through to Traptor
-                        for key, value in rule.iteritems():
-                            new_dict['traptor'][key] = value.encode("utf-8")
-
-                        # Log that a rule was matched
-                        self.logger.debug('Rule matched', extra=logExtra({
-                                'tweet id': tweet_dict['id_str']
-                        }))
             except Exception as e:
-                theLogMsg = "Caught exception while performing rule matching for track"
+                theLogMsg = "Caught exception while performing rule matching for " + self.traptor_type
                 self.logger.error(theLogMsg, extra=logExtra(e))
                 dd_monitoring.increment('traptor_error_occurred',
                                         tags=['error_type:rule_matching_failure'])
 
-        # If this is a follow Traptor, only check the user/id field of the tweet
-        elif self.traptor_type == 'follow':
-            """
-            Here's how Twitter does it, and so shall we:
-
-            Tweets created by the user.
-            Tweets which are retweeted by the user.
-            Replies to any Tweet created by the user.
-            Retweets of any Tweet created by the user.
-            Manual replies, created without pressing a reply button (e.g. “@twitterapi I agree”).
-            """
-
-            # Build up the query from our tweet fields
-            query = ""
-
-            # Tweets created by the user AND
-            # Tweets which are retweeted by the user
-
-            try:
-                theLogMsg = 'tweet_dict for rule match'
-                self.logger.debug(theLogMsg, extra=logExtra({
-                        'tweet_dict': json.dumps(tweet_dict).encode("utf-8")
-                }))
-            except Exception as e:
-                theLogMsg = "Unable to dump the tweet dict to json"
-                self.logger.error(theLogMsg, extra=logExtra(e))
-                dd_monitoring.increment('traptor_error_occurred',
-                                        tags=['error_type:json_dumps'])
-
-            # From this user
-            query += str(tweet_dict['user']['id_str'])
-
-            # Replies to any Tweet created by the user.
-            if tweet_dict['in_reply_to_user_id'] is not None \
-                    and tweet_dict['in_reply_to_user_id'] != '':
-                query += str(tweet_dict['in_reply_to_user_id'])
-
-            # User mentions
-            if 'user_mentions' in tweet_dict['entities']:
-                for tag in tweet_dict['entities']['user_mentions']:
-                    id_str = tag.get('id_str')
-                    if id_str:
-                        query = query + " " + id_str.encode("utf-8")
-
-            # Retweeted parts
-            if tweet_dict.get('retweeted_status', None) is not None:
-                if tweet_dict['retweeted_status'].get('user', {}).get('id_str', None) is not None:
-                    query += str(tweet_dict['retweeted_status']['user']['id_str'])
-
-            # Retweets of any Tweet created by the user; AND
-            # Manual replies, created without pressing a reply button (e.g. “@twitterapi I agree”).
-            query = query + tweet_dict['text'].encode("utf-8")
-
-            # Lowercase the entire thing
-            query = query.lower()
-
-            random.shuffle(self.redis_rules)
-
-            try:
-                for rule in self.redis_rules:
-                    # Get the rule to search for and lowercase it
-                    search_str = str(rule['value']).encode("utf-8").lower()
-
-                    self.logger.debug('rule matching', extra=logExtra({
-                            'dbg-search': search_str,
-                            'dbg-query': query
-                    }))
-
-                    if search_str in query:
-                        # These two lines kept for backwards compatibility
-                        new_dict['traptor']['rule_tag'] = rule['tag']
-                        new_dict['traptor']['rule_value'] = rule['value'].encode("utf-8")
-
-                        # Pass all key/value pairs from matched rule through to Traptor
-                        for key, value in rule.iteritems():
-                            new_dict['traptor'][key] = value.encode("utf-8")
-
-                        # Log that a rule was matched
-                        self.logger.debug('rule matched', extra=logExtra({
-                                'tweet id': tweet_dict['id_str']
-                        }))
-            except Exception as e:
-                theLogMsg = "Caught exception while performing rule matching for follow"
-                self.logger.error(theLogMsg, extra=logExtra(e))
-                dd_monitoring.increment('traptor_error_occurred',
-                                        tags=['error_type:rule_matching_failure'])
-
-        # unknown traptor type
         else:
-            self.logger.warning("Ran into an unknown Traptor type...")
+            self.logger.error("Ran into an unknown Traptor type...",
+                              extra=logExtra({}))
 
-        if 'rule_tag' not in new_dict['traptor']:
+        if len(collection_rules) == 0:
             new_dict['traptor']['rule_type'] = self.traptor_type
             new_dict['traptor']['id'] = int(self.traptor_id)
             new_dict['traptor']['rule_tag'] = 'Not Found'
             new_dict['traptor']['rule_value'] = 'Not Found'
             # Log that a rule was matched
             self.logger.warning("No rule matched for tweet", extra=logExtra({
-                    'tweet_id': tweet_dict['id_str']
+                'tweet_id': tweet_dict['id_str']
             }))
 
         return new_dict
@@ -1264,11 +1230,175 @@ class Traptor(object):
         """
         theLogMsg = "Attempting to send tweet to kafka"
         self.logger.info(theLogMsg, extra=logExtra({
-                'tweet_id': tweet.get('id_str', None)
+            'tweet_id': tweet.get('id_str', None)
         }))
-        future = self.kafka_conn.send(self.kafka_topic, enriched_data)
-        future.add_callback(self.kafka_success_callback, tweet)
-        future.add_errback(self.kafka_failure_callback)
+
+        try:
+            future = self.kafka_conn.send(self.kafka_topic, enriched_data)
+            future.add_callback(self.kafka_success_callback, tweet)
+            future.add_errback(self.kafka_failure_callback)
+        except Exception as e:
+            self.logger.error("Kafka failed", extra=logExtra(e))
+
+    def _filter_maintenance(self, t_now=time.time(), expiration_age_sec=60.0):
+        """
+        This examines each rule value we are tracking rates on for filtering and truncates
+        any data that it outside the active window for evaluation. If all rate data is outside
+        the window, then it means we haven't recently received traffic for that rule value and
+        we can stop tracking it.
+        :param t_now: The time at which to base maintenance from
+        :type t_now: float
+        :param expiration_age_sec: The length of time data is valid
+        :type expiration_age_sec: float
+        """
+        expiration_time = t_now - expiration_age_sec
+        keys = list(self.twitter_rate.keys())
+
+        for key in keys:
+            value = self.twitter_rate[key]
+
+            # If the most recent value is too old, stop tracking the value
+            if (value and value[-1] <= expiration_time) or not value:
+                if key in self.kafka_rate:
+                    del self.kafka_rate[key]
+
+                if key in self.rate_limiter:
+                    del self.rate_limiter[key]
+
+                if key in self.twitter_rate:
+                    del self.twitter_rate[key]
+            else:
+                # Drop old entries to stay within the expiration_age_sec
+                while value and value[0] <= expiration_time:
+                    value.popleft()
+
+        for key, value in self.kafka_rate.items():
+            while value and value[0] <= expiration_time:
+                value.popleft()
+
+    def _compute_rates(self, data, t_now, evaluation_window_sec):
+        """
+
+        :param data:
+        :type data: dict
+        :param t_now:
+        :type t_now: float
+        :param evaluation_window_sec:
+        :type evaluation_window_sec: float
+        :return:
+        """
+        rates = dict()
+
+        if evaluation_window_sec <= 0.0:
+            return rates
+
+        t_start = t_now - evaluation_window_sec
+
+        for key, value in data.items():
+
+            current_data = deque(value)
+
+            while current_data and current_data[0] < t_start:
+                current_data.popleft()
+
+            count = len(current_data)
+            average_tps = float(count) / evaluation_window_sec
+
+            max_tps = average_tps
+            min_tps = average_tps
+
+            if count > 0:
+                second_buckets = dict()
+
+                for i in range(int(evaluation_window_sec)):
+                    second_buckets[i] = 0
+
+                for timestamp in current_data:
+                    second = int(timestamp - current_data[0])
+                    if second not in second_buckets:
+                        second_buckets[second] = 0
+                    second_buckets[second] += 1
+
+                for second, occurances in second_buckets.items():
+                    max_tps = max(max_tps, float(occurances))
+                    min_tps = min(min_tps, float(occurances))
+
+            rates[key] = {
+                'count': count,
+                'max_tps': max_tps,
+                'average_tps': average_tps,
+                'min_tps': min_tps
+            }
+
+        return rates
+
+    def _log_rates(self, t_now, evaluation_window_sec):
+        """
+        This computes the rate of traffic per rule value and logs the metrics.
+        :param t_now: The time at which to base calculations from
+        :type t_now: float
+        :param evaluation_window_sec: The length of time data is evaluated
+        :type evaluation_window_sec: float
+        """
+
+        for key, value in self._compute_rates(self.twitter_rate, t_now, evaluation_window_sec).items():
+
+            self.logger.info("Twitter Rate", extra=logExtra(dict({
+                'rule_value': key
+            }, **value)))
+
+        for key, value in self._compute_rates(self.kafka_rate, t_now, evaluation_window_sec).items():
+
+            self.logger.info("Kafka Rate", extra=logExtra(dict({
+                'rule_value': key
+            }, **value)))
+
+    def _is_filtered(self, enriched_data):
+        """
+        Tracks the volume of tweets per rule value received from twitter and applies a token bucket
+        rate limiter to determine if we should send the tweet to kafka.
+
+        :param enriched_data: The tweet with rule matches
+        :return:
+        """
+
+        # set of keys -> rule_values
+        rule_values = set()
+
+        if 'traptor' in enriched_data and 'collection_rules' in enriched_data['traptor']:
+            for rule in enriched_data['traptor']['collection_rules']:
+                if 'value' in rule:
+                    rule_values.add(rule.get('value'))
+
+        filtered = list()
+        t_now = time.time()
+
+        for key in rule_values:
+
+            if self.rate_limiting_enabled and key not in self.rate_limiter:
+                # Initialize a limiter for the untracked rule value
+                storage = token_bucket.MemoryStorage()
+                limiter = token_bucket.Limiter(self.rate_limiting_rate_sec, self.rate_limiting_capacity, storage)
+                self.rate_limiter[key] = limiter
+
+            if key not in self.twitter_rate:
+                self.twitter_rate[key] = deque()
+
+            self.twitter_rate[key].append(t_now)
+
+            # Do we have enough token bucket credits (under the limit) to send the tweet?
+            if not self.rate_limiting_enabled or self.rate_limiter[key].consume(key):
+
+                if key not in self.kafka_rate:
+                    self.kafka_rate[key] = deque()
+
+                self.kafka_rate[key].append(t_now)
+                filtered.append(False)
+            else:
+                filtered.append(True)
+
+        # Ensure we don't filter tweets without any rules
+        return len(filtered) != 0 and all(filtered)
 
     def _main_loop(self):
         """
@@ -1292,25 +1422,39 @@ class Traptor(object):
                                             tags=['error_type:json_loads_error'])
                 else:
                     theLogMsg = "Enriching Tweet"
-                    self.logger.info(theLogMsg, extra=logExtra({
+                    self.logger.debug(theLogMsg, extra=logExtra({
                         'tweet_id': tweet.get('id_str', None)
                     }))
                     enriched_data = self._enrich_tweet(tweet)
-                    # #4204 - since 1.4.13
-                    theLogMsg = settings.DWC_SEND_TO_KAFKA_ENRICHED
-                    self.logger.info(theLogMsg, extra=logExtra())
-                    if self.kafka_enabled:
-                        try:
-                            self._send_enriched_data_to_kafka(tweet, enriched_data)
-                        except Exception as e:
-                            theLogMsg = settings.DWC_ERROR_SEND_TO_KAFKA
-                            self.logger.error(theLogMsg, extra=logExtra(e))
-                            dd_monitoring.increment('tweet_to_kafka_failure',
-                                                    tags=['error_type:kafka'])
+
+                    if not self._is_filtered(enriched_data):
+                        # #4204 - since 1.4.13
+                        theLogMsg = settings.DWC_SEND_TO_KAFKA_ENRICHED
+                        self.logger.info(theLogMsg, extra=logExtra())
+                        if self.kafka_enabled:
+                            try:
+                                self._send_enriched_data_to_kafka(tweet, enriched_data)
+                            except Exception as e:
+                                theLogMsg = settings.DWC_ERROR_SEND_TO_KAFKA
+                                self.logger.error(theLogMsg, extra=logExtra(e))
+                                dd_monitoring.increment('tweet_to_kafka_failure',
+                                                        tags=['error_type:kafka'])
+                        else:
+                            self.logger.debug(json.dumps(enriched_data, indent=2))
                     else:
-                        self.logger.debug(json.dumps(enriched_data, indent=2))
+                        self.logger.debug("Tweet Rate Filtered", extra=logExtra({
+                            'value_str': json.dumps(enriched_data, indent=2)
+                        }))
+
             else:
                 self.logger.info("Stream keep-alive received", extra=logExtra())
+
+            t_now = time.time()
+
+            if t_now > self._last_filter_maintenance + self.rate_limiting_reporting_interval_sec:
+                self._log_rates(t_now, min(t_now - self._last_filter_maintenance, 2 * self.rate_limiting_reporting_interval_sec))
+                self._filter_maintenance(t_now, self.rate_limiting_reporting_interval_sec)
+                self._last_filter_maintenance = t_now
 
             if self.exit:
                 break
@@ -1653,7 +1797,19 @@ def main():
             )),
             heartbeat_interval=int(getAppParamStr(
                     'HEARTBEAT_INTERVAL', '0', args.heartbeat
-            ))
+            )),
+            rate_limiting_enabled=str2bool(getAppParamStr(
+                'RATE_LIMITING_ENABLED', settings.RATE_LIMITING_ENABLED
+            )),
+            rate_limiting_rate_sec=float(getAppParamStr(
+                'RATE_LIMITING_RATE_SEC', settings.RATE_LIMITING_RATE_SEC
+            )),
+            rate_limiting_capacity=int(getAppParamStr(
+                'RATE_LIMITING_CAPACITY', settings.RATE_LIMITING_CAPACITY
+            )),
+            rate_limiting_reporting_interval_sec=float(getAppParamStr(
+                'RATE_LIMITING_REPORTING_INTERVAL_SEC', settings.RATE_LIMITING_REPORTING_INTERVAL_SEC
+            )),
     )
 
     # Ensure we setup our CONSTS before we start actually doing things with threads

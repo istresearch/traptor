@@ -1,1 +1,1 @@
-{"tag": "test", "value": "happy", "status": "active", "description": "Tweets for a hashtag", "appid": "test-appid", "date_added": "2016-05-10 16:58:34", "rule_type": "track", "rule_id": 12347}
+{"tag": "test", "value": "happy", "status": "active", "description": "Tweets for a hashtag", "appid": "test-appid", "date_added": "2016-05-10 16:58:34", "orig_type": "keyword", "rule_type": "track", "rule_id": 12347}
