@@ -1,4 +1,4 @@
-version: '2'
+version: '3.7'
 
 services:
 
@@ -42,7 +42,7 @@ services:
       - ./traptor.env
     depends_on:
       - redis
-    command: ["python2", "traptor/healthcheck.py"]
+    command: ["python3", "traptor/healthcheck.py"]
     environment:
       - KAFKA_HOSTS=kafka:9092
       - KAFKA_TOPIC=traptor

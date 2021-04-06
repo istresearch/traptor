@@ -9,7 +9,7 @@ import logging
 
 import click
 
-from settings import mysql_settings, redis_settings
+from .settings import mysql_settings, redis_settings
 
 logging.basicConfig(level=logging.INFO)
 
@@ -103,7 +103,7 @@ class SQLRules(object):
         # Make the SQL results into a dictionary
         rules = [{'tag': tag, 'value': value} for (tag, value) in self.cursor]
         # De-duplicate the data
-        return {r['value']: r for r in rules}.values()
+        return list({r['value']: r for r in rules}.values())
 
     @staticmethod
     def _fix_follow(raw_rules):

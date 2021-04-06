@@ -6,7 +6,7 @@ from functools import wraps
 from dog_whistle import dw_config, dw_callback
 from scutils.log_factory import LogFactory
 from traptor import settings
-from __strings__ import *
+from .__strings__ import *
 
 # Initialize Logging
 logger = LogFactory.get_instance(name=os.getenv('LOG_NAME', settings.LOG_NAME),
@@ -17,9 +17,9 @@ logger = LogFactory.get_instance(name=os.getenv('LOG_NAME', settings.LOG_NAME),
             file=os.getenv('LOG_FILE', settings.LOG_FILE))
 
 if settings.API_BACKEND == 'piscina':
-    from backends.piscina import get_userid_for_username, get_screen_name_for_userid, get_recent_tweets_by_keyword
+    from .backends.piscina import get_userid_for_username, get_screen_name_for_userid, get_recent_tweets_by_keyword
 else:
-    from backends.local import get_userid_for_username, get_screen_name_for_userid, get_recent_tweets_by_keyword
+    from .backends.local import get_userid_for_username, get_screen_name_for_userid, get_recent_tweets_by_keyword
 
 if settings.DW_ENABLED:
     dw_config(settings.DW_CONFIG)
@@ -127,7 +127,7 @@ def _validate_track_rule(value):
 def _validate_geo_rule(value):
     code = 200
     response = {}
-    if isinstance(value, basestring):
+    if isinstance(value, str):
         try:
             lon1, lat1, lon2, lat2 = value.split(',')
             response['status'] = 'ok'
