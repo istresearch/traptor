@@ -18,7 +18,7 @@ import threading
 import redis
 import token_bucket
 
-import dd_monitoring
+from . import dd_monitoring
 import six
 
 # noinspection PyPackageRequirements
@@ -26,7 +26,7 @@ from kafka import KafkaProducer
 # noinspection PyPackageRequirements
 from kafka.common import KafkaUnavailableError
 
-from birdy.twitter import TwitterApiError, TwitterAuthError, TwitterRateLimitError, BirdyException
+from .birdy.twitter import TwitterApiError, TwitterAuthError, TwitterRateLimitError, BirdyException
 
 from tenacity import retry, wait_exponential, stop_after_attempt, \
     retry_if_exception_type, wait_chain, wait_fixed, wait_incrementing, stop_never, retry_if_exception
@@ -37,13 +37,14 @@ from requests.exceptions import ChunkedEncodingError, ConnectionError, Timeout
 from scutils.log_factory import LogFactory
 from scutils.stats_collector import StatsCollector
 
-from rule_set import RuleSet
-from traptor_birdy import TraptorBirdyClient
-from traptor_limit_counter import TraptorLimitCounter
+from .rule_set import RuleSet
+from .traptor_birdy import TraptorBirdyClient
+from .traptor_limit_counter import TraptorLimitCounter
 
-import settings
+from . import settings
+
 import argparse
-import version
+from . import version
 import types
 
 # Vars initialized once, then threadsafe to use
@@ -118,7 +119,7 @@ def logExtra(*info_args):
                      "traptor_id:{}".format(my_traptor_id)]
     }
     for info in info_args:
-        if isinstance(info, types.StringType):
+        if isinstance(info, bytes):
             result = merge_dicts(result, {'dbg-info': info})
         elif isinstance(info, dict):
             result = merge_dicts(result, info)
@@ -564,7 +565,7 @@ class Traptor(object):
             else:
                 rule_set.append(rule)
 
-        phrases = u','.join(six.iterkeys(rule_set.rules_by_value))
+        phrases = ','.join(six.iterkeys(rule_set.rules_by_value))
 
         self.logger.debug('Twitter rules string: {}'.format(phrases.encode('utf-8')))
 
@@ -706,7 +707,7 @@ class Traptor(object):
             locations_rule['rule_tag'] = rule['tag']
             locations_rule['rule_value'] = rule['value']
 
-            for key, value in rule.iteritems():
+            for key, value in list(rule.items()):
                 locations_rule[key] = value
 
         return locations_rule
@@ -741,7 +742,7 @@ class Traptor(object):
         """
         searchable = {
             "hashtag": set(),
-            "keyword": u"",
+            "keyword": "",
             "username": set(),
             "userid": set()
         }
@@ -775,7 +776,7 @@ class Traptor(object):
 
             if _s in free_text:
                 free_text.remove(_s)
-            searchable['keyword'] = u" ".join(free_text).lower()
+            searchable['keyword'] = " ".join(free_text).lower()
 
             for hashtag in tweet.get('extended_tweet', _d).get('entities', _d).get('hashtags', _l):
                 if 'text' in hashtag and hashtag['text'] is not None:
@@ -899,7 +900,7 @@ class Traptor(object):
 
                     rule_type = rule.get('orig_type')
                     rule_value = rule.get('value').encode("utf-8").lower()
-                    value_terms = rule_value.split(u" ")
+                    value_terms = rule_value.split(" ")
                     matches = list()
 
                     for search_term in value_terms:
@@ -1272,7 +1273,7 @@ class Traptor(object):
                 while value and value[0] <= expiration_time:
                     value.popleft()
 
-        for key, value in self.kafka_rate.items():
+        for key, value in list(self.kafka_rate.items()):
             while value and value[0] <= expiration_time:
                 value.popleft()
 
@@ -1294,7 +1295,7 @@ class Traptor(object):
 
         t_start = t_now - evaluation_window_sec
 
-        for key, value in data.items():
+        for key, value in list(data.items()):
 
             current_data = deque(value)
 
@@ -1319,7 +1320,7 @@ class Traptor(object):
                         second_buckets[second] = 0
                     second_buckets[second] += 1
 
-                for second, occurances in second_buckets.items():
+                for second, occurances in list(second_buckets.items()):
                     max_tps = max(max_tps, float(occurances))
                     min_tps = min(min_tps, float(occurances))
 
@@ -1341,13 +1342,13 @@ class Traptor(object):
         :type evaluation_window_sec: float
         """
 
-        for key, value in self._compute_rates(self.twitter_rate, t_now, evaluation_window_sec).items():
+        for key, value in list(self._compute_rates(self.twitter_rate, t_now, evaluation_window_sec).items()):
 
             self.logger.info("Twitter Rate", extra=logExtra(dict({
                 'rule_value': key
             }, **value)))
 
-        for key, value in self._compute_rates(self.kafka_rate, t_now, evaluation_window_sec).items():
+        for key, value in list(self._compute_rates(self.kafka_rate, t_now, evaluation_window_sec).items()):
 
             self.logger.info("Kafka Rate", extra=logExtra(dict({
                 'rule_value': key
@@ -1620,7 +1621,7 @@ class Traptor(object):
             self.logger.info("Shutdown complete", extra=logExtra())
 
 
-def sendRuleToRedis(aRedisConn, aRule, aRuleIndex=sys.maxint):
+def sendRuleToRedis(aRedisConn, aRule, aRuleIndex=sys.maxsize):
     aRedisConn.hmset('traptor-{0}:{1}:{2}'.format(
             my_traptor_type, my_traptor_id, aRuleIndex), aRule
     )
