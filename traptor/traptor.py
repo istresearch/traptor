@@ -1372,7 +1372,7 @@ class Traptor(object):
         if 'traptor' in enriched_data and 'collection_rules' in enriched_data['traptor']:
             for rule in enriched_data['traptor']['collection_rules']:
                 if 'value' in rule:
-                    rule_values.add(rule.get('value'))
+                    rule_values.add(RuleSet.get_normalized_value(rule))
 
         filtered = list()
         t_now = time.time()
