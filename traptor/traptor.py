@@ -902,7 +902,7 @@ class Traptor(object):
 
                     rule_type = rule.get('orig_type')
                     rule_value = rule.get('value').encode("utf-8").lower()
-                    value_terms = rule_value.split(u" ")
+                    value_terms = rule_value.split(" ")
                     matches = list()
 
                     for search_term in value_terms:
