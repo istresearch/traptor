@@ -757,6 +757,7 @@ class Traptor(object):
         if self.traptor_type == 'track':
 
             free_text = {tweet.get('text', _s),
+                         tweet.get('extended_tweet', _d).get('full_text', _s),
                          tweet.get('quoted_status', _d).get('extended_tweet', _d).get('full_text', _s),
                          tweet.get('quoted_status', _d).get('text', _s),
                          tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('full_text', _s),
@@ -901,7 +902,7 @@ class Traptor(object):
                 for rule in self.redis_rules:
 
                     rule_type = rule.get('orig_type')
-                    rule_value = rule.get('value').encode("utf-8").lower()
+                    rule_value = rule.get('value').lower()
                     value_terms = rule_value.split(" ")
                     matches = list()
 

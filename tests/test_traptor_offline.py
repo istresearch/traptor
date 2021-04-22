@@ -1,3 +1,4 @@
+# coding=utf-8
 """Traptor unit tests."""
 # To run with autotest and coverage and print all output to console run:
 #   py.test -s --cov=traptor --looponfail tests/
@@ -346,37 +347,43 @@ class TestTraptor(object):
 
         traptor.twitter_rules = traptor._make_twitter_rules([
             {
-                "rule_id": "1",
-                "value": "happy",
-                "rule_type": "track",
-                "orig_type": "keyword"
+                "rule_id": u"1",
+                "value": u"happy",
+                "rule_type": u"track",
+                "orig_type": u"keyword"
             },
             {
-                "rule_id": "2",
-                "value": "summer",
-                "rule_type": "track",
-                "orig_type": "hashtag"
+                "rule_id": u"2",
+                "value": u"summer",
+                "rule_type": u"track",
+                "orig_type": u"hashtag"
             },
             {
-                "rule_id": "3",
-                "value": "#apple",
-                "rule_type": "track",
-                "orig_type": "hashtag"
+                "rule_id": u"3",
+                "value": u"#apple",
+                "rule_type": u"track",
+                "orig_type": u"hashtag"
             },
             {
-                "rule_id": "4",
-                "value": "#sliding door",
-                "rule_type": "track",
-                "orig_type": "hashtag"
+                "rule_id": u"4",
+                "value": u"#sliding door",
+                "rule_type": u"track",
+                "orig_type": u"hashtag"
             },
             {
-                "rule_id": "5",
-                "value": "summer",
-                "rule_type": "track",
-                "orig_type": "hashtag"
+                "rule_id": u"5",
+                "value": u"summer",
+                "rule_type": u"track",
+                "orig_type": u"hashtag"
+            },
+            {
+                "rule_id": u"6",
+                "value": u"今日中国",
+                "rule_type": u"track",
+                "orig_type": u"keyword"
             }])
 
-        assert traptor.twitter_rules == '#apple,#sliding #door,#summer,happy'
+        assert traptor.twitter_rules == u'#apple,#sliding #door,#summer,今日中国,happy'
 
     # Tweet Enrichments
 
