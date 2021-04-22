@@ -616,21 +616,24 @@ class Traptor(object):
 
         :param tweet: the tweet rule
         """
-        rule_id = tweet.get('traptor', {}).get('rule_id', None)
+        collection_rules = tweet['traptor']['collection_rules']
 
-        # If the counter doesn't yet exist, create it
-        if self.rule_counters.get(rule_id, None) is None:
-            self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
+        for rule in collection_rules:
+            rule_id = rule.get('rule_id', None)
 
-        # If a rule value exists, increment the counter
-        try:
-            if rule_id is not None and self.rule_counters[rule_id] is not None:
-                self.rule_counters[rule_id].increment()
-        except Exception as e:
-            theLogMsg = "Caught exception while incrementing a rule counter"
-            self.logger.error(theLogMsg, extra=logExtra(e))
-            dd_monitoring.increment('redis_error',
-                                    tags=['error_type:connection_error'])
+            # If the counter doesn't yet exist, create it
+            if self.rule_counters.get(rule_id, None) is None:
+                self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
+
+            # If a rule value exists, increment the counter
+            try:
+                if rule_id is not None and self.rule_counters[rule_id] is not None:
+                    self.rule_counters[rule_id].increment()
+            except Exception as e:
+                theLogMsg = "Caught exception while incrementing a rule counter"
+                self.logger.error(theLogMsg, extra=logExtra(e))
+                dd_monitoring.increment('redis_error',
+                                        tags=['error_type:connection_error'])
 
     def _delete_rule_counters(self):
         """
