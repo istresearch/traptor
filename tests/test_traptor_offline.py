@@ -383,7 +383,10 @@ class TestTraptor(object):
                 "orig_type": u"keyword"
             }])
 
-        assert traptor.twitter_rules == u'#apple,#sliding #door,#summer,今日中国,happy'
+        given_set = set(traptor.twitter_rules.split(','))
+        expected_set = set(u'#apple,#sliding #door,#summer,今日中国,happy'.split(','))
+        assert len(given_set.difference(expected_set)) == 0
+        assert len(expected_set.difference(given_set)) == 0
 
     # Tweet Enrichments
 
