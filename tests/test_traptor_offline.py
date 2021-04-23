@@ -8,11 +8,11 @@ import time
 import os
 import json
 
+import fakeredis
 import token_bucket
 from redis import StrictRedis, ConnectionError
 import pytest
 from mock import MagicMock, call
-import mockredis
 from tenacity import wait_none
 
 from traptor import version
@@ -44,14 +44,15 @@ def getAppParamStr(aEnvVar, aDefault=None, aCliArg=None):
 
 @pytest.fixture()
 def redis_conn():
-    redis_conn = mockredis.mock_strict_redis_client(host='localhost', port=6379, db=5)
+
+    redis_conn = fakeredis.FakeStrictRedis()
     return redis_conn
 
 
 @pytest.fixture()
 def pubsub_conn():
     """Create a connection for the Redis PubSub."""
-    p_conn = mockredis.mock_strict_redis_client(host='localhost', port=6379, db=5)
+    p_conn = fakeredis.FakeStrictRedis()
     return p_conn
 
 
@@ -185,7 +186,7 @@ def pubsub_messages(request):
 @pytest.fixture()
 def heartbeat_conn():
     """Create a connection for the heartbeat."""
-    hb_conn = mockredis.mock_strict_redis_client(host='localhost', port=6379, db=5)
+    hb_conn = fakeredis.FakeStrictRedis()
     return hb_conn
 
 
@@ -567,7 +568,7 @@ class TestTraptor(object):
         tweet = traptor.birdy_stream.stream()
 
         if traptor.traptor_type == 'follow':
-            with open('data/extended_tweets/follow_rules.json') as f:
+            with open('tests/data/extended_tweets/follow_rules.json') as f:
                 traptor.redis_rules = [json.load(f)]
             traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
 
@@ -577,7 +578,7 @@ class TestTraptor(object):
             assert enriched_data['traptor']['collection_rules'][0]['rule_value'] == '735369652956766200'
 
         if traptor.traptor_type == 'track':
-            with open('data/extended_tweets/track_rules.json') as f:
+            with open('tests/data/extended_tweets/track_rules.json') as f:
                 traptor.redis_rules = [json.load(f)]
             traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
 

@@ -123,7 +123,7 @@ def logExtra(*info_args):
         elif isinstance(info, Exception):
             result = merge_dicts(result, {
                     'error_type': info.__class__.__name__,
-                    'error_msg': info.message,
+                    'error_msg': info.msg if hasattr(info, "msg") else None,
                     'ex': traceback.format_exc(1),
             })
     return result
