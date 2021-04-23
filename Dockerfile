@@ -16,4 +16,4 @@ COPY . /usr/src/app
 RUN pip install .
 
 # Start Traptor
-CMD ["python3", "traptor/traptor.py"]
+CMD ["python", "-m", "traptor.traptor"]

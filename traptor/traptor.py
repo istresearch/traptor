@@ -18,7 +18,7 @@ import threading
 import redis
 import token_bucket
 
-from . import dd_monitoring
+from traptor import dd_monitoring
 import six
 
 from .kafka import ConfluentKafkaProducer
@@ -1006,27 +1006,6 @@ class Traptor(object):
                 if idx < rule_max:
                     redis_rule = self.redis_conn.hgetall(hashname) # type:dict
 
-                    if redis_rule is not None:
-                        for field, value in list(redis_rule.items()):
-
-                            try:
-                                data_type = str
-
-                                if field == 'metadata':
-                                    data_type = dict
-                                elif field == 'collection_interval':
-                                    data_type = int
-
-                                redis_rule[field.decode("utf-8")] = self._decode(redis_rule.get(field), data_type)
-                                del redis_rule[field]
-
-                            except Exception:
-                                self.logger.error("Caught exception reading from Redis",
-                                                  extra={
-                                                      'value_str': "{}, {}".format(hashname, field),
-                                                      'ex': traceback.format_exc()
-                                                  })
-
                     yield redis_rule
                     self.logger.debug('got from redis', extra=logExtra({
                             'index': idx,
@@ -1524,30 +1503,6 @@ class Traptor(object):
                 settings.DWG_RULE_COUNT['value']: len(self.redis_rules)
         }))
 
-    def _decode(self, value, data_type):
-        """
-        Undo the bytestring representation of the value that Redis made when
-        storing the mapping.
-        """
-        if value is not None:
-
-            if value == 'None':
-                value = None
-            elif data_type == bytes:
-                return value
-            elif data_type == dict:
-                value = json.loads(value.decode('utf-8'))
-            elif data_type == int:
-                value = data_type(value.decode('utf-8'))
-            elif data_type == float:
-                value = data_type(value.decode('utf-8'))
-            elif data_type != str:
-                value = value.decode('utf-8')
-            else:
-                value = value.decode('utf-8', 'strict')
-
-        return value
-
     def _handle_auth_error(self, error):
 
         # Until we have an automated way to get new creds, we will enter a state
@@ -1858,7 +1813,7 @@ def main():
                     'HEARTBEAT_INTERVAL', '0', args.heartbeat
             )),
             rate_limiting_enabled=str2bool(getAppParamStr(
-                'RATE_LIMITING_ENABLED', settings.RATE_LIMITING_ENABLED
+                'RATE_LIMITING_ENABLED', str(settings.RATE_LIMITING_ENABLED)
             )),
             rate_limiting_rate_sec=float(getAppParamStr(
                 'RATE_LIMITING_RATE_SEC', settings.RATE_LIMITING_RATE_SEC
@@ -1914,14 +1869,10 @@ def main():
         my_logger.error(theLogMsg, extra=logExtra(e))
         dd_monitoring.increment('traptor_error_occurred',
                                 tags=['error_type:traptor_start'])
-        if str2bool(getAppParamStr('USE_SENTRY', 'false')):
-            client = Client(getAppParamStr('SENTRY_URL'))
-            client.captureException()
         raise e
 
 
 if __name__ == '__main__':
-    from raven import Client
     try:
         main()
     except KeyboardInterrupt:

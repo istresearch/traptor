@@ -44,15 +44,15 @@ def getAppParamStr(aEnvVar, aDefault=None, aCliArg=None):
 
 @pytest.fixture()
 def redis_conn():
+    redis_conn = fakeredis.FakeStrictRedis(charset="utf-8", decode_responses=True)
 
-    redis_conn = fakeredis.FakeStrictRedis()
     return redis_conn
 
 
 @pytest.fixture()
 def pubsub_conn():
     """Create a connection for the Redis PubSub."""
-    p_conn = fakeredis.FakeStrictRedis()
+    p_conn = fakeredis.FakeStrictRedis(charset="utf-8", decode_responses=True)
     return p_conn
 
 
@@ -186,7 +186,7 @@ def pubsub_messages(request):
 @pytest.fixture()
 def heartbeat_conn():
     """Create a connection for the heartbeat."""
-    hb_conn = fakeredis.FakeStrictRedis()
+    hb_conn = fakeredis.FakeStrictRedis(charset="utf-8", decode_responses=True)
     return hb_conn
 
 
