@@ -616,21 +616,24 @@ class Traptor(object):
 
         :param tweet: the tweet rule
         """
-        rule_id = tweet.get('traptor', {}).get('rule_id', None)
+        collection_rules = tweet['traptor']['collection_rules']
 
-        # If the counter doesn't yet exist, create it
-        if self.rule_counters.get(rule_id, None) is None:
-            self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
+        for rule in collection_rules:
+            rule_id = rule.get('rule_id', None)
 
-        # If a rule value exists, increment the counter
-        try:
-            if rule_id is not None and self.rule_counters[rule_id] is not None:
-                self.rule_counters[rule_id].increment()
-        except Exception as e:
-            theLogMsg = "Caught exception while incrementing a rule counter"
-            self.logger.error(theLogMsg, extra=logExtra(e))
-            dd_monitoring.increment('redis_error',
-                                    tags=['error_type:connection_error'])
+            # If the counter doesn't yet exist, create it
+            if self.rule_counters.get(rule_id, None) is None:
+                self.rule_counters[rule_id] = self._create_rule_counter(rule_id=rule_id)
+
+            # If a rule value exists, increment the counter
+            try:
+                if rule_id is not None and self.rule_counters[rule_id] is not None:
+                    self.rule_counters[rule_id].increment()
+            except Exception as e:
+                theLogMsg = "Caught exception while incrementing a rule counter"
+                self.logger.error(theLogMsg, extra=logExtra(e))
+                dd_monitoring.increment('redis_error',
+                                        tags=['error_type:connection_error'])
 
     def _delete_rule_counters(self):
         """
@@ -754,6 +757,7 @@ class Traptor(object):
         if self.traptor_type == 'track':
 
             free_text = {tweet.get('text', _s),
+                         tweet.get('extended_tweet', _d).get('full_text', _s),
                          tweet.get('quoted_status', _d).get('extended_tweet', _d).get('full_text', _s),
                          tweet.get('quoted_status', _d).get('text', _s),
                          tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('full_text', _s),
@@ -898,8 +902,8 @@ class Traptor(object):
                 for rule in self.redis_rules:
 
                     rule_type = rule.get('orig_type')
-                    rule_value = rule.get('value').encode("utf-8").lower()
-                    value_terms = rule_value.split(u" ")
+                    rule_value = rule.get('value').lower()
+                    value_terms = rule_value.split(" ")
                     matches = list()
 
                     for search_term in value_terms:
@@ -1368,7 +1372,7 @@ class Traptor(object):
         if 'traptor' in enriched_data and 'collection_rules' in enriched_data['traptor']:
             for rule in enriched_data['traptor']['collection_rules']:
                 if 'value' in rule:
-                    rule_values.add(rule.get('value'))
+                    rule_values.add(RuleSet.get_normalized_value(rule))
 
         filtered = list()
         t_now = time.time()
