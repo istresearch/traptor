@@ -21,15 +21,12 @@ import token_bucket
 from . import dd_monitoring
 import six
 
-# noinspection PyPackageRequirements
-from kafka import KafkaProducer
-# noinspection PyPackageRequirements
-from kafka.common import KafkaUnavailableError
+from .kafka import ConfluentKafkaProducer
 
 from .birdy.twitter import TwitterApiError, TwitterAuthError, TwitterRateLimitError, BirdyException
 
 from tenacity import retry, wait_exponential, stop_after_attempt, \
-    retry_if_exception_type, wait_chain, wait_fixed, wait_incrementing, stop_never, retry_if_exception
+    retry_if_exception_type, wait_chain, wait_fixed, wait_incrementing, stop_never, retry_if_exception, RetryCallState
 
 from dog_whistle import dw_config, dw_callback
 from requests.exceptions import ChunkedEncodingError, ConnectionError, Timeout
@@ -132,7 +129,7 @@ def logExtra(*info_args):
     return result
 
 
-def log_retry_twitter(func, aRetryNum, arg3):
+def log_retry_twitter(retry_state: RetryCallState= None):
     """
     If a retry occurs, log it.
 
@@ -143,11 +140,11 @@ def log_retry_twitter(func, aRetryNum, arg3):
     global my_logger
     if my_logger is not None:
         my_logger.info(settings.DWC_RETRY_TWITTER, extra=logExtra({
-                'retry-num': aRetryNum,
+                'retry-num': retry_state.attempt_number,
         }))
 
 
-def log_retry_redis(func, aRetryNum, arg3):
+def log_retry_redis(retry_state: RetryCallState = None):
     """
     If a retry occurs, log it.
 
@@ -158,11 +155,11 @@ def log_retry_redis(func, aRetryNum, arg3):
     global my_logger
     if my_logger is not None:
         my_logger.info(settings.DWC_RETRY_REDIS, extra=logExtra({
-                'retry-num': aRetryNum,
+                'retry-num': retry_state.attempt_number,
         }))
 
 
-def log_retry_kafka(func, aRetryNum, arg3):
+def log_retry_kafka(retry_state:RetryCallState= None):
     """
     If a retry occurs, log it.
 
@@ -173,7 +170,7 @@ def log_retry_kafka(func, aRetryNum, arg3):
     global my_logger
     if my_logger is not None:
         my_logger.info(settings.DWC_RETRY_KAFKA, extra=logExtra({
-                'retry-num': aRetryNum,
+                'retry-num': retry_state.attempt_number,
         }))
 
 
@@ -381,21 +378,20 @@ class Traptor(object):
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
         stop=stop_after_attempt(3),
-        retry=retry_if_exception_type(KafkaUnavailableError),
-        reraise = True,
+        retry=retry_if_exception_type(),
+        reraise=True,
         after=log_retry_kafka,
     )
     def _create_kafka_producer(self):
         """Create the Kafka producer"""
-        self.kafka_conn = KafkaProducer(
-                bootstrap_servers=self.kafka_hosts,
-                value_serializer=lambda m: json.dumps(m),
-                api_version=(0, 9),
-                reconnect_backoff_ms=4000,
-                retries=3,
-                linger_ms=25,
-                buffer_memory=4 * 1024 * 1024
-        )
+        kafka_config = {'KAFKA_BOOTSTRAP_SERVERS': settings.KAFKA_BOOTSTRAP_SERVERS,
+                        'KAFKA_BROKER_VERSION_FALLBACK': settings.KAFKA_BROKER_VERSION_FALLBACK,
+                        'KAFKA_API_VERSION_REQUEST': settings.KAFKA_API_VERSION_REQUEST,
+                        'KAFKA_PRODUCER_BATCH_LINGER_MS': settings.KAFKA_PRODUCER_BATCH_LINGER_MS,
+                        'KAFKA_PRODUCER_BUFFER_KBYTES': settings.KAFKA_PRODUCER_BUFFER_KBYTES,
+                        'KAFKA_PRODUCER_TOPIC': settings.KAFKA_PRODUCER_TOPIC}
+
+        self.kafka_conn = ConfluentKafkaProducer(kafka_config, self.logger)
 
     def _setup_kafka(self):
         """ Set up a Kafka connection."""
@@ -1003,12 +999,35 @@ class Traptor(object):
             self.logger.info("Getting rules from Redis", extra=logExtra())
             for idx, hashname in enumerate(self.redis_conn.scan_iter(match=match)):
                 if idx < rule_max:
-                    redis_rule = self.redis_conn.hgetall(hashname)
+                    redis_rule = self.redis_conn.hgetall(hashname) # type:dict
+
+                    if redis_rule is not None:
+                        for field, value in list(redis_rule.items()):
+
+                            try:
+                                data_type = str
+
+                                if field == 'metadata':
+                                    data_type = dict
+                                elif field == 'collection_interval':
+                                    data_type = int
+
+                                redis_rule[field.decode("utf-8")] = self._decode(redis_rule.get(field), data_type)
+                                del redis_rule[field]
+
+                            except Exception:
+                                self.logger.error("Caught exception reading from Redis",
+                                                  extra={
+                                                      'value_str': "{}, {}".format(hashname, field),
+                                                      'ex': traceback.format_exc()
+                                                  })
+
                     yield redis_rule
                     self.logger.debug('got from redis', extra=logExtra({
                             'index': idx,
                             'redis_rule': redis_rule
                     }))
+
         except Exception as e:
             theLogMsg = "Caught exception while getting rules from Redis"
             self.logger.critical(theLogMsg, extra=logExtra(e))
@@ -1175,7 +1194,6 @@ class Traptor(object):
 
         self.logger.info("The redis pub/sub listener is exiting.", extra=logExtra())
 
-
     @retry(
         wait=wait_exponential(multiplier=1, max=10),
         stop=stop_after_attempt(3),
@@ -1219,7 +1237,7 @@ class Traptor(object):
         wait=wait_exponential(multiplier=1, max=10),
         stop=stop_after_attempt(3),
         reraise=True,
-        retry=retry_if_exception_type(KafkaUnavailableError),
+        retry=retry_if_exception_type(),
         after=log_retry_kafka,
     )
     def _send_enriched_data_to_kafka(self, tweet, enriched_data):
@@ -1235,9 +1253,20 @@ class Traptor(object):
         }))
 
         try:
-            future = self.kafka_conn.send(self.kafka_topic, enriched_data)
-            future.add_callback(self.kafka_success_callback, tweet)
-            future.add_errback(self.kafka_failure_callback)
+            def delivery_callback(error, message):
+                """
+                Called by Producer.poll() to report the state of the write request to Kafka.
+                :param error: If an error occurred, this is it
+                :type error: KafkaError
+                :return:
+                """
+                if error:
+                    self.kafka_failure_callback(Exception(error.name() + " " + error.str()))
+                else:
+                    self.kafka_success_callback(enriched_data)
+
+            self.kafka_conn.send(self.kafka_topic, enriched_data, delivery_callback)
+
         except Exception as e:
             self.logger.error("Kafka failed", extra=logExtra(e))
 
@@ -1490,6 +1519,30 @@ class Traptor(object):
                 settings.DWG_RULE_COUNT['value']: len(self.redis_rules)
         }))
 
+    def _decode(self, value, data_type):
+        """
+        Undo the bytestring representation of the value that Redis made when
+        storing the mapping.
+        """
+        if value is not None:
+
+            if value == 'None':
+                value = None
+            elif data_type == bytes:
+                return value
+            elif data_type == dict:
+                value = json.loads(value.decode('utf-8'))
+            elif data_type == int:
+                value = data_type(value.decode('utf-8'))
+            elif data_type == float:
+                value = data_type(value.decode('utf-8'))
+            elif data_type != str:
+                value = value.decode('utf-8')
+            else:
+                value = value.decode('utf-8', 'strict')
+
+        return value
+
     def _handle_auth_error(self, error):
 
         # Until we have an automated way to get new creds, we will enter a state
@@ -1614,7 +1667,7 @@ class Traptor(object):
             if self.kafka_conn is not None:
                 try:
                     self.logger.info("Closing Kafka", extra=logExtra())
-                    self.kafka_conn.close(5)
+                    self.kafka_conn.close()
                 except Exception as e:
                     self.logger.info("Exception closing Kafka", extra=logExtra(e))
 

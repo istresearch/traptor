@@ -170,7 +170,7 @@ def _validate_geo_rule(value):
                 del linear_ring[:]
                 linear_ring.extend(deduped)
                 if len(linear_ring) >= 3:
-                    if cmp(linear_ring[0], linear_ring[-1]) != 0:
+                    if (linear_ring[0] > linear_ring[-1]) - (linear_ring[0] < linear_ring[-1]) != 0:
                         linear_ring.append(list(linear_ring[0]))
                 if 0 <= len(linear_ring) < 4:
                     raise Exception('Linear ring in coordinates is too short')

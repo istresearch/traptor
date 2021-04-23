@@ -201,22 +201,22 @@ class TestRuleExtract():
 
     def test_track(self, redis_rules):
         """Test retrieving the tracking rules."""
-        assert {'tag': 'test', 'value': 'happy', 'status': 'active', 'description': 'Tweets for a hashtag',
-                'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'track', 'orig_type': 'keyword', 'rule_id': '12347'} == redis_rules.hgetall('traptor-track:0:0')
+        assert {b'tag': b'test', b'value': b'happy', b'status': b'active', b'description': b'Tweets for a hashtag',
+                b'appid': b'test-appid', b'date_added': b'2016-05-10 16:58:34',
+                b'rule_type': b'track', b'orig_type': b'keyword', b'rule_id': b'12347'} == redis_rules.hgetall('traptor-track:0:0')
 
     def test_follow(self, redis_rules):
         """Test retrieving the follow rules."""
-        assert {'tag': 'test', 'value': '17919972', 'status': 'active', 'description': 'Tweets from some user',
-                'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'follow', 'orig_type': 'userid', 'rule_id': '12345'} == redis_rules.hgetall('traptor-follow:0:0')
+        assert {b'tag': b'test', b'value': b'17919972', b'status': b'active', b'description': b'Tweets from some user',
+                b'appid': b'test-appid', b'date_added': b'2016-05-10 16:58:34',
+                b'rule_type': b'follow', b'orig_type': b'userid', b'rule_id': b'12345'} == redis_rules.hgetall('traptor-follow:0:0')
 
     def test_locations(self, redis_rules):
         """Test retrieving the location rules."""
-        assert {'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8', 'status': 'active',
-                'description': 'Tweets from some continent', 'appid': 'test-appid',
-                'date_added': '2016-05-10 16:58:34',
-                'rule_type': 'locations', 'orig_type': 'geo', 'rule_id': '12346'} == redis_rules.hgetall('traptor-locations:0:0')
+        assert {b'tag': b'test', b'value': b'-122.75,36.8,-121.75,37.8', b'status': b'active',
+                b'description': b'Tweets from some continent', b'appid': b'test-appid',
+                b'date_added': b'2016-05-10 16:58:34',
+                b'rule_type': b'locations', b'orig_type': b'geo', b'rule_id': b'12346'} == redis_rules.hgetall('traptor-locations:0:0')
 
 
 class TestTraptor(object):
@@ -376,7 +376,7 @@ class TestTraptor(object):
                 "orig_type": "hashtag"
             }])
 
-        assert traptor.twitter_rules == '#apple,#sliding #door,#summer,happy'
+        assert traptor.twitter_rules == 'happy,#summer,#apple,#sliding #door'
 
     # Tweet Enrichments
 
@@ -557,7 +557,7 @@ class TestTraptor(object):
         tweet = traptor.birdy_stream.stream()
 
         if traptor.traptor_type == 'follow':
-            with open('tests/data/extended_tweets/follow_rules.json') as f:
+            with open('data/extended_tweets/follow_rules.json') as f:
                 traptor.redis_rules = [json.load(f)]
             traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
 
@@ -567,7 +567,7 @@ class TestTraptor(object):
             assert enriched_data['traptor']['collection_rules'][0]['rule_value'] == '735369652956766200'
 
         if traptor.traptor_type == 'track':
-            with open('tests/data/extended_tweets/track_rules.json') as f:
+            with open('data/extended_tweets/track_rules.json') as f:
                 traptor.redis_rules = [json.load(f)]
             traptor.twitter_rules = traptor._make_twitter_rules(traptor.redis_rules)
 

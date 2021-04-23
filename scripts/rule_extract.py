@@ -172,7 +172,7 @@ class RulesToRedis(object):
     def send_rules(self, traptor_type, rules):
         """ Send rules out to Redis with the appropriate key, value format. """
         for idx, d in enumerate(rules):
-            crawler_num = idx / self.rule_max(traptor_type)
+            crawler_num = int(idx / self.rule_max(traptor_type))
             logging.debug('idx: {}, crawler_num: {}'.format(idx, crawler_num))
             self.redis_conn.hmset('traptor-{0}:{1}:{2}'.format(
                                   traptor_type, crawler_num, idx), d)
