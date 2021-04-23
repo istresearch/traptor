@@ -155,7 +155,8 @@ class RuleSet(object):
         for rule in other:
             self.remove(rule.get('rule_id'))
 
-    def get_normalized_value(self, rule):
+    @staticmethod
+    def get_normalized_value(rule):
         """
         Normalize the rule value to ensure correct assignment.
         :param rule: A rule dictionary.
