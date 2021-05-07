@@ -31,37 +31,37 @@ class ConfluentKafkaProducer(KafkaProducerInterface):
         self.logger = logger
 
         conf = {
-            'bootstrap.servers': ','.join(config['kafka.bootstrap.servers']),
-            'broker.version.fallback': config['kafka.broker.version.fallback'],
-            'api.version.request': config['kafka.api.version.request'],
-            'queue.buffering.max.ms': config['kafka.producer.batch.linger.ms'],
-            'queue.buffering.max.kbytes': config['kafka.producer.buffer.kbytes'],
+            'bootstrap.servers': ','.join(config['kafka_bootstrap_servers']),
+            'broker.version.fallback': config['kafka_broker_version_fallback'],
+            'api.version.request': config['kafka_api_version_request'],
+            'queue.buffering.max.ms': config['kafka_producer_batch_linger_ms'],
+            'queue.buffering.max.kbytes': config['kafka_producer_buffer_kbytes'],
             'message.send.max.retries': 3,
             'default.topic.config': {
                 'request.required.acks': 1
             }
         }
 
-        def error_callback(self, error):
-            """
-            :param error:
-            :type error: KafkaError
-            :param message:
-            :param datum:
-            :return:
-            """
-            if error:
-                datum = {}
-                datum['success'] = False
-                datum['exception'] = error.name()
-                datum['description'] = error.str()
-                self._logger.error("Kafka error", datum if datum else {})
-
         self.logger.info("Creating a Confluent Kafka Producer", {"config": json.dumps(conf, indent=4)})
         self.producer = Producer(dict(conf, **{'error_cb': self.error_callback}), logger=logger.logger)
 
         # Service any logging
         self.producer.poll(0.25)
+
+    def error_callback(self, error):
+        """
+        :param error:
+        :type error: KafkaError
+        :param message:
+        :param datum:
+        :return:
+        """
+        if error:
+            datum = {}
+            datum['success'] = False
+            datum['exception'] = error.name()
+            datum['description'] = error.str()
+            self.logger.error("Kafka error", datum if datum else {})
 
     def send(self, topic, message, callback=None):
 

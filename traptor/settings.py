@@ -29,12 +29,14 @@ LOG_FILE = 'traptor.log'
 KAFKA_ENABLED = 'True'
 KAFKA_TOPIC = "traptor"                         # Kafka topic to write all twitter data
 
-KAFKA_BOOTSTRAP_SERVERS: 'localhost:9092'
-KAFKA_BROKER_VERSION_FALLBACK: '0.9.0'
-KAFKA_API_VERSION_REQUEST: True
-KAFKA_PRODUCER_BATCH_LINGER_MS: 1000
-KAFKA_PRODUCER_BUFFER_KBYTES: 1048576  # 1024 MB (librdkafka default)
-KAFKA_PRODUCER_TOPIC: 'crawl.incoming'
+KAFKA_BOOTSTRAP_SERVERS = 'localhost:9092'
+KAFKA_HOSTS = '127.0.0.1'
+KAFKA_BROKER_VERSION_FALLBACK = '0.9.0'
+KAFKA_API_VERSION_REQUEST = True
+KAFKA_PRODUCER_BATCH_LINGER_MS = 1000
+KAFKA_PRODUCER_BUFFER_KBYTES = 1048576  # 1024 MB (librdkafka default)
+KAFKA_PRODUCER_TOPIC = 'crawl.incoming'
+KAFKA_SECURITY_PROTOCOL = None
 
 # Redis
 REDIS_HOST = "localhost"                        # Redis host

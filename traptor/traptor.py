@@ -110,10 +110,10 @@ def logExtra(*info_args):
     :return: dict: Returns the `extra` param for logger.
     """
     result = {
-            'component': my_component,
-            my_component+'_version': version.__version__,
-            'tags': ["traptor_type:{}".format(my_traptor_type),
-                     "traptor_id:{}".format(my_traptor_id)]
+        'component': my_component,
+        my_component + '_version': version.__version__,
+        'tags': ["traptor_type:{}".format(my_traptor_type),
+                 "traptor_id:{}".format(my_traptor_id)]
     }
     for info in info_args:
         if isinstance(info, bytes):
@@ -122,14 +122,14 @@ def logExtra(*info_args):
             result = merge_dicts(result, info)
         elif isinstance(info, Exception):
             result = merge_dicts(result, {
-                    'error_type': info.__class__.__name__,
-                    'error_msg': info.msg if hasattr(info, "msg") else None,
-                    'ex': traceback.format_exc(1),
+                'error_type': info.__class__.__name__,
+                'error_msg': info.msg if hasattr(info, "msg") else None,
+                'ex': traceback.format_exc(1),
             })
     return result
 
 
-def log_retry_twitter(retry_state: RetryCallState= None):
+def log_retry_twitter(retry_state: RetryCallState = None):
     """
     If a retry occurs, log it.
 
@@ -140,7 +140,7 @@ def log_retry_twitter(retry_state: RetryCallState= None):
     global my_logger
     if my_logger is not None:
         my_logger.info(settings.DWC_RETRY_TWITTER, extra=logExtra({
-                'retry-num': retry_state.attempt_number,
+            'retry-num': retry_state.attempt_number,
         }))
 
 
@@ -155,11 +155,11 @@ def log_retry_redis(retry_state: RetryCallState = None):
     global my_logger
     if my_logger is not None:
         my_logger.info(settings.DWC_RETRY_REDIS, extra=logExtra({
-                'retry-num': retry_state.attempt_number,
+            'retry-num': retry_state.attempt_number,
         }))
 
 
-def log_retry_kafka(retry_state:RetryCallState= None):
+def log_retry_kafka(retry_state: RetryCallState = None):
     """
     If a retry occurs, log it.
 
@@ -170,7 +170,7 @@ def log_retry_kafka(retry_state:RetryCallState= None):
     global my_logger
     if my_logger is not None:
         my_logger.info(settings.DWC_RETRY_KAFKA, extra=logExtra({
-                'retry-num': retry_state.attempt_number,
+            'retry-num': retry_state.attempt_number,
         }))
 
 
@@ -205,7 +205,7 @@ class Traptor(object):
             rate_limiting_rate_sec=10.0,
             rate_limiting_capacity=10,
             rate_limiting_reporting_interval_sec=60.0
-            ):
+    ):
         """
         Traptor base class.
 
@@ -265,7 +265,7 @@ class Traptor(object):
         self.twitter_rules = None
         self.locations_rule = {}
         self.name = 'traptor-{}-{}'.format(
-                self.traptor_type, self.traptor_id
+            self.traptor_type, self.traptor_id
         )
         # Properties that need to be accessed using a semaphore
         self._NEEDS_SEMAPHORE_hb_interval = heartbeat_interval
@@ -308,17 +308,17 @@ class Traptor(object):
 
     def __repr__(self):
         return 'Traptor(' \
-               + 'type='+repr(self.traptor_type) \
-               + ', id='+repr(self.traptor_id) \
-               + ', heartbeat='+repr(self._hb_interval()) \
-               + ', notify_channel='+repr(self.traptor_notify_channel) \
-               + ', check_interval='+repr(self.rule_check_interval) \
-               + ', apikeys='+repr(self.apikeys) \
-               + ', kafka_on='+repr(self.kafka_enabled) \
-               + ', ktopic='+repr(self.kafka_topic) \
-               + ', sentry_on='+repr(self.use_sentry) \
-               + ', test_on='+repr(self.test) \
-               + ', stats_on='+repr(self.enable_stats_collection) \
+               + 'type=' + repr(self.traptor_type) \
+               + ', id=' + repr(self.traptor_id) \
+               + ', heartbeat=' + repr(self._hb_interval()) \
+               + ', notify_channel=' + repr(self.traptor_notify_channel) \
+               + ', check_interval=' + repr(self.rule_check_interval) \
+               + ', apikeys=' + repr(self.apikeys) \
+               + ', kafka_on=' + repr(self.kafka_enabled) \
+               + ', ktopic=' + repr(self.kafka_topic) \
+               + ', sentry_on=' + repr(self.use_sentry) \
+               + ', test_on=' + repr(self.test) \
+               + ', stats_on=' + repr(self.enable_stats_collection) \
                + ')'
 
     def _getRestartSearchFlag(self):
@@ -369,10 +369,10 @@ class Traptor(object):
         # Set up a birdy twitter streaming client
         self.logger.info('Setting up birdy client')
         self.birdy_conn = TraptorBirdyClient(
-                self.apikeys['CONSUMER_KEY'],
-                self.apikeys['CONSUMER_SECRET'],
-                self.apikeys['ACCESS_TOKEN'],
-                self.apikeys['ACCESS_TOKEN_SECRET']
+            self.apikeys['CONSUMER_KEY'],
+            self.apikeys['CONSUMER_SECRET'],
+            self.apikeys['ACCESS_TOKEN'],
+            self.apikeys['ACCESS_TOKEN_SECRET']
         )
 
     @retry(
@@ -384,12 +384,12 @@ class Traptor(object):
     )
     def _create_kafka_producer(self):
         """Create the Kafka producer"""
-        kafka_config = {'KAFKA_BOOTSTRAP_SERVERS': settings.KAFKA_BOOTSTRAP_SERVERS,
-                        'KAFKA_BROKER_VERSION_FALLBACK': settings.KAFKA_BROKER_VERSION_FALLBACK,
-                        'KAFKA_API_VERSION_REQUEST': settings.KAFKA_API_VERSION_REQUEST,
-                        'KAFKA_PRODUCER_BATCH_LINGER_MS': settings.KAFKA_PRODUCER_BATCH_LINGER_MS,
-                        'KAFKA_PRODUCER_BUFFER_KBYTES': settings.KAFKA_PRODUCER_BUFFER_KBYTES,
-                        'KAFKA_PRODUCER_TOPIC': settings.KAFKA_PRODUCER_TOPIC}
+        kafka_config = ({'kafka_bootstrap_servers': settings.KAFKA_BOOTSTRAP_SERVERS,
+                         'kafka_broker_version_fallback': settings.KAFKA_BROKER_VERSION_FALLBACK,
+                         'kafka_api_version_request': settings.KAFKA_API_VERSION_REQUEST,
+                         'kafka_producer_batch_linger_ms': settings.KAFKA_PRODUCER_BATCH_LINGER_MS,
+                         'kafka_producer_buffer_kbytes': settings.KAFKA_PRODUCER_BUFFER_KBYTES,
+                         'kafka_producer_topic': settings.KAFKA_PRODUCER_TOPIC})
 
         self.kafka_conn = ConfluentKafkaProducer(kafka_config, self.logger)
 
@@ -408,7 +408,7 @@ class Traptor(object):
         else:
             self.logger.info('Skipping kafka connection setup')
             self.logger.debug('kafka_enabled', extra=logExtra(
-                    str(self.kafka_enabled)
+                str(self.kafka_enabled)
             ))
             self.kafka_conn = None
 
@@ -418,6 +418,7 @@ class Traptor(object):
                 'tweet_id': tweet.get('id_str', None)
             }))
             dd_monitoring.increment('tweet_to_kafka_success')
+
         return kafka_success
 
     def _gen_kafka_failure(self):
@@ -426,6 +427,7 @@ class Traptor(object):
             self.logger.error(theLogMsg, extra=logExtra(e))
             dd_monitoring.increment('tweet_to_kafka_failure',
                                     tags=['error_type:kafka'])
+
         return kafka_failure
 
     def _setup(self, args=None, aLogger=None):
@@ -444,14 +446,14 @@ class Traptor(object):
         self.logger = aLogger
         if aLogger is None:
             self.logger = LogFactory.get_instance(
-                    name=self.name,
-                    json=str2bool(os.getenv('LOG_JSON', settings.LOG_JSON)),
-                    stdout=str2bool(getAppParamStr(
-                        'LOG_STDOUT', settings.LOG_STDOUT, args.log_stdout
-                    )),
-                    level=getLoggingLevel(args.loglevel),
-                    dir=os.getenv('LOG_DIR', settings.LOG_DIR),
-                    file=getAppParamStr('LOG_FILE', settings.LOG_FILE, args.log_file)
+                name=self.name,
+                json=str2bool(os.getenv('LOG_JSON', settings.LOG_JSON)),
+                stdout=str2bool(getAppParamStr(
+                    'LOG_STDOUT', settings.LOG_STDOUT, args.log_stdout
+                )),
+                level=getLoggingLevel(args.loglevel),
+                dir=os.getenv('LOG_DIR', settings.LOG_DIR),
+                file=getAppParamStr('LOG_FILE', settings.LOG_FILE, args.log_file)
             )
             if settings.DW_ENABLED:
                 dw_config(settings.DW_CONFIG)
@@ -465,24 +467,24 @@ class Traptor(object):
         """Create a Twitter follow stream."""
         self.logger.info('Creating birdy follow stream')
         self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(
-                follow=self.twitter_rules,
-                stall_warnings='true'
+            follow=self.twitter_rules,
+            stall_warnings='true'
         )
 
     def _create_twitter_track_stream(self):
         """Create a Twitter follow stream."""
         self.logger.info('Creating birdy track stream')
         self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(
-                track=self.twitter_rules,
-                stall_warnings='true'
+            track=self.twitter_rules,
+            stall_warnings='true'
         )
 
     def _create_twitter_locations_stream(self):
         """Create a Twitter locations stream."""
         self.logger.info('Creating birdy locations stream')
         self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(
-                locations=self.twitter_rules,
-                stall_warnings='true'
+            locations=self.twitter_rules,
+            stall_warnings='true'
         )
 
     @retry(
@@ -514,9 +516,9 @@ class Traptor(object):
                 theLogMsg = 'Caught error creating birdy stream for Traptor ' \
                             'type that does not exist'
                 self.logger.critical(theLogMsg, extra=logExtra({
-                        'error_type': 'NotImplementedError',
-                        'error_msg': 'Traptor type does not exist.',
-                        'ex': traceback.format_exc(1)
+                    'error_type': 'NotImplementedError',
+                    'error_msg': 'Traptor type does not exist.',
+                    'ex': traceback.format_exc(1)
                 }))
                 dd_monitoring.increment('traptor_error_occurred',
                                         tags=['error_type:not_implemented_error'])
@@ -551,13 +553,15 @@ class Traptor(object):
                 if len(rule['value']) <= 60:
                     rule_set.append(rule)
                 else:
-                    self.logger.error("Skipping invalid track rule, over 60 bytes", extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
+                    self.logger.error("Skipping invalid track rule, over 60 bytes",
+                                      extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
 
             elif self.traptor_type == 'follow':
                 if str(rule['value']).isdigit():
                     rule_set.append(rule)
                 else:
-                    self.logger.error("Skipping invalid follow rule, not numeric", extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
+                    self.logger.error("Skipping invalid follow rule, not numeric",
+                                      extra=logExtra({"value_str": json.dumps(rule, indent=4)}))
             else:
                 rule_set.append(rule)
 
@@ -577,9 +581,9 @@ class Traptor(object):
         collection_window = int(os.getenv('STATS_COLLECTION_WINDOW', 900))
         stats_key = 'stats:{}:{}:{}'.format(self.traptor_type, self.traptor_id, rule_id)
         stats_collector = StatsCollector.get_rolling_time_window(
-                redis_conn=self.redis_conn,
-                key=stats_key,
-                window=collection_window
+            redis_conn=self.redis_conn,
+            key=stats_key,
+            window=collection_window
         )
 
         return stats_collector
@@ -661,13 +665,13 @@ class Traptor(object):
         Make a limit message counter to track the values of incoming limit messages.
         """
         limit_counter_key = "limit:{}:{}".format(
-                self.traptor_type, self.traptor_id
+            self.traptor_type, self.traptor_id
         )
         collection_window = int(os.getenv('LIMIT_COUNT_COLLECTION_WINDOW', 900))
 
         self.limit_counter = TraptorLimitCounter(
-                key=limit_counter_key,
-                window=collection_window
+            key=limit_counter_key,
+            window=collection_window
         )
         self.limit_counter.setup(redis_conn=self.redis_conn)
 
@@ -763,15 +767,22 @@ class Traptor(object):
 
             self._get_url_fields(tweet.get('entities', _d).get('urls', _l), free_text)
             self._get_url_fields(tweet.get('extended_tweet', _d).get('entities', _d).get('urls', _l), free_text)
-            self._get_url_fields(tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('urls', _l), free_text)
+            self._get_url_fields(
+                tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('urls', _l),
+                free_text)
             self._get_url_fields(tweet.get('retweeted_status', _d).get('entities', _d).get('urls', _l), free_text)
-            self._get_url_fields(tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('urls', _l), free_text)
+            self._get_url_fields(
+                tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('urls', _l), free_text)
             self._get_url_fields(tweet.get('quoted_status', _d).get('entities', _d).get('urls', _l), free_text)
             self._get_url_fields(tweet.get('extended_tweet', _d).get('entities', _d).get('media', _l), free_text)
             self._get_url_fields(tweet.get('entities', _d).get('media', _l), free_text)
-            self._get_url_fields(tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('media', _l), free_text)
+            self._get_url_fields(
+                tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('media', _l),
+                free_text)
             self._get_url_fields(tweet.get('retweeted_status', _d).get('entities', _d).get('media', _l), free_text)
-            self._get_url_fields(tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('media', _l), free_text)
+            self._get_url_fields(
+                tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('media', _l),
+                free_text)
             self._get_url_fields(tweet.get('quoted_status', _d).get('entities', _d).get('media', _l), free_text)
 
             if _s in free_text:
@@ -786,7 +797,8 @@ class Traptor(object):
                 if 'text' in hashtag and hashtag['text'] is not None:
                     searchable['hashtag'].add(hashtag.get('text').lower())
 
-            for hashtag in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('hashtags', _l):
+            for hashtag in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get(
+                    'hashtags', _l):
                 if 'text' in hashtag and hashtag['text'] is not None:
                     searchable['hashtag'].add(hashtag.get('text').lower())
 
@@ -794,7 +806,8 @@ class Traptor(object):
                 if 'text' in hashtag and hashtag['text'] is not None:
                     searchable['hashtag'].add(hashtag.get('text').lower())
 
-            for hashtag in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('hashtags', _l):
+            for hashtag in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('hashtags',
+                                                                                                            _l):
                 if 'text' in hashtag and hashtag['text'] is not None:
                     searchable['hashtag'].add(hashtag.get('text').lower())
 
@@ -819,7 +832,8 @@ class Traptor(object):
                 if 'id_str' in user_mention and user_mention['id_str'] is not None:
                     searchable['userid'].add(user_mention.get('id_str'))
 
-            for user_mention in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+            for user_mention in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get(
+                    'user_mentions', _l):
                 if 'id_str' in user_mention and user_mention['id_str'] is not None:
                     searchable['userid'].add(user_mention.get('id_str'))
 
@@ -827,7 +841,8 @@ class Traptor(object):
                 if 'id_str' in user_mention and user_mention['id_str'] is not None:
                     searchable['userid'].add(user_mention.get('id_str'))
 
-            for user_mention in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+            for user_mention in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get(
+                    'user_mentions', _l):
                 if 'id_str' in user_mention and user_mention['id_str'] is not None:
                     searchable['userid'].add(user_mention.get('id_str'))
 
@@ -850,7 +865,8 @@ class Traptor(object):
                 if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
                     searchable['username'].add(user_mention.get('screen_name').lower())
 
-            for user_mention in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+            for user_mention in tweet.get('retweeted_status', _d).get('extended_tweet', _d).get('entities', _d).get(
+                    'user_mentions', _l):
                 if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
                     searchable['username'].add(user_mention.get('screen_name').lower())
 
@@ -858,7 +874,8 @@ class Traptor(object):
                 if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
                     searchable['username'].add(user_mention.get('screen_name').lower())
 
-            for user_mention in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get('user_mentions', _l):
+            for user_mention in tweet.get('quoted_status', _d).get('extended_tweet', _d).get('entities', _d).get(
+                    'user_mentions', _l):
                 if 'screen_name' in user_mention and user_mention['screen_name'] is not None:
                     searchable['username'].add(user_mention.get('screen_name').lower())
 
@@ -910,8 +927,7 @@ class Traptor(object):
                         else:
                             pass
 
-                    if len(matches) >=1 and all(matches):
-
+                    if len(matches) >= 1 and all(matches):
                         match = copy.deepcopy(rule)
 
                         # These two lines kept for backwards compatibility
@@ -990,7 +1006,7 @@ class Traptor(object):
             rule_max = 1
         else:
             self.logger.error('Unsupported traptor_type', extra=logExtra({
-                    'traptor_type': self.traptor_type
+                'traptor_type': self.traptor_type
             }))
             dd_monitoring.increment('traptor_error_occurred',
                                     tags=['error_type:not_implemented_error'])
@@ -1004,12 +1020,12 @@ class Traptor(object):
             self.logger.info("Getting rules from Redis", extra=logExtra())
             for idx, hashname in enumerate(self.redis_conn.scan_iter(match=match)):
                 if idx < rule_max:
-                    redis_rule = self.redis_conn.hgetall(hashname) # type:dict
+                    redis_rule = self.redis_conn.hgetall(hashname)  # type:dict
 
                     yield redis_rule
                     self.logger.debug('got from redis', extra=logExtra({
-                            'index': idx,
-                            'redis_rule': redis_rule
+                        'index': idx,
+                        'redis_rule': redis_rule
                     }))
 
         except Exception as e:
@@ -1050,7 +1066,7 @@ class Traptor(object):
         """
         if tweet_dict.get('created_at'):
             tweet_dict['traptor']['created_at_iso'] = self._tweet_time_to_iso(
-                    tweet_dict['created_at']
+                tweet_dict['created_at']
             )
 
         return tweet_dict
@@ -1115,7 +1131,7 @@ class Traptor(object):
             except Exception as e:
                 theLogMsg = "Failed to enrich tweet, skipping enhancement"
                 self.logger.error(theLogMsg, extra=logExtra(e, {
-                        "tweet": json.dumps(tweet)
+                    "tweet": json.dumps(tweet)
                 }))
 
                 # an error occurred while processing the tweet. If some information was
@@ -1126,7 +1142,7 @@ class Traptor(object):
         else:
             theLogMsg = "Twitter message is not a tweet"
             self.logger.info(theLogMsg, extra=logExtra({
-                    'twitter_message': tweet
+                'twitter_message': tweet
             }))
 
         dd_monitoring.increment('tweet_process_success')
@@ -1146,7 +1162,7 @@ class Traptor(object):
             try:
                 theLogMsg = "Subscribing to Traptor notification PubSub"
                 self.logger.info(theLogMsg, extra=logExtra({
-                        'restart_flag': str(self._getRestartSearchFlag)
+                    'restart_flag': str(self._getRestartSearchFlag)
                 }))
 
                 pubsub = self.pubsub_conn.pubsub(ignore_subscribe_messages=True)
@@ -1192,14 +1208,14 @@ class Traptor(object):
                                        self.traptor_id,
                                        'heartbeat')
         message = now
-        if self.heartbeat_conn.setex(key_to_add, int(hb_interval*1.5), message):
+        if self.heartbeat_conn.setex(key_to_add, int(hb_interval * 1.5), message):
             theLogMsg = 'heartbeat_message_sent_success'
             self.logger.info(theLogMsg, extra=logExtra())
 
     def _send_heartbeat_message(self):
         """Add an expiring key to Redis as a heartbeat on a timed basis."""
         self.logger.info("Starting the heartbeat", extra=logExtra({
-                'hb_interval': self._hb_interval()
+            'hb_interval': self._hb_interval()
         }))
 
         # while Traptor is running, add a heartbeat message every X seconds, min 5.
@@ -1237,7 +1253,7 @@ class Traptor(object):
         }))
 
         try:
-            def delivery_callback(error, message):
+            def delivery_callback(error):
                 """
                 Called by Producer.poll() to report the state of the write request to Kafka.
                 :param error: If an error occurred, this is it
@@ -1356,13 +1372,11 @@ class Traptor(object):
         """
 
         for key, value in list(self._compute_rates(self.twitter_rate, t_now, evaluation_window_sec).items()):
-
             self.logger.info("Twitter Rate", extra=logExtra(dict({
                 'rule_value': key
             }, **value)))
 
         for key, value in list(self._compute_rates(self.kafka_rate, t_now, evaluation_window_sec).items()):
-
             self.logger.info("Kafka Rate", extra=logExtra(dict({
                 'rule_value': key
             }, **value)))
@@ -1466,7 +1480,8 @@ class Traptor(object):
             t_now = time.time()
 
             if t_now > self._last_filter_maintenance + self.rate_limiting_reporting_interval_sec:
-                self._log_rates(t_now, min(t_now - self._last_filter_maintenance, 2 * self.rate_limiting_reporting_interval_sec))
+                self._log_rates(t_now, min(t_now - self._last_filter_maintenance,
+                                           2 * self.rate_limiting_reporting_interval_sec))
                 self._filter_maintenance(t_now, self.rate_limiting_reporting_interval_sec)
                 self._last_filter_maintenance = t_now
 
@@ -1500,7 +1515,7 @@ class Traptor(object):
 
         # We got rules, tell my supervisors about them
         self.logger.info(settings.DWG_RULE_COUNT['key'], extra=logExtra({
-                settings.DWG_RULE_COUNT['value']: len(self.redis_rules)
+            settings.DWG_RULE_COUNT['value']: len(self.redis_rules)
         }))
 
     def _handle_auth_error(self, error):
@@ -1563,7 +1578,7 @@ class Traptor(object):
                     continue
 
                 self.logger.debug('Twitter rules', extra=logExtra({
-                        'dbg-rules': self.twitter_rules.encode('utf-8')
+                    'dbg-rules': self.twitter_rules.encode('utf-8')
                 }))
 
                 # Make the rule and limit message counters
@@ -1592,8 +1607,8 @@ class Traptor(object):
                 except ChunkedEncodingError as e:
                     # Discussion online suggests this happens when we fall behind Twitter
                     # https://github.com/ryanmcgrath/twython/issues/288#issuecomment-66360160
-                    theLogMsg = "Ran into a ChunkedEncodingError while processing "\
-                        "tweets. Restarting Traptor from top of main process loop"
+                    theLogMsg = "Ran into a ChunkedEncodingError while processing " \
+                                "tweets. Restarting Traptor from top of main process loop"
                     self.logger.error(theLogMsg, extra=logExtra(e))
                 except (ConnectionError, Timeout) as e:
                     self.logger.error("Connection to Twitter broken.",
@@ -1636,7 +1651,7 @@ class Traptor(object):
 
 def sendRuleToRedis(aRedisConn, aRule, aRuleIndex=sys.maxsize):
     aRedisConn.hmset('traptor-{0}:{1}:{2}'.format(
-            my_traptor_type, my_traptor_id, aRuleIndex), aRule
+        my_traptor_type, my_traptor_id, aRuleIndex), aRule
     )
 
 
@@ -1681,58 +1696,58 @@ def createArgumentParser():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-            '--delay',
-            action='store_true',  # which defaults to False.
-            help='Inserts an artificial delay to wait 30 seconds before startup.'
+        '--delay',
+        action='store_true',  # which defaults to False.
+        help='Inserts an artificial delay to wait 30 seconds before startup.'
     )
     parser.add_argument(
-            '--test',
-            action='store_true',  # which defaults to False.
-            help='Skips connecting to Twitter.'
+        '--test',
+        action='store_true',  # which defaults to False.
+        help='Skips connecting to Twitter.'
     )
     parser.add_argument(
-            '--loglevel',
-            help='CRITICAL | ERROR | WARNING | INFO | DEBUG (case insensitive).'
+        '--loglevel',
+        help='CRITICAL | ERROR | WARNING | INFO | DEBUG (case insensitive).'
     )
     parser.add_argument(
-            '--log_file',
-            help='Specify the LOG_FILE name.'
+        '--log_file',
+        help='Specify the LOG_FILE name.'
     )
     parser.add_argument(
-            '--redis_pubsub',
-            help='Specify the Traptor Redis PubSub channel.'
+        '--redis_pubsub',
+        help='Specify the Traptor Redis PubSub channel.'
     )
     parser.add_argument(
-            '--type',
-            help='Specify the Traptor Type: track | follow | locations'
+        '--type',
+        help='Specify the Traptor Type: track | follow | locations'
     )
     parser.add_argument(
-            '--id',
-            help='Specify the Traptor ID (an integer)'
+        '--id',
+        help='Specify the Traptor ID (an integer)'
     )
     parser.add_argument(
-            '--interval',
-            help='Specify the number of seconds between rule checks.'
+        '--interval',
+        help='Specify the number of seconds between rule checks.'
     )
     parser.add_argument(
-            '--kafka_enabled',
-            help='Specify true for output to kafka or false for stdout.'
+        '--kafka_enabled',
+        help='Specify true for output to kafka or false for stdout.'
     )
     parser.add_argument(
-            '--stats',
-            help='Specify true or false for stats collection.'
+        '--stats',
+        help='Specify true or false for stats collection.'
     )
     parser.add_argument(
-            '--log_stdout',
-            help='Specify true to force logs to stdout.'
+        '--log_stdout',
+        help='Specify true to force logs to stdout.'
     )
     parser.add_argument(
-            '--rule',
-            help='Specify a rule to act upon for testing.'
+        '--rule',
+        help='Specify a rule to act upon for testing.'
     )
     parser.add_argument(
-            '--heartbeat',
-            help='Specify the number of seconds between heartbeat notifications.'
+        '--heartbeat',
+        help='Specify the number of seconds between heartbeat notifications.'
     )
     return parser
 
@@ -1786,62 +1801,63 @@ def main():
 
     # Create the traptor instance
     traptor_instance = Traptor(
-            redis_conn=redis_conn,
-            pubsub_conn=pubsub_conn,
-            heartbeat_conn=heartbeat_conn,
-            traptor_notify_channel=getAppParamStr(
-                'REDIS_PUBSUB_CHANNEL', 'traptor-notify', args.redis_pubsub
-            ),
-            rule_check_interval=int(getAppParamStr(
-                    'RULE_CHECK_INTERVAL', '60', args.interval
-            )),
-            traptor_type=my_traptor_type,
-            traptor_id=my_traptor_id,
-            apikeys=api_keys,
-            kafka_enabled=str2bool(getAppParamStr(
-                    'KAFKA_ENABLED', 'true', args.kafka_enabled
-            )),
-            kafka_hosts=os.getenv('KAFKA_HOSTS', 'localhost:9092'),
-            kafka_topic=os.getenv('KAFKA_TOPIC', 'traptor'),
-            use_sentry=str2bool(os.getenv('USE_SENTRY', 'false')),
-            sentry_url=os.getenv('SENTRY_URL', None),
-            test=args.test,
-            enable_stats_collection=str2bool(getAppParamStr(
-                    'ENABLE_STATS_COLLECTION', 'true', args.stats
-            )),
-            heartbeat_interval=int(getAppParamStr(
-                    'HEARTBEAT_INTERVAL', '0', args.heartbeat
-            )),
-            rate_limiting_enabled=str2bool(getAppParamStr(
-                'RATE_LIMITING_ENABLED', str(settings.RATE_LIMITING_ENABLED)
-            )),
-            rate_limiting_rate_sec=float(getAppParamStr(
-                'RATE_LIMITING_RATE_SEC', settings.RATE_LIMITING_RATE_SEC
-            )),
-            rate_limiting_capacity=int(getAppParamStr(
-                'RATE_LIMITING_CAPACITY', settings.RATE_LIMITING_CAPACITY
-            )),
-            rate_limiting_reporting_interval_sec=float(getAppParamStr(
-                'RATE_LIMITING_REPORTING_INTERVAL_SEC', settings.RATE_LIMITING_REPORTING_INTERVAL_SEC
-            )),
+        redis_conn=redis_conn,
+        pubsub_conn=pubsub_conn,
+        heartbeat_conn=heartbeat_conn,
+        traptor_notify_channel=getAppParamStr(
+            'REDIS_PUBSUB_CHANNEL', 'traptor-notify', args.redis_pubsub
+        ),
+        rule_check_interval=int(getAppParamStr(
+            'RULE_CHECK_INTERVAL', '60', args.interval
+        )),
+        traptor_type=my_traptor_type,
+        traptor_id=my_traptor_id,
+        apikeys=api_keys,
+        kafka_enabled=str2bool(getAppParamStr(
+            'KAFKA_ENABLED', 'true', args.kafka_enabled
+        )),
+        kafka_hosts=os.getenv('KAFKA_HOSTS', 'localhost:9092'),
+        kafka_topic=os.getenv('KAFKA_TOPIC', 'traptor'),
+        use_sentry=str2bool(os.getenv('USE_SENTRY', 'false')),
+        sentry_url=os.getenv('SENTRY_URL', None),
+        test=args.test,
+        enable_stats_collection=str2bool(getAppParamStr(
+            'ENABLE_STATS_COLLECTION', 'true', args.stats
+        )),
+        heartbeat_interval=int(getAppParamStr(
+            'HEARTBEAT_INTERVAL', '0', args.heartbeat
+        )),
+        rate_limiting_enabled=str2bool(getAppParamStr(
+            'RATE_LIMITING_ENABLED', str(settings.RATE_LIMITING_ENABLED)
+        )),
+        rate_limiting_rate_sec=float(getAppParamStr(
+            'RATE_LIMITING_RATE_SEC', settings.RATE_LIMITING_RATE_SEC
+        )),
+        rate_limiting_capacity=int(getAppParamStr(
+            'RATE_LIMITING_CAPACITY', settings.RATE_LIMITING_CAPACITY
+        )),
+        rate_limiting_reporting_interval_sec=float(getAppParamStr(
+            'RATE_LIMITING_REPORTING_INTERVAL_SEC', settings.RATE_LIMITING_REPORTING_INTERVAL_SEC
+        )),
+
     )
 
     # Ensure we setup our CONSTS before we start actually doing things with threads
     dd_monitoring.DEFAULT_TAGS = [
-            'traptor_type:{}'.format(traptor_instance.traptor_type),
-            'traptor_id:{}'.format(traptor_instance.traptor_id),
-            'traptor_version:{}'.format(version.__version__),
+        'traptor_type:{}'.format(traptor_instance.traptor_type),
+        'traptor_id:{}'.format(traptor_instance.traptor_id),
+        'traptor_version:{}'.format(version.__version__),
     ]
     global my_logger
     my_logger = LogFactory.get_instance(
-            name=traptor_instance.name,
-            json=str2bool(os.getenv('LOG_JSON', settings.LOG_JSON)),
-            stdout=str2bool(getAppParamStr(
-                    'LOG_STDOUT', settings.LOG_STDOUT, args.log_stdout
-            )),
-            level=getLoggingLevel(args.loglevel),
-            dir=getAppParamStr('LOG_DIR', settings.LOG_DIR),
-            file=getAppParamStr('LOG_FILE', settings.LOG_FILE, args.log_file)
+        name=traptor_instance.name,
+        json=str2bool(os.getenv('LOG_JSON', settings.LOG_JSON)),
+        stdout=str2bool(getAppParamStr(
+            'LOG_STDOUT', settings.LOG_STDOUT, args.log_stdout
+        )),
+        level=getLoggingLevel(args.loglevel),
+        dir=getAppParamStr('LOG_DIR', settings.LOG_DIR),
+        file=getAppParamStr('LOG_FILE', settings.LOG_FILE, args.log_file)
     )
 
     if settings.DW_ENABLED:
