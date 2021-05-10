@@ -203,22 +203,22 @@ class TestRuleExtract():
 
     def test_track(self, redis_rules):
         """Test retrieving the tracking rules."""
-        assert {b'tag': b'test', b'value': b'happy', b'status': b'active', b'description': b'Tweets for a hashtag',
-                b'appid': b'test-appid', b'date_added': b'2016-05-10 16:58:34',
-                b'rule_type': b'track', b'orig_type': b'keyword', b'rule_id': b'12347'} == redis_rules.hgetall('traptor-track:0:0')
+        assert {'tag': 'test', 'value': 'happy', 'status': 'active', 'description': 'Tweets for a hashtag',
+                'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34',
+                'rule_type': 'track', 'orig_type': 'keyword', 'rule_id': '12347'} == redis_rules.hgetall('traptor-track:0:0')
 
     def test_follow(self, redis_rules):
         """Test retrieving the follow rules."""
-        assert {b'tag': b'test', b'value': b'17919972', b'status': b'active', b'description': b'Tweets from some user',
-                b'appid': b'test-appid', b'date_added': b'2016-05-10 16:58:34',
-                b'rule_type': b'follow', b'orig_type': b'userid', b'rule_id': b'12345'} == redis_rules.hgetall('traptor-follow:0:0')
+        assert {'tag': 'test', 'value': '17919972', 'status': 'active', 'description': 'Tweets from some user',
+                'appid': 'test-appid', 'date_added': '2016-05-10 16:58:34',
+                'rule_type': 'follow', 'orig_type': 'userid', 'rule_id': '12345'} == redis_rules.hgetall('traptor-follow:0:0')
 
     def test_locations(self, redis_rules):
         """Test retrieving the location rules."""
-        assert {b'tag': b'test', b'value': b'-122.75,36.8,-121.75,37.8', b'status': b'active',
-                b'description': b'Tweets from some continent', b'appid': b'test-appid',
-                b'date_added': b'2016-05-10 16:58:34',
-                b'rule_type': b'locations', b'orig_type': b'geo', b'rule_id': b'12346'} == redis_rules.hgetall('traptor-locations:0:0')
+        assert {'tag': 'test', 'value': '-122.75,36.8,-121.75,37.8', 'status': 'active',
+                'description': 'Tweets from some continent', 'appid': 'test-appid',
+                'date_added': '2016-05-10 16:58:34',
+                'rule_type': 'locations', 'orig_type': 'geo', 'rule_id': '12346'} == redis_rules.hgetall('traptor-locations:0:0')
 
 
 class TestTraptor(object):
