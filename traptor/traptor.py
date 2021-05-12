@@ -384,12 +384,12 @@ class Traptor(object):
     )
     def _create_kafka_producer(self):
         """Create the Kafka producer"""
-        kafka_config = ({'kafka_bootstrap_servers': settings.KAFKA_BOOTSTRAP_SERVERS,
+        kafka_config = ({'kafka_bootstrap_servers': [self.kafka_hosts],
                          'kafka_broker_version_fallback': settings.KAFKA_BROKER_VERSION_FALLBACK,
                          'kafka_api_version_request': settings.KAFKA_API_VERSION_REQUEST,
                          'kafka_producer_batch_linger_ms': settings.KAFKA_PRODUCER_BATCH_LINGER_MS,
                          'kafka_producer_buffer_kbytes': settings.KAFKA_PRODUCER_BUFFER_KBYTES,
-                         'kafka_producer_topic': settings.KAFKA_PRODUCER_TOPIC})
+                         'kafka_producer_topic': self.kafka_topic})
 
         self.kafka_conn = ConfluentKafkaProducer(kafka_config, self.logger)
 
@@ -413,7 +413,7 @@ class Traptor(object):
             self.kafka_conn = None
 
     def _gen_kafka_success(self):
-        def kafka_success(tweet, response):
+        def kafka_success(tweet):
             self.logger.info("Tweet sent to kafka", extra=logExtra({
                 'tweet_id': tweet.get('id_str', None)
             }))
@@ -1253,7 +1253,7 @@ class Traptor(object):
         }))
 
         try:
-            def delivery_callback(error):
+            def delivery_callback(error, sucess):
                 """
                 Called by Producer.poll() to report the state of the write request to Kafka.
                 :param error: If an error occurred, this is it
