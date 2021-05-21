@@ -30,7 +30,7 @@ KAFKA_ENABLED = 'True'
 KAFKA_TOPIC = "traptor"                         # Kafka topic to write all twitter data
 
 KAFKA_BOOTSTRAP_SERVERS = 'localhost:9092'
-KAFKA_HOSTS = '127.0.0.1'
+KAFKA_HOSTS = 'localhost:9092'
 KAFKA_BROKER_VERSION_FALLBACK = '0.9.0'
 KAFKA_API_VERSION_REQUEST = True
 KAFKA_PRODUCER_BATCH_LINGER_MS = 1000
