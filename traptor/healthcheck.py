@@ -1,5 +1,5 @@
 import redis
-import settings
+from . import settings
 import time
 import signal
 import os
@@ -11,7 +11,7 @@ from scutils.log_factory import LogFactory
 from dog_whistle import dw_config, dw_callback
 from pykafka import KafkaClient
 
-from birdy.twitter import StreamClient
+from .birdy.twitter import StreamClient
 
 
 class HealthCheck:
@@ -41,7 +41,7 @@ class HealthCheck:
                     "traptor_id:{}".format(os.getenv('TRAPTOR_ID'))
                 ]
             }
-            dw_settings = dict(settings.DW_CONFIG.items() + default_tags.items())
+            dw_settings = dict(list(settings.DW_CONFIG.items()) + list(default_tags.items()))
             dw_config(dw_settings)
             self.logger.register_callback('>=INFO', dw_callback)
 

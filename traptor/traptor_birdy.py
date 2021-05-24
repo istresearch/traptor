@@ -1,5 +1,5 @@
 
-from birdy.twitter import StreamClient, StreamResponse
+from .birdy.twitter import StreamClient, StreamResponse
 
 
 class TraptorStreamResponse(StreamResponse):

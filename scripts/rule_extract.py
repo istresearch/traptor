@@ -9,7 +9,7 @@ import logging
 
 import click
 
-from settings import mysql_settings, redis_settings
+from .settings import mysql_settings, redis_settings
 
 logging.basicConfig(level=logging.INFO)
 
@@ -103,7 +103,7 @@ class SQLRules(object):
         # Make the SQL results into a dictionary
         rules = [{'tag': tag, 'value': value} for (tag, value) in self.cursor]
         # De-duplicate the data
-        return {r['value']: r for r in rules}.values()
+        return list({r['value']: r for r in rules}.values())
 
     @staticmethod
     def _fix_follow(raw_rules):
@@ -172,7 +172,7 @@ class RulesToRedis(object):
     def send_rules(self, traptor_type, rules):
         """ Send rules out to Redis with the appropriate key, value format. """
         for idx, d in enumerate(rules):
-            crawler_num = idx / self.rule_max(traptor_type)
+            crawler_num = int(idx / self.rule_max(traptor_type))
             logging.debug('idx: {}, crawler_num: {}'.format(idx, crawler_num))
             self.redis_conn.hmset('traptor-{0}:{1}:{2}'.format(
                                   traptor_type, crawler_num, idx), d)

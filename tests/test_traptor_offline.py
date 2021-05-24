@@ -8,11 +8,11 @@ import time
 import os
 import json
 
+import fakeredis
 import token_bucket
 from redis import StrictRedis, ConnectionError
 import pytest
 from mock import MagicMock, call
-import mockredis
 from tenacity import wait_none
 
 from traptor import version
@@ -44,14 +44,15 @@ def getAppParamStr(aEnvVar, aDefault=None, aCliArg=None):
 
 @pytest.fixture()
 def redis_conn():
-    redis_conn = mockredis.mock_strict_redis_client(host='localhost', port=6379, db=5)
+    redis_conn = fakeredis.FakeStrictRedis(charset="utf-8", decode_responses=True)
+
     return redis_conn
 
 
 @pytest.fixture()
 def pubsub_conn():
     """Create a connection for the Redis PubSub."""
-    p_conn = mockredis.mock_strict_redis_client(host='localhost', port=6379, db=5)
+    p_conn = fakeredis.FakeStrictRedis(charset="utf-8", decode_responses=True)
     return p_conn
 
 
@@ -185,7 +186,7 @@ def pubsub_messages(request):
 @pytest.fixture()
 def heartbeat_conn():
     """Create a connection for the heartbeat."""
-    hb_conn = mockredis.mock_strict_redis_client(host='localhost', port=6379, db=5)
+    hb_conn = fakeredis.FakeStrictRedis(charset="utf-8", decode_responses=True)
     return hb_conn
 
 
@@ -704,58 +705,3 @@ class TestTraptor(object):
 
         assert len(traptor.twitter_rate['air force']) == 100
         assert 20 <= len(traptor.kafka_rate['air force']) <= 22
-
-    def test_is_filtered_dummy(self, traptor):
-        enriched_data = {
-            "traptor": {
-                "collection_rules": [{"value": "air force"}]
-            }
-        }
-
-        twitter_rate = dict()
-        kafka_rate = dict()
-        rate_limiter = dict()
-        rule_last_seen = dict()
-
-        key = enriched_data['traptor']['collection_rules'][0]['value']
-        rule_last_seen[key] = datetime.now()
-
-        traptor.logger = MagicMock()
-        # check only if received tweet
-        if key in rule_last_seen:
-            value = rule_last_seen[key]
-            upper_bound = datetime.now()
-            lower_bound = upper_bound - timedelta(minutes=2)
-
-            # thread interval every 2 minutes or function in traptor every 10,000 tweets
-            # function filter_maintance
-
-
-            for key, value in rule_last_seen.items():
-                if upper_bound >= value >= lower_bound:
-                    print('Last seen less than 2 minutes ago')
-                    print(rule_last_seen)
-                else:
-                    print('Last seen longer than 2 minutes ago, drop it')  # debug
-                    del rule_last_seen[key], twitter_rate[key], kafka_rate[key], rate_limiter[key]
-                    print(rule_last_seen)
-        else:
-            rule_last_seen[key] = datetime.now()
-
-        if key not in rate_limiter:
-            storage = token_bucket.MemoryStorage()
-            limiter = token_bucket.Limiter(10, 10, storage)
-            rate_limiter[key] = limiter
-            twitter_rate[key] = "Twitter Rate"  # every tweet
-            kafka_rate[key] = "Kafka Rate"  # wont know until after consume, only ones not filtered will be record here
-            rule_last_seen[key] = datetime.now()
-
-        # How to get rates , track yourself
-        # rate_limiter[key].consume() # check boolean result, if false then filter.
-
-        # create key, first timestamp, create new token bucket
-        # True if token bucket
-        for i in range(100):
-            traptor._is_filtered(enriched_data)
-            # number of trues match behavior expected
-
