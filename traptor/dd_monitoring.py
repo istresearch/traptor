@@ -4,7 +4,7 @@
 ###############################################################################
 import os
 from datadog import statsd, initialize
-import settings
+from . import settings
 
 traptor_type = os.getenv('TRAPTOR_TYPE', 'track')
 traptor_id = os.getenv('TRAPTOR_ID', '0')

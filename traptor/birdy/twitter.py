@@ -215,7 +215,7 @@ class BaseTwitterClient(object):
     def sanitize_params(input_params):
         params, files = ({}, {})
         
-        for k, v in input_params.items():
+        for k, v in list(input_params.items()):
             if hasattr(v, 'read') and callable(v.read):
                 files[k] = v
             elif isinstance(v, bool):

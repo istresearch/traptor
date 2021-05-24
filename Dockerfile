@@ -1,4 +1,4 @@
-FROM python:2
+FROM python:3.7
 MAINTAINER Marti Martinez <marti.martinez@istresearch.com>
 
 ARG BUILD_NUMBER=0
@@ -16,4 +16,4 @@ COPY . /usr/src/app
 RUN pip install .
 
 # Start Traptor
-CMD ["python2", "traptor/traptor.py"]
+CMD ["python", "-m", "traptor.traptor"]
