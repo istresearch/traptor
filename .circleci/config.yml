@@ -55,7 +55,7 @@ jobs:
               sed -i 's/control_path/#control_path/g' ansible.cfg
               echo "ansible_ssh_common_args: '-o ProxyCommand=\"ssh -W %h:%p -q $ANSIBLE_EXECUTOR_USER@$ANSIBLE_EXECUTOR_HOST\"'" >> group_vars/develop/vars
 
-              command="ansible-playbook -u $ANSIBLE_EXECUTOR_USER -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes site-docker-infrastructure.yml"
+              command="ansible-playbook -u $ANSIBLE_EXECUTOR_USER -i develop.inventory -t site-docker-traptor-track-all,site-docker-traptor-follow-all -l docker-traptor-nodes site-docker-infrastructure.yml"
               echo "running:" $command
               bash -c "$command"
             else
