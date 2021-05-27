@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  run:
+  build:
     docker:
       - image: docker:18.03.0
     steps:
@@ -28,29 +28,52 @@ jobs:
             docker login -u $DOCKER_USER -p $DOCKER_PASS
             docker push $DOCKER_CI_IMAGE_TAG
             docker push $DOCKER_IMAGE_TAG
+
+  deploy:
+    docker:
+      - image: istresearch/tmp:python-ansible-3.0.0
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASS
+    steps:
+      - checkout
+      - setup_remote_docker
       - run:
-          name: Deploy
+          name: Run Ansible
           command: |
             BRANCH=${CIRCLE_BRANCH#*/}
-            if [[ $BRANCH == develop ]] || [[ $BRANCH == master ]]; then
-              WORKDIR="/tmp/circleci_traptor/${CIRCLE_SHA1}"
-              mkdir -p ~/.ssh
-              echo "Host *" > ~/.ssh/config
-              echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-              git clone -b develop git@github.com:istresearch/ansible-symphony-ist.git
-              echo $ANSIBLE_VAULT_KEY >> ansible-symphony-ist/vault.passwd
-              sed -i 's/control_path/#control_path/g' ansible-symphony-ist/ansible.cfg
-              tar -czpf - ansible-symphony-ist | ssh -l $ANSIBLE_EXECUTOR_USER $ANSIBLE_EXECUTOR_HOST "mkdir -p $WORKDIR ; tar -xzpf - -C $WORKDIR" 
-              ssh -l $ANSIBLE_EXECUTOR_USER $ANSIBLE_EXECUTOR_HOST "cd ${WORKDIR}/ansible-symphony-ist ; ansible-playbook -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes site-docker-infrastructure.yml"
+
+            if [[ $BRANCH == "develop" ]]; then
+
+              ssh-keyscan -H $ANSIBLE_EXECUTOR_HOST >> ~/.ssh/known_hosts
+              chmod 600 ~/.ssh/known_hosts
+
+              git clone -b $BRANCH git@github.com:istresearch/ansible-symphony-ist.git
+              cd ansible-symphony-ist
+
+              echo $ANSIBLE_VAULT_KEY >> vault.passwd
+              sed -i 's/control_path/#control_path/g' ansible.cfg
+              echo "ansible_ssh_common_args: '-o ProxyCommand=\"ssh -W %h:%p -q $ANSIBLE_EXECUTOR_USER@$ANSIBLE_EXECUTOR_HOST\"'" >> group_vars/develop/vars
+
+              command="ansible-playbook -u $ANSIBLE_EXECUTOR_USER -i develop.inventory -t site-docker-traptor-all -l docker-traptor-nodes site-docker-infrastructure.yml"
+              echo "running:" $command
+              bash -c "$command"
             else
-              echo "Skipping deploy step"
+              echo "Skipping Ansible deployment"
             fi
-        
+
 workflows:
   version: 2
   pipeline:
     jobs:
-      - run:
+      - build:
+          context: globalconfig
+          filters:
+            tags:
+              ignore: /^test-.*/
+      - deploy:
+          requires:
+            - build
           context: globalconfig
           filters:
             tags:
