@@ -10,7 +10,7 @@ produces:
 paths:
   /validate:
     post:
-      operationId: api.validate
+      operationId: manager.api.validate
       summary: Validate Rule Values
       consumes:
         - application/json
@@ -40,7 +40,7 @@ paths:
 
   /screen_name/{userid}:
     get:
-      operationId: api.screen_name
+      operationId: manager.api.screen_name
       summary: Get screen_name from userid.
       parameters:
         - in: path
