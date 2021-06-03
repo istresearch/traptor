@@ -48,13 +48,13 @@ def _get_twitter():
 def get_screen_name_for_userid(userid):
     _get_twitter()
     data = client.api.users.show.get(user_id=userid).data
-    return data.screen_name
+    return data['screen_name']
 
 @retry_on_error
 def get_userid_for_username(username):
     _get_twitter()
     data = client.api.users.show.get(screen_name=username).data
-    return data.id_str
+    return data['id_str']
 
 @retry_on_error
 def get_recent_tweets_by_keyword(keyword):

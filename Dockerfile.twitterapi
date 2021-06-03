@@ -21,5 +21,5 @@ WORKDIR /usr/src/app
 RUN pip install .
 
 # Start Traptor Manager API
-WORKDIR /usr/src/app/traptor/manager
-CMD uwsgi --http :${TWITTER_API_PORT} -p ${TWITTER_API_WORKERS} -w wsgi
+WORKDIR /usr/src/app
+CMD uwsgi --http :${TWITTER_API_PORT} -p ${TWITTER_API_WORKERS} -w traptor --wsgi-file traptor/manager/wsgi.py
