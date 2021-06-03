@@ -160,7 +160,9 @@ services:
       - elasticsearch
 
   twitterapi:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.twitterapi
     env_file:
       - ./traptor.env
     environment:
@@ -176,7 +178,7 @@ services:
     volumes:
       - ./logs:/var/log/twitterapi
     restart: always
-    command: python traptor/manager/run.py
+    #command: bash -c "python -m traptor.manager.run"  # To run the single threaded flask server
 
 volumes:
   logs:
