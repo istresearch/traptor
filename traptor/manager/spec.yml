@@ -10,7 +10,7 @@ produces:
 paths:
   /validate:
     post:
-      operationId: manager.api.validate
+      operationId: traptor.manager.api.validate
       summary: Validate Rule Values
       consumes:
         - application/json
@@ -40,7 +40,7 @@ paths:
 
   /screen_name/{userid}:
     get:
-      operationId: manager.api.screen_name
+      operationId: traptor.manager.api.screen_name
       summary: Get screen_name from userid.
       parameters:
         - in: path
