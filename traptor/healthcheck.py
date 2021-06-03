@@ -9,7 +9,6 @@ import socket
 from threading import Thread
 from scutils.log_factory import LogFactory
 from dog_whistle import dw_config, dw_callback
-from pykafka import KafkaClient
 
 from .birdy.twitter import StreamClient
 
