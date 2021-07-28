@@ -1778,7 +1778,7 @@ def main():
 
     # Redis pubsub connection
     pubsub_conn = redis.StrictRedis(
-        host=redis_host, port=redis_port, db=redis_db
+        host=redis_host, port=redis_port, db=redis_db, decode_responses=True
     )
 
     # Redis heartbeat connection
