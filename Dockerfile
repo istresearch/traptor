@@ -1,5 +1,5 @@
-FROM python:3.7
-MAINTAINER Marti Martinez <marti.martinez@istresearch.com>
+FROM python:3.7-buster
+MAINTAINER Andrew Carter <andrew.carter@twosixtech.com>
 
 ARG BUILD_NUMBER=0
 ENV BUILD_NUMBER $BUILD_NUMBER
