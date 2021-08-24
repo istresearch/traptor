@@ -474,7 +474,7 @@ class Traptor(object):
     def _create_twitter_track_stream(self):
         """Create a Twitter follow stream."""
         self.logger.info('Creating birdy track stream')
-        self.birdy_stream = self.birdy_conn.stream.statuses.filter.get(
+        self.birdy_stream = self.birdy_conn.stream.statuses.filter.post(
             track=self.twitter_rules,
             stall_warnings='true'
         )
