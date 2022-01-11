@@ -27,6 +27,7 @@ services:
       - RATE_LIMITING_ENABLED=True
       - RATE_LIMITING_RATE_SEC=2.0
       - RATE_LIMITING_CAPACITY=10
+      - RATE_LIMITING_COST=1
       - RATE_LIMITING_REPORTING_INTERVAL_SEC=10
       - DW_ENABLED=False
       - DW_LOCAL=True # True for local dev
