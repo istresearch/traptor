@@ -204,6 +204,7 @@ class Traptor(object):
             rate_limiting_enabled=False,
             rate_limiting_rate_sec=10.0,
             rate_limiting_capacity=10,
+            rate_limiting_cost=1,
             rate_limiting_reporting_interval_sec=60.0
     ):
         """
@@ -247,6 +248,7 @@ class Traptor(object):
         self.rate_limiting_enabled = rate_limiting_enabled
         self.rate_limiting_rate_sec = max(1.0, float(rate_limiting_rate_sec))
         self.rate_limiting_capacity = max(1, int(rate_limiting_capacity))
+        self.rate_limiting_cost = max(1, int(rate_limiting_cost))
         self.rate_limiting_reporting_interval_sec = max(1.0, float(rate_limiting_reporting_interval_sec))
         self.use_sentry = use_sentry
         self.sentry_url = sentry_url
@@ -1415,7 +1417,7 @@ class Traptor(object):
             self.twitter_rate[key].append(t_now)
 
             # Do we have enough token bucket credits (under the limit) to send the tweet?
-            if not self.rate_limiting_enabled or self.rate_limiter[key].consume(key):
+            if not self.rate_limiting_enabled or self.rate_limiter[key].consume(key, num_tokens=self.rate_limiting_cost):
 
                 if key not in self.kafka_rate:
                     self.kafka_rate[key] = deque()
@@ -1835,6 +1837,9 @@ def main():
         )),
         rate_limiting_capacity=int(getAppParamStr(
             'RATE_LIMITING_CAPACITY', settings.RATE_LIMITING_CAPACITY
+        )),
+        rate_limiting_cost=int(getAppParamStr(
+            'RATE_LIMITING_COST', settings.RATE_LIMITING_COST
         )),
         rate_limiting_reporting_interval_sec=float(getAppParamStr(
             'RATE_LIMITING_REPORTING_INTERVAL_SEC', settings.RATE_LIMITING_REPORTING_INTERVAL_SEC
