@@ -51,7 +51,10 @@ jobs:
               git clone -b $BRANCH git@github.com:istresearch/ansible-symphony-ist.git
               cd ansible-symphony-ist
 
-              echo $ANSIBLE_VAULT_KEY >> vault.passwd
+              echo $ANSIBLE_COMMON_VAULT_ID > ansible-symphony-ist/vault-pass.common
+              echo $ANSIBLE_DEV_VAULT_ID > ansible-symphony-ist/vault-pass.dev
+              echo "just-needs-to-exist" > ansible-symphony-ist/vault-pass.staging
+              echo "just-needs-to-exist" > ansible-symphony-ist/vault-pass.prod
               sed -i 's/control_path/#control_path/g' ansible.cfg
               echo "ansible_ssh_common_args: '-o ProxyCommand=\"ssh -W %h:%p -q $ANSIBLE_EXECUTOR_USER@$ANSIBLE_EXECUTOR_HOST\"'" >> group_vars/develop/vars
 
