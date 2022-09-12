@@ -1,3 +1,6 @@
+**Development of this project has ceased - 9/12/2022**
+
+
 *************************************
 Traptor -- A distributed Twitter feed
 *************************************
